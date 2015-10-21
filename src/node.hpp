@@ -1,13 +1,13 @@
 #ifndef NODE_H
 #define NODE_H
+#include <vector>
 
 /** Generic tree node */
 struct Node
 {
   int label;
   Node *parent;
-  Node *left;
-  Node *right;
+  std::vector<Node*> m_vecChildren;
 
   Node();
   bool isLeaf();

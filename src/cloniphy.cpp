@@ -7,7 +7,10 @@
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
-#include "coalescencetree.hpp"
+#include "simpleclonetree.hpp"
+#include <ctime>
+
+using namespace std;
 
 bool parseArgs (int ac, char* av[], int *num_clones, std::vector<float> *freqs, int *num_mutations, bool verbose=true);
 
@@ -15,15 +18,24 @@ int main (int argc, char* argv[])
 {
   // params specified by command line
   int num_clones;
-  std::vector<float> freqs;
+  vector<float> freqs;
   int num_mutations;
+  long int seed;
 
   fprintf(stderr, "This is CloniPhy. At the moment I am totally beta, so be patient :-)\n");
   bool args_ok = parseArgs(argc, argv, &num_clones, &freqs, &num_mutations);
   if (!args_ok) { return EXIT_FAILURE; }
 
-  CoalescenceTree tree(num_clones);
-  //fprintf(stderr, "root: %d\n", tree.getRoot().label);
+  // specify random seed
+  seed = 123456789;
+  seed = time(NULL) + clock();
+
+  SimpleCloneTree tree(num_clones, freqs);
+  tree.generateRandomTopology(seed);
+
+  fprintf(stderr, "\nNewick representation of generated tree:\n");
+  Tree::printNewick(tree.getRoot(), cerr);
+  fprintf(stderr, "\n");
 
   return EXIT_SUCCESS;
 }
@@ -71,8 +83,8 @@ bool parseArgs (int ac, char* av[], int *num_clones, std::vector<float> *freqs, 
     }
   }
   // check: num_mutations >= num_clones
-  if (*num_mutations < (*num_clones-1)) {
-    fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones-1 (%d)\n", *num_mutations, *num_clones-1);
+  if (*num_mutations < *num_clones) {
+    fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d)\n", *num_mutations, *num_clones);
     return false;
   }
 

@@ -3,12 +3,10 @@
 
 Node::Node() {
   parent = NULL;
-  left = NULL;
-  right = NULL;
 }
 
 bool Node::isLeaf() {
-  return ((left == NULL) && (right == NULL));
+  return m_vecChildren.empty();
 }
 
 bool Node::isRoot() {
