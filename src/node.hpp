@@ -7,10 +7,11 @@ struct Node
 {
   int label;
   Node *parent;
-  std::vector<Node*> m_vecChildren;
 
   Node();
-  bool isLeaf();
+  virtual ~Node();
+  virtual float distanceToParent() = 0;
+  virtual bool isLeaf() = 0;
   bool isRoot();
 };
 

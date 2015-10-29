@@ -5,9 +5,7 @@ Node::Node() {
   parent = NULL;
 }
 
-bool Node::isLeaf() {
-  return m_vecChildren.empty();
-}
+Node::~Node() {}
 
 bool Node::isRoot() {
   return (parent == NULL);

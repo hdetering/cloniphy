@@ -10,17 +10,10 @@
 class Tree
 {
   protected:
-    int m_numTips;
-    std::vector<Node *> m_vecNodes;
-    Node *m_root;
-    static void _printNewick(Node*, bool, std::ostream&);
 
   public:
-    Tree(int);
-    void generateRandomTopology(long);
-    Node* getRoot();
-    void printNodes();
-    static void printNewick(Node*, std::ostream& = std::cout);
+    virtual Node* getRoot() = 0;
+
 };
 
 #endif /* TREE_H */
