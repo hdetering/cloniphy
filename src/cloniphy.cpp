@@ -28,7 +28,7 @@ using namespace std;
 
 void generateMutations(std::vector<Mutation> &mutations, long ref_len, boost::function<float()>& random);
 boost::function<float()> initRandomNumberGenerator(long seed);
-bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, string& ref, bool verbose=true);
+bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, bool verbose=true);
 
 int main (int argc, char* argv[])
 {
@@ -43,11 +43,12 @@ return EXIT_SUCCESS;
   // params specified by command line
   int num_clones = 0;
   int num_mutations = 0;
+  int num_transmuts = 0;
   vector<float> freqs;
   string reference;
   long int seed;
 
-  bool args_ok = parseArgs(argc, argv, num_clones, freqs, num_mutations, reference);
+  bool args_ok = parseArgs(argc, argv, num_clones, freqs, num_mutations, num_transmuts, reference);
   if (!args_ok) { return EXIT_FAILURE; }
 
   // specify random seed
@@ -67,7 +68,7 @@ return EXIT_SUCCESS;
   SimpleCloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
 
-  tree.evolve(num_mutations, random);
+  tree.evolve(num_mutations, num_transmuts, random);
   fprintf(stderr, "\nNewick representation of mutated tree:\n");
   SimpleCloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
@@ -166,7 +167,7 @@ boost::function<float()> initRandomNumberGenerator(long seed) {
 /** Parse command line arguments.
  * @return true: program can run normally, false: indication to stop
  */
-bool parseArgs (int ac, char* av[], int& num_clones, std::vector<float>& freqs, int& num_mutations, std::string& reference, bool verbose)
+bool parseArgs (int ac, char* av[], int& num_clones, std::vector<float>& freqs, int& num_mutations, int& num_transmuts, std::string& reference, bool verbose)
 {
   std::stringstream ss;
   ss << std::endl << PROGRAM_NAME << std::endl << std::endl << "Available options:";
@@ -179,6 +180,7 @@ bool parseArgs (int ac, char* av[], int& num_clones, std::vector<float>& freqs, 
     ("freqs,f", po::value<std::vector<float> >(&freqs)->multitoken(), "clone relative frequencies")
     ("mutations,m", po::value<int>(&num_mutations), "total number of mutations")
     ("reference,r", po::value<std::string>(&reference), "reference sequence")
+    ("trans-muts,t", po::value<int>(&num_transmuts)->default_value(1), "number of transforming mutations (separating healthy genome from first cancer genome)")
   ;
 
   po::variables_map var_map;
@@ -231,6 +233,9 @@ bool parseArgs (int ac, char* av[], int& num_clones, std::vector<float>& freqs, 
       fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", reference.c_str());
       return false;
     }
+  }
+  else {
+    reference = "./data/chr7_114-115Mb.fa";
   }
 
   if (verbose) {

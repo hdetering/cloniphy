@@ -92,22 +92,25 @@ void SimpleCloneTree::generateRandomTopology(boost::function<float()>& random) {
  * A set of mandatory mutations need to exist between clones,
  * otherwise they cannot be distinguished.
  */
-void SimpleCloneTree::evolve(int numMutations, boost::function<float()>& random) {
-  int num_randomMutations = numMutations - m_numClones;
-  putMandatoryMutations(m_numClones, random);
+void SimpleCloneTree::evolve(int numMutations, int numTransformingMutations, boost::function<float()>& random) {
+  int num_randomMutations = numMutations - (m_numClones-1) - numTransformingMutations;
+  putMandatoryMutations(numTransformingMutations, random);
   putRandomMutations(num_randomMutations, m_numClones, random);
 }
 
-void SimpleCloneTree::putMandatoryMutations(int num_mutations, boost::function<float()>& random) {
-fprintf(stderr, "\ndropping %d mandatory mutations...\n", m_numClones);
-  // MRCA of clones needs a mutation
-fprintf(stderr, "\tdropping mutation %d on node %d\n", 0, m_root->m_vecChildren[0]->label);
+void SimpleCloneTree::putMandatoryMutations(int num_transmuts, boost::function<float()>& random) {
+fprintf(stderr, "\ndropping %d mandatory mutations (%d transforming + %d to assure distinct clones)...\n", m_numClones+num_transmuts-1, num_transmuts, m_numClones-1);
+  int m=0;
+  // MRCA of clones receives transforming mutations
   Clone *mrca = m_root->m_vecChildren[0];
-  mrca->m_vecMutations.push_back(0);
-
+  while (m<num_transmuts) {
+fprintf(stderr, "\tdropping mutation %d on node %d\n", m, mrca->label);
+    mrca->m_vecMutations.push_back(m);
+    m++;
+  }
   // each intermediate node needs to introduce a mutation
-  int m=1;
   _putMandatoryMutation(mrca, m, random);
+fprintf(stderr, "%d mutations dropped.\n", m);
 }
 
 void SimpleCloneTree::_putMandatoryMutation(Clone *c, int& mutationId, boost::function<float()>& random) {
@@ -119,10 +122,13 @@ void SimpleCloneTree::_putMandatoryMutation(Clone *c, int& mutationId, boost::fu
     bool is_leftMutated = (random()<0.5); // throw a coin
     if (is_leftMutated) {
 fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[0]->label);
-      node.m_vecChildren[0]->m_vecMutations.push_back(mutationId++); }
+      node.m_vecChildren[0]->m_vecMutations.push_back(mutationId);
+    }
     else {
 fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[1]->label);
-      node.m_vecChildren[1]->m_vecMutations.push_back(mutationId++); }
+      node.m_vecChildren[1]->m_vecMutations.push_back(mutationId);
+    }
+    mutationId++;
     _putMandatoryMutation(node.m_vecChildren[0], mutationId, random);
     _putMandatoryMutation(node.m_vecChildren[1], mutationId, random);
   }
@@ -189,6 +195,11 @@ void SimpleCloneTree::printDot(Clone *node, std::ostream& os) {
 }
 
 void SimpleCloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
+  if (node->is_healthy) {
+    os << "\t" << node->label << " [style=filled,color=limegreen];" << std::endl;
+  } else if (node->is_visible) {
+    os << "\t" << node->label << " [style=filled,color=tomato];" << std::endl;
+  }
   for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
     Clone *child = node->m_vecChildren[i];
     float edgeWeight = child->distanceToParent();
@@ -197,9 +208,7 @@ void SimpleCloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
       os << "[style=bold,label=" << edgeWeight << "]";
     }
     os << ";" << std::endl;
-    if (!node->is_visible) {
-      os << "\t" << node->label << " [style=filled,color=grey];" << std::endl;
-    }
+
     _printDotRecursive(child, os);
   }
 }

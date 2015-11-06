@@ -35,7 +35,7 @@ class SimpleCloneTree : public Tree
     /** Build random coalescence tree containing clones as tips. */
     void generateRandomTopology(boost::function<float()>&);
     /** Drop random mutations on clones. */
-    void evolve(int, boost::function<float()>&);
+    void evolve(int, int, boost::function<float()>&);
     /** Replace clones that have identical children. */
     void collapseZeroBranches(Clone *);
     /** Print vector containing clones to STDERR (for debugging). */
