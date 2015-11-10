@@ -1,5 +1,5 @@
 #define DEBUG
-#include "simpleclonetree.hpp"
+#include "coalescentclonetree.hpp"
 #include <boost/random.hpp>
 // Choosing the random number generator. (mt19937: Mersenne-Twister)
 typedef boost::mt19937 base_generator_type;
@@ -9,30 +9,21 @@ typedef boost::mt19937 base_generator_type;
 #include <vector>
 
 
-SimpleCloneTree::SimpleCloneTree (int numClones, std::vector<float> freqs) : m_numClones(numClones), m_vecNodes(2*numClones-1), m_vecLeafs(numClones) {
+CoalescentCloneTree::CoalescentCloneTree (int numClones, std::vector<float> freqs) : CloneTree(numClones, freqs), m_vecLeafs(numClones) {
   // initialize tips
   for (int i=0; i<numClones; i++) {
-    Clone *c = new Clone();
-    c->label = i+1;
-    c->freq = freqs[i];
-    c->is_visible = true;
-    m_vecNodes[i] = c;
-    m_vecLeafs[i] = c;
+    m_vecLeafs[i] = m_vecNodes[i];
   }
 #ifdef DEBUG
   printNodes();
 #endif
 }
 
-Clone* SimpleCloneTree::getRoot() {
-  return m_root;
-}
-
-std::vector<Clone *> SimpleCloneTree::getLeafs() {
+std::vector<Clone *> CoalescentCloneTree::getLeafs() {
   return m_vecLeafs;
 }
 
-void SimpleCloneTree::generateRandomTopology(boost::function<float()>& random) {
+void CoalescentCloneTree::generateRandomTopology(boost::function<float()>& random) {
   // generate N-1 internal nodes (each representing a coalescence event)
   int numClones = m_numClones;
   int k = numClones-1;
@@ -61,12 +52,12 @@ void SimpleCloneTree::generateRandomTopology(boost::function<float()>& random) {
 #endif
     // create new internal node
     Clone *n = new Clone();
-    n->label = nextIndex+1;
+    n->label = ++nextIndex;
     n->m_vecChildren.push_back(p);
     n->m_vecChildren.push_back(q);
     p->parent = n;
     q->parent = n;
-    m_vecNodes[nextIndex++] = n;
+    m_vecNodes.push_back(n);
 #ifdef DEBUG
     fprintf(stderr, "\tnew internal node: %d\n", n->label);
     printNodes();
@@ -92,13 +83,13 @@ void SimpleCloneTree::generateRandomTopology(boost::function<float()>& random) {
  * A set of mandatory mutations need to exist between clones,
  * otherwise they cannot be distinguished.
  */
-void SimpleCloneTree::evolve(int numMutations, int numTransformingMutations, boost::function<float()>& random) {
+void CoalescentCloneTree::evolve(int numMutations, int numTransformingMutations, boost::function<float()>& random) {
   int num_randomMutations = numMutations - (m_numClones-1) - numTransformingMutations;
   putMandatoryMutations(numTransformingMutations, random);
   putRandomMutations(num_randomMutations, m_numClones, random);
 }
 
-void SimpleCloneTree::putMandatoryMutations(int num_transmuts, boost::function<float()>& random) {
+void CoalescentCloneTree::putMandatoryMutations(int num_transmuts, boost::function<float()>& random) {
 fprintf(stderr, "\ndropping %d mandatory mutations (%d transforming + %d to assure distinct clones)...\n", m_numClones+num_transmuts-1, num_transmuts, m_numClones-1);
   int m=0;
   // MRCA of clones receives transforming mutations
@@ -113,7 +104,7 @@ fprintf(stderr, "\tdropping mutation %d on node %d\n", m, mrca->label);
 fprintf(stderr, "%d mutations dropped.\n", m);
 }
 
-void SimpleCloneTree::_putMandatoryMutation(Clone *c, int& mutationId, boost::function<float()>& random) {
+void CoalescentCloneTree::_putMandatoryMutation(Clone *c, int& mutationId, boost::function<float()>& random) {
   Clone node = *c;
   if (node.isLeaf()) {
     return;
@@ -134,7 +125,7 @@ fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChi
   }
 }
 
-void SimpleCloneTree::putRandomMutations(int num_mutations, int nextMutationId, boost::function<float()>& random) {
+void CoalescentCloneTree::putRandomMutations(int num_mutations, int nextMutationId, boost::function<float()>& random) {
 fprintf(stderr, "\nnow dropping %d random mutations...\n", num_mutations);
   while (num_mutations > 0) {
     // mutate random node
@@ -146,7 +137,7 @@ fprintf(stderr, "\tdropping mutation %d on node %d\n", nextMutationId, m_vecNode
   }
 }
 
-void SimpleCloneTree::collapseZeroBranches(Clone *node) {
+void CoalescentCloneTree::collapseZeroBranches(Clone *node) {
 fprintf(stderr, "collapseZeroBranches(<Node(label=%d)>)\n", node->label);
   // check among children whether any has zero distance
   unsigned i=0;
@@ -178,7 +169,7 @@ fprintf(stderr, "No immediate child can be collapsed.\n");
 }
 
 // use me for debugging :-)
-void SimpleCloneTree::printNodes() {
+void CoalescentCloneTree::printNodes() {
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "|%2u ", i); }; fprintf(stderr, "|\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "+---"); }; fprintf(stderr, "+\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) {
@@ -188,13 +179,13 @@ void SimpleCloneTree::printNodes() {
   fprintf(stderr, "|\n");
 }
 
-void SimpleCloneTree::printDot(Clone *node, std::ostream& os) {
+void CoalescentCloneTree::printDot(Clone *node, std::ostream& os) {
   os << "digraph G {\n";
   _printDotRecursive(node, os);
   os << "}\n";
 }
 
-void SimpleCloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
+void CoalescentCloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
   if (node->is_healthy) {
     os << "\t" << node->label << " [style=filled,color=limegreen];" << std::endl;
   } else if (node->is_visible) {
@@ -214,13 +205,13 @@ void SimpleCloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
 }
 
 /** Generates the string representation of a (sub)tree in Newick notation. */
-void SimpleCloneTree::printNewick(Clone *node, std::ostream& os) {
+void CoalescentCloneTree::printNewick(Clone *node, std::ostream& os) {
   _printNewickRecursive(node, true, os);
   os << ";";
 }
 
 /** Prints the string representation of the tree in Newick notation. (internal) */
-void SimpleCloneTree::_printNewickRecursive(Clone *node, bool isFirstChild, std::ostream& os) {
+void CoalescentCloneTree::_printNewickRecursive(Clone *node, bool isFirstChild, std::ostream& os) {
   if (!isFirstChild) { os << ","; }
   if (node->getChildren().size() > 0) {
     os << "(";

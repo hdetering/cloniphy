@@ -1,18 +1,15 @@
-#ifndef SIMPLECLONETREE_H
-#define SIMPLECLONETREE_H
+#ifndef COALESCENTCLONETREE_H
+#define COALESCENTCLONETREE_H
 
-#include "tree.hpp"
+#include "clonetree.hpp"
 #include "clone.hpp"
 #include <boost/function.hpp>
 #include <vector>
 
 /** Binary tree representing the genealogy of samples. */
-class SimpleCloneTree : public Tree
+class CoalescentCloneTree : public CloneTree
 {
   protected:
-    int m_numClones;
-    Clone *m_root;
-    std::vector<Clone *> m_vecNodes;
     std::vector<Clone *> m_vecLeafs;
 
     /** Make sure each clone has at least 1 mutation difference to every other clone. */
@@ -27,9 +24,7 @@ class SimpleCloneTree : public Tree
     static void _printNewickRecursive(Clone *, bool, std::ostream&);
 
   public:
-    SimpleCloneTree(int, std::vector<float>);
-    /** Returns the clone tree's root node. */
-    Clone* getRoot();
+    CoalescentCloneTree(int, std::vector<float>);
     /** Returns visible clones. */
     std::vector<Clone *> getLeafs();
     /** Build random coalescence tree containing clones as tips. */
@@ -46,4 +41,4 @@ class SimpleCloneTree : public Tree
     static void printNewick(Clone *, std::ostream& = std::cout);
 };
 
-#endif /* SIMPLECLONETREE_H */
+#endif /* COALESCENTCLONETREE_H */

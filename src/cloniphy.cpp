@@ -5,7 +5,7 @@
  *
  */
 #include "seqio.hpp"
-#include "simpleclonetree.hpp"
+#include "coalescentclonetree.hpp"
 
 #include <boost/bind.hpp>
 #include <boost/format.hpp>
@@ -61,16 +61,16 @@ return EXIT_SUCCESS;
   // take that baby for a spin
   //for (int i=0; i<10; i++) { fprintf(stderr, "%.10f\n", random()); }
 
-  SimpleCloneTree tree(num_clones, freqs);
+  CoalescentCloneTree tree(num_clones, freqs);
   tree.generateRandomTopology(random);
 
   fprintf(stderr, "\nNewick representation of generated tree:\n");
-  SimpleCloneTree::printNewick(tree.getRoot(), cerr);
+  CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
 
   tree.evolve(num_mutations, num_transmuts, random);
   fprintf(stderr, "\nNewick representation of mutated tree:\n");
-  SimpleCloneTree::printNewick(tree.getRoot(), cerr);
+  CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
 
   fprintf(stderr, "Writing mutated tree to file 'clone_tree_mutated.dot'.\n");
@@ -81,7 +81,7 @@ return EXIT_SUCCESS;
 
   tree.collapseZeroBranches(tree.getRoot());
   fprintf(stderr, "\nNewick representation of collapsed tree:\n");
-  SimpleCloneTree::printNewick(tree.getRoot(), cerr);
+  CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
 
   fprintf(stderr, "Writing collapsed tree to file 'clone_tree_collapsed.dot'.\n");
