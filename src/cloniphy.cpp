@@ -5,6 +5,7 @@
  *
  */
 #include "seqio.hpp"
+#include "basicclonetree.hpp"
 #include "coalescentclonetree.hpp"
 
 #include <boost/bind.hpp>
@@ -61,8 +62,11 @@ return EXIT_SUCCESS;
   // take that baby for a spin
   //for (int i=0; i<10; i++) { fprintf(stderr, "%.10f\n", random()); }
 
-  CoalescentCloneTree tree(num_clones, freqs);
+  //CoalescentCloneTree tree(num_clones, freqs);
+  BasicCloneTree tree(num_clones, freqs);
+  fprintf(stderr, "\nGenerating random topology...\n");
   tree.generateRandomTopology(random);
+  fprintf(stderr, "done.\n");
 
   fprintf(stderr, "\nNewick representation of generated tree:\n");
   CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
@@ -79,7 +83,7 @@ return EXIT_SUCCESS;
   tree.printDot(tree.getRoot(), dotFileMut);
   dotFileMut.close();
 
-  tree.collapseZeroBranches(tree.getRoot());
+  /*tree.collapseZeroBranches(tree.getRoot());
   fprintf(stderr, "\nNewick representation of collapsed tree:\n");
   CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
@@ -88,7 +92,7 @@ return EXIT_SUCCESS;
   ofstream dotFileCol;
   dotFileCol.open("clone_tree_collapsed.dot");
   tree.printDot(tree.getRoot(), dotFileCol);
-  dotFileCol.close();
+  dotFileCol.close();*/
 
   // read reference sequence
   fprintf(stderr, "\nReading reference from file '%s'...", reference.c_str());
@@ -113,7 +117,8 @@ return EXIT_SUCCESS;
     fprintf(stderr, "%ld\t%d\n", mutations[i].absPos, mutations[i].offset);
   }
   // generate clone sequences based on clonal tree and mutations
-  std::vector<Clone *> leafs = tree.getLeafs();
+  //std::vector<Clone *> leafs = tree.getLeafs();
+  std::vector<Clone *> leafs = tree.getVisibleNodes();
   for (std::vector<Clone *>::iterator i=leafs.begin(); i!=leafs.end(); ++i) {
     Clone c = **i;
 //fprintf(stderr, "<Clone(label=%d)>, %u mutations\n", c.label, c.m_vecMutations.size());

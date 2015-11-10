@@ -179,31 +179,6 @@ void CoalescentCloneTree::printNodes() {
   fprintf(stderr, "|\n");
 }
 
-void CoalescentCloneTree::printDot(Clone *node, std::ostream& os) {
-  os << "digraph G {\n";
-  _printDotRecursive(node, os);
-  os << "}\n";
-}
-
-void CoalescentCloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
-  if (node->is_healthy) {
-    os << "\t" << node->label << " [style=filled,color=limegreen];" << std::endl;
-  } else if (node->is_visible) {
-    os << "\t" << node->label << " [style=filled,color=tomato];" << std::endl;
-  }
-  for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
-    Clone *child = node->m_vecChildren[i];
-    float edgeWeight = child->distanceToParent();
-    os << "\t" << node->label << " -> " << child->label;
-    if (edgeWeight > 0.0) {
-      os << "[style=bold,label=" << edgeWeight << "]";
-    }
-    os << ";" << std::endl;
-
-    _printDotRecursive(child, os);
-  }
-}
-
 /** Generates the string representation of a (sub)tree in Newick notation. */
 void CoalescentCloneTree::printNewick(Clone *node, std::ostream& os) {
   _printNewickRecursive(node, true, os);

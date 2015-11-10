@@ -18,8 +18,6 @@ class CoalescentCloneTree : public CloneTree
     void _putMandatoryMutation(Clone *c, int& mutationId, boost::function<float()>& random);
     /** Drop free mutations on random clone nodes. */
     void putRandomMutations(int, int, boost::function<float()>&);
-    /** Recursive part of generating DOT representation. */
-    static void _printDotRecursive(Clone *, std::ostream&);
     /** Recursive part of generating Newick representation. */
     static void _printNewickRecursive(Clone *, bool, std::ostream&);
 
@@ -35,8 +33,6 @@ class CoalescentCloneTree : public CloneTree
     void collapseZeroBranches(Clone *);
     /** Print vector containing clones to STDERR (for debugging). */
     void printNodes();
-    /** Generates the graph representation of a (sub)tree in DOT format. */
-    static void printDot(Clone *, std::ostream& = std::cout);
     /** Generates the string representation of a (sub)tree in Newick notation. */
     static void printNewick(Clone *, std::ostream& = std::cout);
 };
