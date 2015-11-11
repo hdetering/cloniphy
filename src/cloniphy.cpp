@@ -69,12 +69,12 @@ return EXIT_SUCCESS;
   fprintf(stderr, "done.\n");
 
   fprintf(stderr, "\nNewick representation of generated tree:\n");
-  CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
+  CloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
 
   tree.evolve(num_mutations, num_transmuts, random);
   fprintf(stderr, "\nNewick representation of mutated tree:\n");
-  CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
+  CloneTree::printNewick(tree.getRoot(), cerr);
   fprintf(stderr, "\n");
 
   fprintf(stderr, "Writing mutated tree to file 'clone_tree_mutated.dot'.\n");

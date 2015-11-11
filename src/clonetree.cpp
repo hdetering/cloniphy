@@ -1,4 +1,5 @@
 #include "clonetree.hpp"
+#include <stdio.h>
 
 /** C'tor creates a vector of clones and assignes frequency to each clone. */
 CloneTree::CloneTree (int numClones, std::vector<float> freqs) : m_numClones(numClones), m_vecNodes(numClones) {
@@ -30,6 +31,29 @@ std::vector<Clone *> CloneTree::getVisibleNodes() {
   return vis_nodes;
 }
 
+/** Generates the string representation of a (sub)tree in Newick notation. */
+void CloneTree::printNewick(Clone *node, std::ostream& os) {
+  _printNewickRecursive(node, true, os);
+  os << ";";
+}
+
+/** Prints the string representation of the tree in Newick notation. (internal) */
+void CloneTree::_printNewickRecursive(Clone *node, bool isFirstChild, std::ostream& os) {
+  if (!isFirstChild) { os << ","; }
+  if (node->getChildren().size() > 0) {
+    os << "(";
+    isFirstChild = true;
+    for (unsigned i=0; i<node->getChildren().size(); i++) {
+      _printNewickRecursive(node->getChildren()[i], isFirstChild, os);
+      isFirstChild = false;
+    }
+    os << ")" << node->label << ":" << node->distanceToParent()+0.05;
+  }
+  else {
+    os << node->label << ":" << node->distanceToParent()+0.05;
+  }
+}
+
 void CloneTree::printDot(Clone *node, std::ostream& os) {
   os << "digraph G {\n";
   _printDotRecursive(node, os);
@@ -53,4 +77,15 @@ void CloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
 
     _printDotRecursive(child, os);
   }
+}
+
+// use me for debugging :-)
+void CloneTree::printNodes() {
+  for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "|%2u ", i); }; fprintf(stderr, "|\n");
+  for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "+---"); }; fprintf(stderr, "+\n");
+  for (unsigned i=0; i<m_vecNodes.size(); i++) {
+    if (m_vecNodes[i] > 0) { fprintf(stderr, "|%2d ", m_vecNodes[i]->label); }
+    else { fprintf(stderr, "| - "); }
+  };
+  fprintf(stderr, "|\n");
 }

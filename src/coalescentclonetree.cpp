@@ -1,26 +1,14 @@
 #define DEBUG
 #include "coalescentclonetree.hpp"
-#include <boost/random.hpp>
-// Choosing the random number generator. (mt19937: Mersenne-Twister)
-typedef boost::mt19937 base_generator_type;
 
-#include <iostream>
 #include <stdio.h>
 #include <vector>
 
 
-CoalescentCloneTree::CoalescentCloneTree (int numClones, std::vector<float> freqs) : CloneTree(numClones, freqs), m_vecLeafs(numClones) {
-  // initialize tips
-  for (int i=0; i<numClones; i++) {
-    m_vecLeafs[i] = m_vecNodes[i];
-  }
+CoalescentCloneTree::CoalescentCloneTree (int numClones, std::vector<float> freqs) : CloneTree(numClones, freqs) {
 #ifdef DEBUG
   printNodes();
 #endif
-}
-
-std::vector<Clone *> CoalescentCloneTree::getLeafs() {
-  return m_vecLeafs;
 }
 
 void CoalescentCloneTree::generateRandomTopology(boost::function<float()>& random) {
@@ -165,39 +153,5 @@ fprintf(stderr, "No immediate child can be collapsed.\n");
     for (unsigned i=0; i<node->m_vecChildren.size(); i++) {
       collapseZeroBranches(node->m_vecChildren[i]);
     }
-  }
-}
-
-// use me for debugging :-)
-void CoalescentCloneTree::printNodes() {
-  for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "|%2u ", i); }; fprintf(stderr, "|\n");
-  for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "+---"); }; fprintf(stderr, "+\n");
-  for (unsigned i=0; i<m_vecNodes.size(); i++) {
-    if (m_vecNodes[i] > 0) { fprintf(stderr, "|%2d ", m_vecNodes[i]->label); }
-    else { fprintf(stderr, "| - "); }
-  };
-  fprintf(stderr, "|\n");
-}
-
-/** Generates the string representation of a (sub)tree in Newick notation. */
-void CoalescentCloneTree::printNewick(Clone *node, std::ostream& os) {
-  _printNewickRecursive(node, true, os);
-  os << ";";
-}
-
-/** Prints the string representation of the tree in Newick notation. (internal) */
-void CoalescentCloneTree::_printNewickRecursive(Clone *node, bool isFirstChild, std::ostream& os) {
-  if (!isFirstChild) { os << ","; }
-  if (node->getChildren().size() > 0) {
-    os << "(";
-    isFirstChild = true;
-    for (unsigned i=0; i<node->getChildren().size(); i++) {
-      _printNewickRecursive(node->getChildren()[i], isFirstChild, os);
-      isFirstChild = false;
-    }
-    os << ")" << node->label << ":" << node->distanceToParent()+0.05;
-  }
-  else {
-    os << node->label << ":" << node->distanceToParent()+0.05;
   }
 }
