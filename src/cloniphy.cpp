@@ -27,20 +27,12 @@ typedef boost::mt19937 base_generator_type;
 
 using namespace std;
 
-void generateMutations(std::vector<Mutation> &mutations, long ref_len, boost::function<float()>& random);
+void generateMutations(std::vector<Mutation> &mutations, unsigned long ref_len, boost::function<float()>& random);
 boost::function<float()> initRandomNumberGenerator(long seed);
 bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, bool verbose=true);
 
 int main (int argc, char* argv[])
 {
-/*
-std::string fn = "data/test.fa";
-std::vector<SeqRecord> recs = SeqIO::readFasta(fn.c_str());
-for (unsigned i=0; i<recs.size(); ++i) {
-fprintf(stderr, ">%s\n%s...\n", recs[i].id.c_str(), recs[i].seq.substr(0,800).c_str());
-}
-return EXIT_SUCCESS;
-*/
   // params specified by command line
   int num_clones = 0;
   int num_mutations = 0;
@@ -98,17 +90,17 @@ return EXIT_SUCCESS;
   fprintf(stderr, "\nReading reference from file '%s'...", reference.c_str());
   std::vector<SeqRecord> refSeqs = SeqIO::readFasta(reference.c_str());
   unsigned i;
-  unsigned refLen = 0;
-  std::vector<long> cumStart; // cumulative start position of each sequence;
+  unsigned long refLen = 0;
+  std::vector<unsigned long> cumStart; // cumulative start position of each sequence;
   for (i=0; i<refSeqs.size(); ++i) {
     cumStart.push_back(refLen);
     refLen += refSeqs[i].seq.size();
   }
-  fprintf(stderr, "read (%u bp in %u sequences).\n", refLen, i);
-  fprintf(stderr, "generating FASTA index.\n");
-  SeqIO::indexFasta(reference.c_str());
+  fprintf(stderr, "read (%lu bp in %u sequences).\n", refLen, i);
+  //fprintf(stderr, "generating FASTA index.\n");
+  //SeqIO::indexFasta(reference.c_str());
 
-  // generate relative positions of mutations;
+  // generate mutations (absolute position + nucleotide shift + which copy)
   std::vector<Mutation> mutations(num_mutations);
   generateMutations(mutations, refLen, random);
 
@@ -117,18 +109,23 @@ return EXIT_SUCCESS;
     fprintf(stderr, "%ld\t%d\n", mutations[i].absPos, mutations[i].offset);
   }
   // generate clone sequences based on clonal tree and mutations
-  //std::vector<Clone *> leafs = tree.getLeafs();
   std::vector<Clone *> leafs = tree.getVisibleNodes();
   for (std::vector<Clone *>::iterator i=leafs.begin(); i!=leafs.end(); ++i) {
     Clone c = **i;
 //fprintf(stderr, "<Clone(label=%d)>, %u mutations\n", c.label, c.m_vecMutations.size());
     std::vector<SeqRecord> cloneGenome = refSeqs; // TODO: check memory footprint
-    for (unsigned i=0; i<cloneGenome.size(); ++i) {
-      std::string seqId = boost::str(boost::format("clone%02d_seq%d") % c.label % (i+1));
+    unsigned numSeqs = cloneGenome.size();
+    for (unsigned i=0; i<numSeqs; ++i) {
+      // maternal copy
+      std::string seqId = boost::str(boost::format("clone%02d_seq%02d_m") % c.label % (i+1));
       cloneGenome[i].id = seqId;
+      // paternal copy
+      seqId = boost::str(boost::format("clone%02d_seq%02d_p") % c.label % (i+1));
+      cloneGenome.push_back(cloneGenome[i]);
+      cloneGenome[numSeqs+i].id = seqId;
     }
     c.mutateGenome(cloneGenome, cumStart, mutations);
-    std::string filename = boost::str(boost::format("clone%02d.fa") % c.label);
+    std::string filename = boost::str(boost::format("clone%02d_genome.fa") % c.label);
     ofstream outfile;
     outfile.open(filename.c_str());
     SeqIO::writeFasta(cloneGenome, outfile);
@@ -138,22 +135,23 @@ return EXIT_SUCCESS;
 }
 
 /** Generate random mutations out of thin air. */
-void generateMutations(std::vector<Mutation> &mutations, long ref_len, boost::function<float()>& random) {
-  std::set<long> mutPositions; // remember mutated positions (enforce infinite sites model)
+void generateMutations(std::vector<Mutation> &mutations, unsigned long ref_len, boost::function<float()>& random) {
+  std::set<unsigned long> mutPositions; // remember mutated positions (enforce infinite sites model)
   for (std::vector<Mutation>::iterator m=mutations.begin(); m!=mutations.end(); ++m) {
     float rel_pos = random();
-    long abs_pos = rel_pos * ref_len;
+    unsigned long abs_pos = rel_pos * ref_len;
     // enforce infinite sites (no position can be mutated more than once)
     while (mutPositions.count(abs_pos)!=0) {
       abs_pos = (abs_pos+1) % ref_len; // wrap around at end of reference
     }
-    int offset = (random()*3)+1;
-fprintf(stderr, "<Mutation(absPos=%ld,offset=%d)>\n", abs_pos, offset);
+    short offset = (random()*3)+1;
+    short copy = random()*2;
+fprintf(stderr, "<Mutation(absPos=%ld,offset=%d,copy=%d)>\n", abs_pos, offset, copy);
     m->absPos = abs_pos;
     m->offset = offset;
+    m->copy = copy;
   }
 }
-
 
 /** Initialize random number generator
  */

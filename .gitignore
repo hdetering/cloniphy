@@ -7,3 +7,11 @@ bin/*
 
 # Ignore example data
 data
+
+# Ignore intermediate output file
+*.dot
+*.png
+*.fa
+*.fq
+*.sam
+*.aln

@@ -10,6 +10,11 @@ Clone::Clone() {
 
 Clone::~Clone() {}
 
+void Clone::setParent(Clone *parent) {
+  this->parent = parent;
+  parent->m_vecChildren.push_back(this);
+}
+
 bool Clone::isLeaf() {
   return m_vecChildren.size() == 0;
 }
@@ -43,7 +48,7 @@ void Clone::replace(Clone *cloneToReplace) {
   }
 }
 
-void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<long>& cumStart, const std::vector<Mutation> &mutations) {
+void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsigned long>& cumStart, const std::vector<Mutation> &mutations) {
 std::cerr << std::endl;
   // collect ancestral mutations
   std::vector<int> mut_ids;
@@ -57,16 +62,18 @@ std::cerr << std::endl;
   // sort mutations by position
   std::vector<Mutation> mutSorted = Mutation::sortByPosition(myMutations);
   // apply mutations in order of reference position
+  unsigned numSeqs = cumStart.size();
   for (std::vector<Mutation>::iterator i=mutSorted.begin(); i!=mutSorted.end(); ++i) {
     Mutation m = *i;
 //std::cerr << (*i).absPos << ", " << (*i).offset << std::endl;
     unsigned s=0;
-    while (s<cumStart.size() && s<m.absPos) { s++; }
-    long loc_pos = m.absPos - cumStart[s-1];
-    Nuc nuc_old = SeqIO::charToNuc(genome[s-1].seq[loc_pos]);
+    while (s<cumStart.size() && s<=m.absPos) { s++; }
+    unsigned long loc_pos = m.absPos - cumStart[s-1];
+    unsigned targetSeqIndex = (s-1)+(numSeqs*m.copy);
+    Nuc nuc_old = SeqIO::charToNuc(genome[targetSeqIndex].seq[loc_pos]);
     Nuc nuc_new = static_cast<Nuc>((static_cast<int>(nuc_old) + m.offset) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
-    genome[s-1].seq[loc_pos] = SeqIO::nucToChar(nuc_new);
-std::cerr << "<Mutation(abs_pos=" << m.absPos << ",offset=" << m.offset << ")> mutating " << nuc_old << " to " << nuc_new << "" << std::endl;
+    genome[targetSeqIndex].seq[loc_pos] = SeqIO::nucToChar(nuc_new);
+std::cerr << "<Mutation(abs_pos=" << m.absPos << ",offset=" << m.offset << ",copy=" << m.copy << ")> mutating " << nuc_old << " to " << nuc_new << "" << std::endl;
   }
 //std::cerr << "applying a total of " << mut_ids.size() << " mutations to <Clone(label=" << this->label << ")>" << std::endl;
 }

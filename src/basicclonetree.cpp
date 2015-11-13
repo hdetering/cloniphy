@@ -15,17 +15,18 @@ void BasicCloneTree::generateRandomTopology(boost::function<float()>& random) {
   r->parent = 0;
   m_vecNodes.push_back(r);
   m_root = r;
+  // first clone becomes child of root
+  m_vecNodes[0]->setParent(r);
 
   // pick parent for each clone
   std::vector<Clone*> parents;
-  parents.push_back(r);
-  for (int i=0; i<m_numClones; ++i) {
+  parents.push_back(m_vecNodes[0]);
+  for (int i=1; i<m_numClones; ++i) {
     Clone *c = m_vecNodes[i];
-    int p_index = random()*(i+1);
+    int p_index = random()*i;
     Clone *p = parents[p_index];
 fprintf(stderr, "\tClone<label=%d> gets parent Clone<label=%d>\n", c->label, p->label);
-    c->parent = p;
-    p->m_vecChildren.push_back(c);
+    c->setParent(p);
     parents.push_back(c);
   }
 }

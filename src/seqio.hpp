@@ -19,8 +19,9 @@ struct SeqRecord
  */
 struct Mutation
 {
-  long absPos;  /** absolute bp position */
-  int offset;   /** shifts the ancestral genotype to a new one */
+  unsigned long absPos; /** absolute bp position */
+  short offset;         /** shifts the ancestral genotype to a new one */
+  short copy;           /** which chromosome copy (0:maternal, 1:paternal) */
 
   bool operator< (const Mutation&) const; /** make mutations sortable */
   static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);

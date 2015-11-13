@@ -17,13 +17,14 @@ struct Clone: public Node
 
   Clone();
   virtual ~Clone();
+  void setParent(Clone *);
   bool isLeaf();
   std::vector<Clone *> getChildren();
   float distanceToParent();
   /** replace other clone in the tree (needed to collapse branches) */
   void replace(Clone *);
   /** modify the given sequence by applying a set of mutations. */
-  void mutateGenome(std::vector<SeqRecord>&, const std::vector<long>&, const std::vector<Mutation>&);
+  void mutateGenome(std::vector<SeqRecord>&, const std::vector<unsigned long>&, const std::vector<Mutation>&);
 };
 
 #endif /* CLONE_H */
