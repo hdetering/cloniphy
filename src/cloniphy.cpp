@@ -5,6 +5,7 @@
  *
  */
 #include "seqio.hpp"
+#include "vario.hpp"
 #include "basicclonetree.hpp"
 #include "coalescentclonetree.hpp"
 
@@ -130,6 +131,11 @@ int main (int argc, char* argv[])
     outfile.open(filename.c_str());
     SeqIO::writeFasta(cloneGenome, outfile);
   }
+
+  ofstream f_vcf;
+  f_vcf.open("test.vcf");
+  VarIO::writeVcf(refSeqs, mutations, f_vcf);
+  f_vcf.close();
 
   return EXIT_SUCCESS;
 }

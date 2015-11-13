@@ -9,22 +9,10 @@ enum Nuc { A, C, G, T, N };
 
 struct SeqRecord
 {
-  std::string id;  /** Identifier */
-  std::string seq; /** Actual sequence */
+  std::string id;          /** Identifier */
+  std::string description; /** Sequence description (everything after first space in ID line) */
+  std::string seq;         /** Actual sequence */
   //SeqRecord(std::string, std::string);
-};
-
-/** Mutations specifiy a modification of a sequence.
- *  TODO: Do I really belong here?
- */
-struct Mutation
-{
-  unsigned long absPos; /** absolute bp position */
-  short offset;         /** shifts the ancestral genotype to a new one */
-  short copy;           /** which chromosome copy (0:maternal, 1:paternal) */
-
-  bool operator< (const Mutation&) const; /** make mutations sortable */
-  static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
 };
 
 /** Reads and writes sequence files. */
@@ -42,6 +30,8 @@ class SeqIO {
     static Nuc charToNuc(const char);
     /** Convert Nuc into a nucleotide char */
     static char nucToChar(const Nuc);
+    /** Mutate a nucleotide by an offset. */
+    static char shiftNucleotide(const char, const int);
 };
 
 #endif /* SEQIO_H */

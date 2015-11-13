@@ -70,10 +70,10 @@ std::cerr << std::endl;
     while (s<cumStart.size() && s<=m.absPos) { s++; }
     unsigned long loc_pos = m.absPos - cumStart[s-1];
     unsigned targetSeqIndex = (s-1)+(numSeqs*m.copy);
-    Nuc nuc_old = SeqIO::charToNuc(genome[targetSeqIndex].seq[loc_pos]);
-    Nuc nuc_new = static_cast<Nuc>((static_cast<int>(nuc_old) + m.offset) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
-    genome[targetSeqIndex].seq[loc_pos] = SeqIO::nucToChar(nuc_new);
-std::cerr << "<Mutation(abs_pos=" << m.absPos << ",offset=" << m.offset << ",copy=" << m.copy << ")> mutating " << nuc_old << " to " << nuc_new << "" << std::endl;
+    char old_base = genome[targetSeqIndex].seq[loc_pos];
+    char new_base = SeqIO::shiftNucleotide(old_base, m.offset);
+    genome[targetSeqIndex].seq[loc_pos] = new_base;
+std::cerr << "<Mutation(abs_pos=" << m.absPos << ",offset=" << m.offset << ",copy=" << m.copy << ")> mutating " << old_base << " to " << new_base << "" << std::endl;
   }
 //std::cerr << "applying a total of " << mut_ids.size() << " mutations to <Clone(label=" << this->label << ")>" << std::endl;
 }

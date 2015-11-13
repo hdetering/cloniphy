@@ -6,18 +6,6 @@
 #include <string>
 #include <vector>
 
-//SeqRecord::SeqRecord(std::)
-
-bool Mutation::operator< (const Mutation &other) const {
-  return absPos < other.absPos;
-}
-
-std::vector<Mutation> Mutation::sortByPosition(const std::vector<Mutation> &mutations) {
-  std::vector<Mutation> mutationsCopy = mutations;
-  std::sort(mutationsCopy.begin(), mutationsCopy.end());
-  return mutationsCopy;
-}
-
 std::vector<SeqRecord> SeqIO::readFasta(const char *filename) {
   std::ifstream inputFile;
   inputFile.open(filename, std::ios::in);
@@ -34,18 +22,23 @@ std::vector<SeqRecord> SeqIO::readFasta(std::istream &input) {
   std::string seq;
   std::string line;
 
-  while (input.good()) {
-    try {
-      getline(input, header);
+  try {
+    getline(input, header);
+    while (input.good()) {
       while (getline(input, line) && line[0]!='>') {
         seq += line;
       }
-    } catch(std::exception e) {
-      std::cerr << e.what() << std::endl;
-      std::cerr << "Possibly premature end of FASTA file?" << std::endl;
+      std::size_t space_pos = header.find(' ');
+      std::string seq_id = header.substr(1, space_pos);
+      std::string seq_desc = header.substr(space_pos+1);
+      SeqRecord rec = {seq_id, seq_desc, seq};
+      records.push_back(rec);
+      header = line;
+      seq = "";
     }
-    SeqRecord rec = {header.substr(1), seq};
-    records.push_back(rec);
+  } catch(std::exception e) {
+    std::cerr << e.what() << std::endl;
+    std::cerr << "Possibly premature end of FASTA file?" << std::endl;
   }
 
   return records;
@@ -96,4 +89,10 @@ char SeqIO::nucToChar(const Nuc n) {
     default:
       return 'N';
   }
+}
+
+char SeqIO::shiftNucleotide(const char base, const int offset) {
+  Nuc nuc_old = charToNuc(base);
+  Nuc nuc_new = static_cast<Nuc>((static_cast<int>(nuc_old) + offset) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
+  return nucToChar(nuc_new);
 }

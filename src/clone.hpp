@@ -3,6 +3,7 @@
 
 #include "node.hpp"
 #include "seqio.hpp"
+#include "vario.hpp"
 #include <ostream>
 #include <vector>
 
