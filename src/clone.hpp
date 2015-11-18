@@ -25,7 +25,7 @@ struct Clone: public Node
   /** replace other clone in the tree (needed to collapse branches) */
   void replace(Clone *);
   /** modify the given sequence by applying a set of mutations. */
-  void mutateGenome(std::vector<SeqRecord>&, const std::vector<unsigned long>&, const std::vector<Mutation>&);
+  void mutateGenome(std::vector<SeqRecord>&, const std::vector<unsigned long>&, const std::vector<Mutation>&, std::vector<short>&);
 };
 
 #endif /* CLONE_H */

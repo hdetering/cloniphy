@@ -29,7 +29,7 @@ std::vector<SeqRecord> SeqIO::readFasta(std::istream &input) {
         seq += line;
       }
       std::size_t space_pos = header.find(' ');
-      std::string seq_id = header.substr(1, space_pos);
+      std::string seq_id = header.substr(1, space_pos-1);
       std::string seq_desc = header.substr(space_pos+1);
       SeqRecord rec = {seq_id, seq_desc, seq};
       records.push_back(rec);

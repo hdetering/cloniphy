@@ -11,6 +11,7 @@
  */
 struct Mutation
 {
+  unsigned id;          /** unique identifier */
   unsigned long absPos; /** absolute bp position */
   short offset;         /** shifts the ancestral genotype to a new one */
   short copy;           /** which chromosome copy (0:maternal, 1:paternal) */
@@ -22,7 +23,7 @@ struct Mutation
 class VarIO {
   public:
     /** Generate VCF output from a reference sequence and a set of mutations.  */
-    static void writeVcf(const std::vector<SeqRecord>&, const std::vector<Mutation>&, std::ostream&);
+    static void writeVcf(const std::vector<SeqRecord>&, const std::vector<Mutation>&, const std::vector<std::vector<short> > &, std::ostream&);
 };
 
 #endif /* VARIO_H */

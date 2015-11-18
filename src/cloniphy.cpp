@@ -109,6 +109,10 @@ int main (int argc, char* argv[])
   for (int i=0; i<num_mutations; i++) {
     fprintf(stderr, "%ld\t%d\n", mutations[i].absPos, mutations[i].offset);
   }
+
+  // initialize mutation matrix
+  std::vector<std::vector<short> > mutMatrix(num_clones+1, std::vector<short>(num_mutations,0));
+
   // generate clone sequences based on clonal tree and mutations
   std::vector<Clone *> leafs = tree.getVisibleNodes();
   for (std::vector<Clone *>::iterator i=leafs.begin(); i!=leafs.end(); ++i) {
@@ -125,7 +129,7 @@ int main (int argc, char* argv[])
       cloneGenome.push_back(cloneGenome[i]);
       cloneGenome[numSeqs+i].id = seqId;
     }
-    c.mutateGenome(cloneGenome, cumStart, mutations);
+    c.mutateGenome(cloneGenome, cumStart, mutations, mutMatrix[c.label]);
     std::string filename = boost::str(boost::format("clone%02d_genome.fa") % c.label);
     ofstream outfile;
     outfile.open(filename.c_str());
@@ -133,8 +137,8 @@ int main (int argc, char* argv[])
   }
 
   ofstream f_vcf;
-  f_vcf.open("test.vcf");
-  VarIO::writeVcf(refSeqs, mutations, f_vcf);
+  f_vcf.open("mutations.vcf");
+  VarIO::writeVcf(refSeqs, mutations, mutMatrix, f_vcf);
   f_vcf.close();
 
   return EXIT_SUCCESS;
@@ -143,6 +147,7 @@ int main (int argc, char* argv[])
 /** Generate random mutations out of thin air. */
 void generateMutations(std::vector<Mutation> &mutations, unsigned long ref_len, boost::function<float()>& random) {
   std::set<unsigned long> mutPositions; // remember mutated positions (enforce infinite sites model)
+  unsigned i=0;
   for (std::vector<Mutation>::iterator m=mutations.begin(); m!=mutations.end(); ++m) {
     float rel_pos = random();
     unsigned long abs_pos = rel_pos * ref_len;
@@ -152,7 +157,8 @@ void generateMutations(std::vector<Mutation> &mutations, unsigned long ref_len, 
     }
     short offset = (random()*3)+1;
     short copy = random()*2;
-fprintf(stderr, "<Mutation(absPos=%ld,offset=%d,copy=%d)>\n", abs_pos, offset, copy);
+fprintf(stderr, "<Mutation(id=%u;absPos=%ld,offset=%d,copy=%d)>\n", i, abs_pos, offset, copy);
+    m->id = i++;
     m->absPos = abs_pos;
     m->offset = offset;
     m->copy = copy;

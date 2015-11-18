@@ -48,7 +48,7 @@ void Clone::replace(Clone *cloneToReplace) {
   }
 }
 
-void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsigned long>& cumStart, const std::vector<Mutation> &mutations) {
+void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsigned long>& cumStart, const std::vector<Mutation> &mutations, std::vector<short> &mutMatrixRow) {
 std::cerr << std::endl;
   // collect ancestral mutations
   std::vector<int> mut_ids;
@@ -58,6 +58,7 @@ std::cerr << std::endl;
   std::vector<Mutation> myMutations;
   for (std::vector<int>::iterator i=mut_ids.begin(); i!=mut_ids.end(); ++i) {
     myMutations.push_back(mutations[*i]);
+    mutMatrixRow[mutations[*i].id] = 1;
   }
   // sort mutations by position
   std::vector<Mutation> mutSorted = Mutation::sortByPosition(myMutations);
