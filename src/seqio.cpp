@@ -2,25 +2,30 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <stdlib.h> // for system() calls
 #include <string>
 #include <vector>
 
-std::vector<SeqRecord> SeqIO::readFasta(const char *filename) {
-  std::ifstream inputFile;
-  inputFile.open(filename, std::ios::in);
-  std::vector<SeqRecord> records;
+using namespace std;
+
+SeqRecord::SeqRecord(const string& id, const string& desc, const string& seq) : id(id), description(desc), seq(seq) {}
+
+vector<SeqRecord> SeqIO::readFasta(const char *filename) {
+  ifstream inputFile;
+  inputFile.open(filename, ios::in);
+  vector<SeqRecord> records;
   records = readFasta(inputFile);
   inputFile.close();
 
   return records;
 }
 
-std::vector<SeqRecord> SeqIO::readFasta(std::istream &input) {
-  std::vector<SeqRecord> records;
-  std::string header;
-  std::string seq;
-  std::string line;
+vector<SeqRecord> SeqIO::readFasta(istream &input) {
+  vector<SeqRecord> records;
+  string header;
+  string seq;
+  string line;
 
   try {
     getline(input, header);
@@ -28,26 +33,27 @@ std::vector<SeqRecord> SeqIO::readFasta(std::istream &input) {
       while (getline(input, line) && line[0]!='>') {
         seq += line;
       }
-      std::size_t space_pos = header.find(' ');
-      std::string seq_id = header.substr(1, space_pos-1);
-      std::string seq_desc = header.substr(space_pos+1);
-      SeqRecord rec = {seq_id, seq_desc, seq};
+      size_t space_pos = header.find(' ');
+      string seq_id = header.substr(1, space_pos-1);
+      string seq_desc = header.substr(space_pos+1);
+      //SeqRecord rec = {seq_id, seq_desc, seq};
+      SeqRecord rec(seq_id, seq_desc, seq);
       records.push_back(rec);
       header = line;
       seq = "";
     }
-  } catch(std::exception e) {
-    std::cerr << e.what() << std::endl;
-    std::cerr << "Possibly premature end of FASTA file?" << std::endl;
+  } catch(exception e) {
+    cerr << e.what() << endl;
+    cerr << "Possibly premature end of FASTA file?" << endl;
   }
 
   return records;
 }
 
-int SeqIO::writeFasta(const std::vector<SeqRecord> &seqs, std::ostream &output) {
+int SeqIO::writeFasta(const vector<SeqRecord> &seqs, ostream &output) {
   int recCount = 0;
-  for (std::vector<SeqRecord>::const_iterator rec=seqs.begin(); rec!=seqs.end(); ++rec) {
-    output << ">" << rec->id << std::endl << rec->seq << std::endl;
+  for (vector<SeqRecord>::const_iterator rec=seqs.begin(); rec!=seqs.end(); ++rec) {
+    output << ">" << rec->id << endl << rec->seq << endl;
     recCount++;
   }
   return recCount;
@@ -55,8 +61,8 @@ int SeqIO::writeFasta(const std::vector<SeqRecord> &seqs, std::ostream &output) 
 
 void SeqIO::indexFasta(const char *filename) {
   // TODO: implement this function
-  std::string fn(filename);
-  std::string cmd = "samtools faidx " + fn;
+  string fn(filename);
+  string cmd = "samtools faidx " + fn;
   system(cmd.c_str());
 }
 
@@ -95,4 +101,19 @@ char SeqIO::shiftNucleotide(const char base, const int offset) {
   Nuc nuc_old = charToNuc(base);
   Nuc nuc_new = static_cast<Nuc>((static_cast<int>(nuc_old) + offset) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
   return nucToChar(nuc_new);
+}
+
+vector<string> &SeqIO::split(const string &s, char delim, vector<string> &elems) {
+    stringstream ss(s);
+    string item;
+    while (std::getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+    return elems;
+}
+
+vector<string> SeqIO::split(const string &s, char delim) {
+    vector<string> elems;
+    split(s, delim, elems);
+    return elems;
 }

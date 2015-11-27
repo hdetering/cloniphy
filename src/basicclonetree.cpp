@@ -73,7 +73,7 @@ fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone
 void BasicCloneTree::dropRandomMutations(int numMutations, int &mutationId, boost::function<float()>& random) {
   for (int i=0; i<numMutations; ++i) {
     // pick random clone to mutate
-    Clone *c = m_vecNodes[random()*(m_numClones+1)];
+    Clone *c = m_vecNodes[random()*m_numClones];
 fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
     c->m_vecMutations.push_back(mutationId++);
   }

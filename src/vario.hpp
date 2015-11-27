@@ -2,8 +2,9 @@
 #define VARIO_H
 
 #include "seqio.hpp"
-
+#include <boost/function.hpp>
 #include <iostream>
+#include <string>
 #include <vector>
 
 /** Mutations specifiy a modification of a sequence.
@@ -16,14 +17,43 @@ struct Mutation
   short offset;         /** shifts the ancestral genotype to a new one */
   short copy;           /** which chromosome copy (0:maternal, 1:paternal) */
 
+  Mutation();
+  Mutation(char ref, char alt); /** c'tor converts alleles to nucleotide shift. */
+
   bool operator< (const Mutation&) const; /** make mutations sortable */
   static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
 };
 
+/** Variants represent variable sites in nucleotide sequences */
+struct Variant
+{
+  std::string id;    /** unique identifier */
+  std::string chr;   /** reference chromosome id */
+  unsigned long pos; /** reference basepair position */
+  std::vector<std::string> alleles; /** observed alleles */
+
+  /** Returns true if this variant is a SNV, false otherwise. */
+  bool isSnv();
+};
+
+struct Genotype
+{
+  short maternal; /** allele on maternal strand */
+  short paternal; /** allele on paternal strand */
+};
+
 class VarIO {
   public:
+    /** Generate random mutations out of thin air. */
+    static std::vector<Mutation> generateMutations(const int num_mutations, unsigned long ref_len, boost::function<float()>& random);
+    /** Read VCF file and return list of variants. */
+    static void readVcf(std::string vcf_filename, std::vector<Variant>& variants, std::vector<std::vector<Genotype> >& gtMatrix);
+    /** Read input stream with variants in VCF format and return list of variants. */
+    static void readVcf(std::istream& vcf_filename, std::vector<Variant>& variants, std::vector<std::vector<Genotype> >& gtMatrix);
     /** Generate VCF output from a reference sequence and a set of mutations.  */
-    static void writeVcf(const std::vector<SeqRecord>&, const std::vector<Mutation>&, const std::vector<std::vector<short> > &, std::ostream&);
+    static void writeVcf(const std::vector<SeqRecord>&, const std::vector<Mutation>&, const std::vector<std::vector<short> >&, std::ostream&);
+    /** Apply variants to a given reference sequence */
+    static void applyVariants(std::vector<SeqRecord>&, const std::vector<Variant>&, const std::vector<Genotype>&);
 };
 
 #endif /* VARIO_H */

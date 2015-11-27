@@ -12,7 +12,7 @@ struct SeqRecord
   std::string id;          /** Identifier */
   std::string description; /** Sequence description (everything after first space in ID line) */
   std::string seq;         /** Actual sequence */
-  //SeqRecord(std::string, std::string);
+  SeqRecord(const std::string&, const std::string&, const std::string&);
 };
 
 /** Reads and writes sequence files. */
@@ -32,6 +32,10 @@ class SeqIO {
     static char nucToChar(const Nuc);
     /** Mutate a nucleotide by an offset. */
     static char shiftNucleotide(const char, const int);
+    /** Splits a string by a delimitor into an existing vector */
+    static std::vector<std::string> &split(const std::string&, char, std::vector<std::string>&);
+    /** Splits a string by a delimiter into an existing vector */
+    static std::vector<std::string> split(const std::string&, char);
 };
 
 #endif /* SEQIO_H */
