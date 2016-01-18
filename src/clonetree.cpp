@@ -1,19 +1,51 @@
 #include "clonetree.hpp"
+#include "treeio.hpp"
+#include <boost/lexical_cast.hpp>
 #include <stdio.h>
 
+CloneTree::CloneTree() {}
+
 /** C'tor creates a vector of clones and assignes frequency to each clone. */
-CloneTree::CloneTree (int numClones, std::vector<float> freqs) : m_numClones(numClones), m_vecNodes(numClones) {
+CloneTree::CloneTree(int numClones) : m_numClones(numClones), m_vecNodes(numClones) {
   // initialize tips
   for (int i=0; i<numClones; i++) {
     Clone *c = new Clone();
-    c->label = i+1;
-    c->freq = freqs[i];
+    c->index = i+1;
+    c->label = boost::lexical_cast<std::string>(i+1);
+    //c->freq = freqs[i];
     c->is_visible = true;
     m_vecNodes[i] = c;
   }
 #ifdef DEBUG
   printNodes();
 #endif
+}
+CloneTree::CloneTree(const treeio::node& root) {
+  this->m_numClones = 0;
+  Clone *root_clone = adaptFromGeneric(root);
+  this->m_root = root_clone;
+}
+CloneTree::~CloneTree() {
+  for (unsigned i=0; i<m_vecNodes.size(); ++i) {
+     delete(m_vecNodes[i]);
+  }
+}
+
+Clone* CloneTree::adaptFromGeneric(const treeio::node node) {
+  Clone *clone = new Clone();
+  clone->index = m_numClones++;
+  clone->label = node.label;
+  clone->length = node.length;
+  clone->is_visible = true;
+  this->m_vecNodes.push_back(clone);
+
+  for (unsigned i=0; i<node.children.size(); ++i) {
+    Clone *child_clone = adaptFromGeneric(node.children[i]);
+    clone->m_vecChildren.push_back(child_clone);
+    child_clone->parent = clone;
+  }
+
+  return clone;
 }
 
 Clone* CloneTree::getRoot() {
@@ -61,19 +93,20 @@ void CloneTree::printDot(Clone *node, std::ostream& os) {
 }
 
 void CloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
-  if (node->is_healthy) {
-    os << "\t" << node->label << " [style=filled,color=limegreen];" << std::endl;
+  if (node->isRoot()) {
+    os << "\t" << node->index << " [style=filled,color=limegreen];" << std::endl;
   } else if (node->is_visible) {
-    os << "\t" << node->label << " [style=filled,color=tomato];" << std::endl;
+    os << "\t" << node->index << " [style=filled,color=tomato];" << std::endl;
   }
   for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
     Clone *child = node->m_vecChildren[i];
     float edgeWeight = child->distanceToParent();
-    os << "\t" << node->label << " -> " << child->label;
+    os << "\t" << node->index << " -> " << child->index;
     if (edgeWeight > 0.0) {
       os << "[style=bold,label=" << edgeWeight << "]";
     }
     os << ";" << std::endl;
+    os << "\t" << node->index << " [label=\"" << node->label << "\"];" << std::endl;
 
     _printDotRecursive(child, os);
   }
@@ -84,7 +117,7 @@ void CloneTree::printNodes() {
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "|%2u ", i); }; fprintf(stderr, "|\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "+---"); }; fprintf(stderr, "+\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) {
-    if (m_vecNodes[i] > 0) { fprintf(stderr, "|%2d ", m_vecNodes[i]->label); }
+    if (m_vecNodes[i] > 0) { fprintf(stderr, "|%s ", m_vecNodes[i]->label.c_str()); }
     else { fprintf(stderr, "| - "); }
   };
   fprintf(stderr, "|\n");

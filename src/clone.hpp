@@ -1,8 +1,8 @@
 #ifndef CLONE_H
 #define CLONE_H
 
-#include "node.hpp"
 #include "seqio.hpp"
+#include "treeio.hpp"
 #include "vario.hpp"
 #include <ostream>
 #include <vector>
@@ -13,7 +13,7 @@ struct Clone: public Node
   bool is_healthy;
   bool is_visible;
   Clone *parent;
-  std::vector<Clone*> m_vecChildren;
+  std::vector<Clone *> m_vecChildren;
   std::vector<int> m_vecMutations;
 
   Clone();

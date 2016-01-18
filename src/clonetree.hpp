@@ -2,6 +2,7 @@
 #define CLONETREE_H
 
 #include "clone.hpp"
+#include "treeio.hpp"
 #include <boost/function.hpp>
 #include <iostream>
 #include <vector>
@@ -19,7 +20,10 @@ class CloneTree {
     static void _printDotRecursive(Clone *, std::ostream&);
 
   public:
-    CloneTree(int, std::vector<float>);
+    CloneTree();
+    CloneTree(int);
+    CloneTree(const treeio::node&);
+    ~CloneTree();
 
     /* --------------------------------------*
      *          Virtual functions            *
@@ -45,6 +49,8 @@ class CloneTree {
     static void printDot(Clone *, std::ostream& = std::cout);
     /** Print vector containing clones to STDERR (for debugging). */
     void printNodes();
+    /** Initialize CloneTree from generic tree */
+    Clone* adaptFromGeneric(const treeio::node);
 };
 
 #endif /* CLONETREE_H */

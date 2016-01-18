@@ -1,3 +1,7 @@
+# refactor:
+  Clone::is_visible -> Node::is_visible
+  Clone::setParent(Clone*) -> Node::setParent(Node*)
+
 # enable private mutations on internal clone nodes
 
 # VCF output: flag private mutations

@@ -16,7 +16,10 @@ class BasicCloneTree : public CloneTree {
     void dropRandomMutations(int, int&, boost::function<float()>&);
 
   public:
-    BasicCloneTree(int, std::vector<float>);
+    BasicCloneTree();
+    BasicCloneTree(int);
+    BasicCloneTree(const treeio::node&);
+
     /** Build random clone tree. */
     void generateRandomTopology(boost::function<float()>&);
     /** Drop random mutations on clones. */

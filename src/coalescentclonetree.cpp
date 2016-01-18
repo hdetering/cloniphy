@@ -5,7 +5,7 @@
 #include <vector>
 
 
-CoalescentCloneTree::CoalescentCloneTree (int numClones, std::vector<float> freqs) : CloneTree(numClones, freqs) {
+CoalescentCloneTree::CoalescentCloneTree (int numClones) : CloneTree(numClones) {
 #ifdef DEBUG
   printNodes();
 #endif
@@ -25,7 +25,7 @@ void CoalescentCloneTree::generateRandomTopology(boost::function<float()>& rando
 #ifdef DEBUG
     fprintf(stderr, "---\nIteration %d:\n", i);
     fprintf(stderr, "\tindex1: %d\n", index1);
-    fprintf(stderr, "\tnode1: %d\n", p->label);
+    fprintf(stderr, "\tnode1: %s\n", p->label.c_str());
     printNodes();
 #endif
     // pick second random node (without replacement)
@@ -35,7 +35,7 @@ void CoalescentCloneTree::generateRandomTopology(boost::function<float()>& rando
     m_vecNodes[2*i+1] = q;
 #ifdef DEBUG
     fprintf(stderr, "\tindex2: %d\n", index2);
-    fprintf(stderr, "\tnode2: %d\n", q->label);
+    fprintf(stderr, "\tnode2: %s\n", q->label.c_str());
     printNodes();
 #endif
     // create new internal node
@@ -47,14 +47,14 @@ void CoalescentCloneTree::generateRandomTopology(boost::function<float()>& rando
     q->parent = n;
     m_vecNodes.push_back(n);
 #ifdef DEBUG
-    fprintf(stderr, "\tnew internal node: %d\n", n->label);
+    fprintf(stderr, "\tnew internal node: %s\n", n->label.c_str());
     printNodes();
 #endif
   }
 
   // generate a "healthy" clone as root node
   Clone *r = new Clone();
-  r->label = 0;
+  r->label = "0";
   r->is_healthy = true;
   r->m_vecChildren.push_back(m_vecNodes[nextIndex-1]);
   r->parent = 0;
@@ -62,7 +62,7 @@ void CoalescentCloneTree::generateRandomTopology(boost::function<float()>& rando
   m_vecNodes.push_back(r);
   m_root = r;
 #ifdef DEBUG
-  fprintf(stderr, "\twe have been ROOTed: %d\n", r->label);
+  fprintf(stderr, "\twe have been ROOTed: %s\n", r->label.c_str());
   printNodes();
 #endif
 }
@@ -83,7 +83,7 @@ fprintf(stderr, "\ndropping %d mandatory mutations (%d transforming + %d to assu
   // MRCA of clones receives transforming mutations
   Clone *mrca = m_root->m_vecChildren[0];
   while (m<num_transmuts) {
-fprintf(stderr, "\tdropping mutation %d on node %d\n", m, mrca->label);
+fprintf(stderr, "\tdropping mutation %d on node %s\n", m, mrca->label.c_str());
     mrca->m_vecMutations.push_back(m);
     m++;
   }
@@ -100,11 +100,13 @@ void CoalescentCloneTree::_putMandatoryMutation(Clone *c, int& mutationId, boost
   else {
     bool is_leftMutated = (random()<0.5); // throw a coin
     if (is_leftMutated) {
-fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[0]->label);
+std::cerr << "\tdropping mutation " << mutationId << " on " << node.m_vecChildren[0] << std::endl;
+//fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[0]->label);
       node.m_vecChildren[0]->m_vecMutations.push_back(mutationId);
     }
     else {
-fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[1]->label);
+std::cerr << "\tdropping mutation " << mutationId << " on " << node.m_vecChildren[1] << std::endl;
+//fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[1]->label);
       node.m_vecChildren[1]->m_vecMutations.push_back(mutationId);
     }
     mutationId++;
@@ -119,14 +121,15 @@ fprintf(stderr, "\nnow dropping %d random mutations...\n", num_mutations);
     // mutate random node
     int i = random()*(m_numClones+1);
     m_vecNodes[i]->m_vecMutations.push_back(nextMutationId);
-fprintf(stderr, "\tdropping mutation %d on node %d\n", nextMutationId, m_vecNodes[i]->label);
+fprintf(stderr, "\tdropping mutation %d on node %s\n", nextMutationId, m_vecNodes[i]->label.c_str());
     nextMutationId++;
     num_mutations--;
   }
 }
 
 void CoalescentCloneTree::collapseZeroBranches(Clone *node) {
-fprintf(stderr, "collapseZeroBranches(<Node(label=%d)>)\n", node->label);
+std::cerr << "collapseZeroBranches(" << *node << ")" << std::endl;
+//fprintf(stderr, "collapseZeroBranches(<Node(label=%d)>)\n", node->label);
   // check among children whether any has zero distance
   unsigned i=0;
   while ((i<node->m_vecChildren.size()) && ((int)(node->m_vecChildren[i]->distanceToParent())>0)) {
@@ -138,10 +141,13 @@ fprintf(stderr, "collapseZeroBranches(<Node(label=%d)>)\n", node->label);
     child->replace(node);
     delete node;
 
-fprintf(stderr, "<Node(label=%d)> (so fresh & so clean)\n", child->label);
-fprintf(stderr, "\tparent <Node(label=%d)>\n", child->parent->label);
+std::cerr << *child << " (fresh out of the oven)" << std::endl;
+//fprintf(stderr, "<Node(label=%d)> (so fresh & so clean)\n", child->label);
+std::cerr << "parent: " << *(child->parent) << std::endl;
+//fprintf(stderr, "\tparent <Node(label=%d)>\n", child->parent->label);
 for (unsigned k=0; k<child->m_vecChildren.size(); k++) {
-fprintf(stderr, "\tchild <Node(label=%d)>\n", child->m_vecChildren[k]->label);
+std::cerr << "\tchild: " << *(child->m_vecChildren[k]) << std::endl;
+//fprintf(stderr, "\tchild <Node(label=%d)>\n", child->m_vecChildren[k]->label);
 }
     // repeat process with successor
     if (!child->isLeaf()) {

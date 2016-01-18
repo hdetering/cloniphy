@@ -4,7 +4,9 @@
  * @author: Harald Detering (harald.detering@gmail.com)
  *
  */
+#include "clone.hpp"
 #include "seqio.hpp"
+#include "treeio.hpp"
 #include "vario.hpp"
 #include "basicclonetree.hpp"
 #include "coalescentclonetree.hpp"
@@ -28,7 +30,7 @@ typedef boost::mt19937 base_generator_type;
 using namespace std;
 
 boost::function<float()> initRandomNumberGenerator(long seed);
-bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, string& ref_vcf, bool verbose=true);
+bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree, bool verbose=true);
 bool fileExists(string filename);
 
 int main (int argc, char* argv[])
@@ -40,9 +42,10 @@ int main (int argc, char* argv[])
   vector<float> freqs;
   string reference = "";
   string ref_vcf = "";
+  string tree_fn = "";
   long seed;
 
-  bool args_ok = parseArgs(argc, argv, num_clones, freqs, num_mutations, num_transmuts, reference, ref_vcf);
+  bool args_ok = parseArgs(argc, argv, num_clones, freqs, num_mutations, num_transmuts, reference, ref_vcf, tree_fn);
   if (!args_ok) { return EXIT_FAILURE; }
 
   // specify random seed
@@ -55,25 +58,36 @@ int main (int argc, char* argv[])
   // take that baby for a spin
   //for (int i=0; i<10; i++) { fprintf(stderr, "%.10f\n", random()); }
 
-  //CoalescentCloneTree tree(num_clones, freqs);
-  BasicCloneTree tree(num_clones, freqs);
-  fprintf(stderr, "\nGenerating random topology...\n");
-  tree.generateRandomTopology(random);
-  fprintf(stderr, "done.\n");
-
-  fprintf(stderr, "\nNewick representation of generated tree:\n");
-  CloneTree::printNewick(tree.getRoot(), cerr);
+  Tree<Clone> tree;
+  if (tree_fn.size()>0) {
+    std::cerr << "Reading tree from file '" << tree_fn << "'" << std::endl;
+    treeio::node root_node;
+    treeio::readNewick(tree_fn, root_node);
+    tree = *(new Tree<Clone>(root_node));
+    num_clones = tree.getVisibleNodes().size();
+    std::cerr << "num_nodes:\t" << tree.m_numNodes << std::endl;
+    std::cerr << "num_clones:\t" << num_clones << std::endl;
+  }
+  else {
+    //CoalescentCloneTree tree(num_clones, freqs);
+    tree = Tree<Clone>(num_clones);
+    fprintf(stderr, "\nGenerating random topology...\n");
+    tree.generateRandomTopology(random);
+    fprintf(stderr, "done.\n");
+  }
+  fprintf(stderr, "\nNewick representation of underlying tree:\n");
+  CloneTree::printNewick(tree.m_root, cerr);
   fprintf(stderr, "\n");
 
   tree.evolve(num_mutations, num_transmuts, random);
   fprintf(stderr, "\nNewick representation of mutated tree:\n");
-  CloneTree::printNewick(tree.getRoot(), cerr);
+  CloneTree::printNewick(tree.m_root, cerr);
   fprintf(stderr, "\n");
 
   fprintf(stderr, "Writing mutated tree to file 'clone_tree_mutated.dot'.\n");
   ofstream dotFileMut;
   dotFileMut.open("clone_tree_mutated.dot");
-  tree.printDot(tree.getRoot(), dotFileMut);
+  tree.printDot(tree.m_root, dotFileMut);
   dotFileMut.close();
 
   /*tree.collapseZeroBranches(tree.getRoot());
@@ -137,18 +151,24 @@ int main (int argc, char* argv[])
   vector<std::vector<short> > mutMatrix(num_clones+1, std::vector<short>(num_mutations,0));
 
   // generate clone sequences based on clonal tree and mutations
-  vector<Clone *> leafs = tree.getVisibleNodes();
-  for (vector<Clone *>::iterator i=leafs.begin(); i!=leafs.end(); ++i) {
-    Clone c = **i;
-//fprintf(stderr, "<Clone(label=%d)>, %u mutations\n", c.label, c.m_vecMutations.size());
+  vector<Clone *> clones = tree.getVisibleNodes();
+  for (unsigned i=0; i<clones.size(); ++i) {
+    Clone c = *(clones[i]);
+cerr << c << ", " << c.m_vecMutations.size() << " mutations" << endl;
     vector<SeqRecord> clone_genome = ref_seqs; // TODO: check memory footprint
-    // rename sequences including clone id
-    for (unsigned i=0; i<clone_genome.size(); ++i) {
-      string clone_id = boost::str(boost::format("clone%02d") % c.label);
-      clone_genome[i].id += '_' + clone_id;
+    // assign clone id (either by label or index)
+    string clone_id = "";
+    if (c.label.size()>0) {
+      clone_id = c.label;
+    } else {
+      clone_id = boost::str(boost::format("clone_%02d") % c.index);
     }
-    c.mutateGenome(clone_genome, cumStart, mutations, mutMatrix[c.label]);
-    std::string filename = boost::str(boost::format("clone%02d_genome.fa") % c.label);
+    // rename sequences including clone id
+    for (unsigned j=0; j<clone_genome.size(); ++j) {
+      clone_genome[j].id += '-' + clone_id;
+    }
+    c.mutateGenome(clone_genome, cumStart, mutations, mutMatrix[i]);
+    string filename = boost::str(boost::format("%s_genome.fa") % clone_id);
     ofstream outfile;
     outfile.open(filename.c_str());
     SeqIO::writeFasta(clone_genome, outfile);
@@ -179,12 +199,16 @@ boost::function<float()> initRandomNumberGenerator(long seed) {
 /** Parse command line arguments.
  * @return true: program can run normally, false: indication to stop
  */
-bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& num_mutations, int& num_transmuts, string& reference, string& ref_vcf, bool verbose)
+bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& num_mutations, int& num_transmuts, string& reference, string& ref_vcf, string& tree, bool verbose)
 {
   std::stringstream ss;
   ss << std::endl << PROGRAM_NAME << std::endl << std::endl << "Available options:";
 
   namespace po = boost::program_options;
+
+  // options only allowed on command line
+  //po::options_description_generic();
+
   po::options_description desc(ss.str());
   desc.add_options()
     ("help,h", "print help message")
@@ -193,7 +217,8 @@ bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& 
     ("mutations,m", po::value<int>(&num_mutations), "total number of mutations")
     ("reference,r", po::value<string>(&reference), "reference sequence")
     ("reference-vcf,v", po::value<string>(&ref_vcf), "reference variants")
-    ("trans-muts,t", po::value<int>(&num_transmuts)->default_value(1), "number of transforming mutations (separating healthy genome from first cancer genome)")
+    ("initial-muts,i", po::value<int>(&num_transmuts)->default_value(1), "number of transforming mutations (separating healthy genome from first cancer genome)")
+    ("tree,t", po::value<string>(&tree), "file containing user defined clone tree (Newick format)")
   ;
 
   po::variables_map var_map;
@@ -214,8 +239,8 @@ bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& 
   }
 
   // check: num_clones > 0
-  if (num_clones == 0) {
-    fprintf(stderr, "\nArgumentError: 0 clones? Nothing to do here...bye.\n");
+  if (num_clones == 0 && !var_map.count("tree")) {
+    fprintf(stderr, "\nArgumentError: Please specify clones>0 ('-c') or input tree ('-t'). Aborting...bye.\n");
     return false;
   }
   // check: #freqs == num_clones
@@ -230,8 +255,8 @@ bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& 
       sum_freqs += freqs[i];
     }
     if (sum_freqs != 1.0) {
-      fprintf(stderr, "\nArgumentError: Sum of frequencies (%.2f) needs to be 1.\n", sum_freqs);
-      return false;
+      //fprintf(stderr, "\nArgumentError: Sum of frequencies (%.2f) needs to be 1.\n", sum_freqs);
+      //return false;
     }
   }
   // check: num_mutations >= num_clones
@@ -256,11 +281,24 @@ bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& 
       return false;
     }
   }
+  // check: was a clone tree provided by the user?
+  if (var_map.count("tree")) {
+    fprintf(stderr, "\nUser-defined clone tree was specified, parameter '-c/--clones' will be ignored\n");
+    // check: does tree file exist?
+    if (!fileExists(tree)) {
+      fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", tree.c_str());
+      return false;
+    }
+  }
 
   if (verbose) {
     fprintf(stderr, "---\n");
     fprintf(stderr, "Running with the following options:\n");
-    fprintf(stderr, "clones:\t\t%d\n", var_map["clones"].as<int>());
+    if (var_map.count("tree")) {
+      fprintf(stderr, "clone tree:\t%s\n", tree.c_str());
+    } else {
+      fprintf(stderr, "clones:\t\t%d\n", num_clones);
+    }
     if (!var_map["freqs"].empty()) {
       fprintf(stderr, "frequencies:\t[ ");
       for (unsigned int i=0; i<freqs.size(); i++) {
@@ -268,7 +306,7 @@ bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& 
       }
       fprintf(stderr, "]\n");
     }
-    fprintf(stderr, "mutations:\t%d\n", var_map["mutations"].as<int>());
+    fprintf(stderr, "mutations:\t%d\n", num_mutations);
     fprintf(stderr, "reference:\t%s\n", reference.c_str());
     if (var_map.count("reference-vcf")) {
       fprintf(stderr, "reference VCF:\t%s\n", ref_vcf.c_str());

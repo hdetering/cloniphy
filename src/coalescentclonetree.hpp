@@ -18,7 +18,7 @@ class CoalescentCloneTree : public CloneTree
     void putRandomMutations(int, int, boost::function<float()>&);
 
   public:
-    CoalescentCloneTree(int, std::vector<float>);
+    CoalescentCloneTree(int);
     /** Build random coalescence tree containing clones as tips. */
     void generateRandomTopology(boost::function<float()>&);
     /** Drop random mutations on clones. */

@@ -1,16 +1,17 @@
 #include "clone.hpp"
 #include "basicclonetree.hpp"
+#include "treeio.hpp"
 #include <stdio.h>
 #include <vector>
 
-BasicCloneTree::BasicCloneTree(int numClones, std::vector<float> freqs) : CloneTree(numClones, freqs) {
-
-}
+BasicCloneTree::BasicCloneTree() : CloneTree() {}
+BasicCloneTree::BasicCloneTree(int numClones) : CloneTree(numClones) {}
+BasicCloneTree::BasicCloneTree(const treeio::node& root) : CloneTree(root) {}
 
 void BasicCloneTree::generateRandomTopology(boost::function<float()>& random) {
   // generate a "healthy" clone as root node
   Clone *r = new Clone();
-  r->label = 0;
+  r->label = "0";
   r->is_healthy = true;
   r->parent = 0;
   m_vecNodes.push_back(r);
@@ -25,7 +26,8 @@ void BasicCloneTree::generateRandomTopology(boost::function<float()>& random) {
     Clone *c = m_vecNodes[i];
     int p_index = random()*i;
     Clone *p = parents[p_index];
-fprintf(stderr, "\tClone<label=%d> gets parent Clone<label=%d>\n", c->label, p->label);
+std::cerr << *c << " gets parent " << *p << std::endl;
+//fprintf(stderr, "\tClone<label=%s> gets parent Clone<label=%s>\n", c->label.c_str(), p->label.c_str());
     c->setParent(p);
     parents.push_back(c);
   }
@@ -50,7 +52,8 @@ void BasicCloneTree::dropTransformingMutations(int numMutations) {
   for (unsigned i=0; i<topNodes.size(); ++i) {
     Clone *c = topNodes[i];
     for (int m=0; m<numMutations; ++m) {
-fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", m, c->label);
+std::cerr << "\tDropping mutation " << m << " on " << *c << std::endl;;
+//fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
       c->m_vecMutations.push_back(m);
     }
   }
@@ -59,7 +62,8 @@ fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", m, c->label);
 /** Drop one mutation on a given node and repeat for children. */
 void BasicCloneTree::dropMandatoryMutations(Clone *clone, int &mutationId) {
   if (clone!=m_root) {
-fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
+std::cerr << "\tDropping mutation " << mutationId << " on " << *clone << std::endl;
+//fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
     clone->m_vecMutations.push_back(mutationId);
   }
   else {
@@ -74,7 +78,8 @@ void BasicCloneTree::dropRandomMutations(int numMutations, int &mutationId, boos
   for (int i=0; i<numMutations; ++i) {
     // pick random clone to mutate
     Clone *c = m_vecNodes[random()*m_numClones];
-fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
+std::cerr << "\tDropping mutation " << mutationId << " on " << *c << std::endl;
+//fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
     c->m_vecMutations.push_back(mutationId++);
   }
 }
