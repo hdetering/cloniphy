@@ -162,15 +162,17 @@ void VarIO::writeVcf(const vector<SeqRecord> &seqs, const vector<Mutation> &muts
   vector<Mutation> sorted_muts = Mutation::sortByPosition(muts);
   unsigned idx_seq = 0;
   SeqRecord rec = seqs[0];
-  unsigned long cum_len = rec.seq.length();
+  unsigned long seq_len = rec.seq.length();
+  unsigned long cum_len = 0;
   for (vector<Mutation>::iterator mut=sorted_muts.begin(); mut!=sorted_muts.end(); ++mut) {
     unsigned long p = mut->absPos;
     // check if we passed the end of the current sequence
-    if (p >= cum_len) {
+    while (p >= (cum_len+seq_len)) {
       rec = seqs[++idx_seq];
-      cum_len += rec.seq.length();
+      seq_len = rec.seq.length();
+      cum_len += seq_len;
     }
-    char ref = rec.seq[p];
+    char ref = rec.seq[p-cum_len];
     char alt = SeqIO::shiftNucleotide(ref, mut->offset);
     out << format("%s\t%d\t%d\t%s\t%s\t%d\tPASS\t%d\t%s") % rec.id % p % mut->id % ref % alt % var_qual % var_info % var_fmt;
     for (unsigned i=0; i<num_samples; ++i) {

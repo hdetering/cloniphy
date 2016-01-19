@@ -2,6 +2,6 @@
   Clone::is_visible -> Node::is_visible
   Clone::setParent(Clone*) -> Node::setParent(Node*)
 
-# enable private mutations on internal clone nodes
+# avoid masked positions ('N', lower case letters?) from being mutated
 
 # VCF output: flag private mutations
