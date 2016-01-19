@@ -8,7 +8,7 @@ SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 CFLAGS := -g -O0 -Wall
-LIB := -pthread -lboost_program_options #-L lib -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt
+LIB := -pthread -lboost_program_options -L lib #-lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt
 INC := -I include # place external header files in 'include' directory
 
 $(TARGET): $(OBJECTS)

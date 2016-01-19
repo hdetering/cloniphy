@@ -67,7 +67,8 @@ void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsig
     Mutation m = *i;
 //std::cerr << (*i).absPos << ", " << (*i).offset << std::endl;
     unsigned s=0;
-    while (s<cumStart.size() && s<=m.absPos) { s++; }
+    // identify index of sequence to be mutated 
+    while (s<cumStart.size() && cumStart[s]<=m.absPos) { s++; }
     unsigned long loc_pos = m.absPos - cumStart[s-1];
     unsigned targetSeqIndex = (s-1)+(numSeqs*m.copy);
     char old_base = genome[targetSeqIndex].seq[loc_pos];
