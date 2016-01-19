@@ -49,7 +49,6 @@ void Clone::replace(Clone *cloneToReplace) {
 }
 
 void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsigned long>& cumStart, const std::vector<Mutation> &mutations, std::vector<short> &mutMatrixRow) {
-std::cerr << std::endl;
   // collect ancestral mutations
   std::vector<int> mut_ids;
   for (Clone *c=this; c->parent!=0; c=c->parent) {
@@ -77,4 +76,5 @@ std::cerr << std::endl;
 std::cerr << "<Mutation(abs_pos=" << m.absPos << ",offset=" << m.offset << ",copy=" << m.copy << ")> mutating " << old_base << " to " << new_base << "" << std::endl;
   }
 //std::cerr << "applying a total of " << mut_ids.size() << " mutations to <Clone(label=" << this->label << ")>" << std::endl;
+std::cerr << std::endl;
 }

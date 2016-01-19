@@ -39,7 +39,6 @@ Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_vecNodes(n_nodes) {
     T *n = new T();
     n->index = i+1;
     n->label = boost::lexical_cast<std::string>(i+1);
-    //c->freq = freqs[i];
     n->is_visible = true;
     m_vecNodes[i] = n;
   }
@@ -63,14 +62,13 @@ Tree<T>::~Tree() {
   }
 }
 
-
 template<typename T>
 T* Tree<T>::_adaptNode(const treeio::node& node) {
   T *n = new T();
   n->index = m_numNodes++;
   n->label = node.label;
   n->length = node.length;
-  n->is_visible = (node.label.size() > 0); // unlabelled nodes are invisible
+  n->is_visible = (node.label.size() > 0); // unlabeled nodes are invisible
   this->m_vecNodes.push_back(n);
 
   for (unsigned i=0; i<node.children.size(); ++i) {

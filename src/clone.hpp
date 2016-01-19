@@ -11,7 +11,6 @@ struct Clone: public Node
 {
   float freq;
   bool is_healthy;
-  bool is_visible;
   Clone *parent;
   std::vector<Clone *> m_vecChildren;
   std::vector<int> m_vecMutations;
