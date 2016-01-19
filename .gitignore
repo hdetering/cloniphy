@@ -6,6 +6,9 @@ lib/*
 # Ignore any executables
 bin/*
 
+# Ignore third-party components (for now)
+util
+
 # Ignore example data
 data
 
