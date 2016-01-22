@@ -44,6 +44,10 @@ struct Tree
   Tree(int);
   Tree(const treeio::node&);
   ~Tree();
+  /** Return sum of all branch lengths */
+  double getTotalBranchLength();
+  /** Return vector of relative branch lengths */
+  std::vector<double> getRelativeBranchLengths();
   /** Return visible tree nodes. */
   std::vector<T *> getVisibleNodes();
   /** Build random tree topology. */
