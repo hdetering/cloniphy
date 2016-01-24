@@ -48,7 +48,7 @@ void Clone::replace(Clone *cloneToReplace) {
   }
 }
 
-void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsigned long>& cumStart, const std::vector<Mutation> &mutations, std::vector<short> &mutMatrixRow) {
+void Clone::mutateGenome(std::vector<seqio::SeqRecord> &genome, const std::vector<unsigned long>& cumStart, const std::vector<Mutation> &mutations, std::vector<short> &mutMatrixRow) {
   // collect ancestral mutations
   std::vector<int> mut_ids;
   for (Clone *c=this; c->parent!=0; c=c->parent) {
@@ -67,12 +67,12 @@ void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsig
     Mutation m = *i;
 //std::cerr << (*i).absPos << ", " << (*i).offset << std::endl;
     unsigned s=0;
-    // identify index of sequence to be mutated 
+    // identify index of sequence to be mutated
     while (s<cumStart.size() && cumStart[s]<=m.absPos) { s++; }
     unsigned long loc_pos = m.absPos - cumStart[s-1];
     unsigned targetSeqIndex = (s-1)+(numSeqs*m.copy);
     char old_base = genome[targetSeqIndex].seq[loc_pos];
-    char new_base = SeqIO::shiftNucleotide(old_base, m.offset);
+    char new_base = seqio::shiftNucleotide(old_base, m.offset);
     genome[targetSeqIndex].seq[loc_pos] = new_base;
 std::cerr << "<Mutation(abs_pos=" << m.absPos << ",offset=" << m.offset << ",copy=" << m.copy << ")> mutating " << old_base << " to " << new_base << "" << std::endl;
   }

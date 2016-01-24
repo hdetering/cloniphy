@@ -22,8 +22,8 @@ Mutation::Mutation() {
 }
 
 Mutation::Mutation(char ref, char alt) {
-  short ref_nuc = SeqIO::charToNuc(ref);
-  short alt_nuc = SeqIO::charToNuc(alt);
+  short ref_nuc = seqio::charToNuc(ref);
+  short alt_nuc = seqio::charToNuc(alt);
   this->offset =  ((alt_nuc-ref_nuc) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
 }
 
@@ -86,14 +86,14 @@ void VarIO::readVcf(std::istream &input, vector<Variant>& variants, vector<vecto
   }
 fprintf(stderr, "VCF header: %s\n", header_line.c_str());
   // parse header
-  vector<string> hdr_cols = SeqIO::split(header_line, '\t');
+  vector<string> hdr_cols = seqio::split(header_line, '\t');
   num_samples = hdr_cols.size()-9; // samples start at column 10
   gtMatrix = vector<vector<Genotype> >(num_samples);
 
   // parse variants
   unsigned var_idx = 0;
   while(input.good()) {
-    vector<string> var_cols = SeqIO::split(line, '\t');
+    vector<string> var_cols = seqio::split(line, '\t');
     if (var_cols.size() != num_samples+9) {
       fprintf(stderr, "[ERROR] number of columns does not match header (variant '%s').\n", var_cols[2].c_str());
       getline(input, line);
@@ -104,7 +104,7 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
     var.pos = atol(var_cols[1].c_str());
     var.id  = var_cols[2];
     var.alleles.push_back(var_cols[3]);
-    vector<string> alt = SeqIO::split(var_cols[4], ',');
+    vector<string> alt = seqio::split(var_cols[4], ',');
     var.alleles.insert(var.alleles.end(), alt.begin(), alt.end());
     // TODO: at this point only SNVs are supported
     if (!var.isSnv()) {
@@ -173,7 +173,7 @@ void VarIO::writeVcf(const vector<SeqRecord> &seqs, const vector<Mutation> &muts
       cum_len += seq_len;
     }
     char ref = rec.seq[p-cum_len];
-    char alt = SeqIO::shiftNucleotide(ref, mut->offset);
+    char alt = seqio::shiftNucleotide(ref, mut->offset);
     out << format("%s\t%d\t%d\t%s\t%s\t%d\tPASS\t%d\t%s") % rec.id % p % mut->id % ref % alt % var_qual % var_info % var_fmt;
     for (unsigned i=0; i<num_samples; ++i) {
       string genotype = "";

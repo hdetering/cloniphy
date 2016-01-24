@@ -9,9 +9,11 @@
 
 using namespace std;
 
+namespace seqio {
+
 SeqRecord::SeqRecord(const string& id, const string& desc, const string& seq) : id(id), description(desc), seq(seq) {}
 
-vector<SeqRecord> SeqIO::readFasta(const char *filename) {
+vector<SeqRecord> readFasta(const char *filename) {
   ifstream inputFile;
   inputFile.open(filename, ios::in);
   vector<SeqRecord> records;
@@ -21,7 +23,7 @@ vector<SeqRecord> SeqIO::readFasta(const char *filename) {
   return records;
 }
 
-vector<SeqRecord> SeqIO::readFasta(istream &input) {
+vector<SeqRecord> readFasta(istream &input) {
   vector<SeqRecord> records;
   string header;
   string seq;
@@ -50,7 +52,7 @@ vector<SeqRecord> SeqIO::readFasta(istream &input) {
   return records;
 }
 
-int SeqIO::writeFasta(const vector<SeqRecord> &seqs, ostream &output) {
+int writeFasta(const vector<SeqRecord> &seqs, ostream &output) {
   int recCount = 0;
   for (vector<SeqRecord>::const_iterator rec=seqs.begin(); rec!=seqs.end(); ++rec) {
     output << ">" << rec->id << endl << rec->seq << endl;
@@ -59,7 +61,7 @@ int SeqIO::writeFasta(const vector<SeqRecord> &seqs, ostream &output) {
   return recCount;
 }
 
-void SeqIO::indexFasta(const char *filename) {
+void indexFasta(const char *filename) {
   // TODO: implement this function
   string fn(filename);
   string cmd = "samtools faidx " + fn;
@@ -67,7 +69,7 @@ void SeqIO::indexFasta(const char *filename) {
 }
 
 
-Nuc SeqIO::charToNuc(const char c) {
+Nuc charToNuc(const char c) {
   switch (c) {
     case 'A':
       return A;
@@ -82,7 +84,7 @@ Nuc SeqIO::charToNuc(const char c) {
   }
 }
 
-char SeqIO::nucToChar(const Nuc n) {
+char nucToChar(const Nuc n) {
   switch (n) {
     case A:
       return 'A';
@@ -97,13 +99,13 @@ char SeqIO::nucToChar(const Nuc n) {
   }
 }
 
-char SeqIO::shiftNucleotide(const char base, const int offset) {
+char shiftNucleotide(const char base, const int offset) {
   Nuc nuc_old = charToNuc(base);
   Nuc nuc_new = static_cast<Nuc>((static_cast<int>(nuc_old) + offset) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
   return nucToChar(nuc_new);
 }
 
-vector<string> &SeqIO::split(const string &s, char delim, vector<string> &elems) {
+vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
     string item;
     while (std::getline(ss, item, delim)) {
@@ -112,8 +114,10 @@ vector<string> &SeqIO::split(const string &s, char delim, vector<string> &elems)
     return elems;
 }
 
-vector<string> SeqIO::split(const string &s, char delim) {
+vector<string> split(const string &s, char delim) {
     vector<string> elems;
     split(s, delim, elems);
     return elems;
+}
+
 }

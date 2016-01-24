@@ -7,6 +7,8 @@
 #include <ostream>
 #include <vector>
 
+using seqio::SeqRecord;
+
 struct Clone: public Node
 {
   float freq;

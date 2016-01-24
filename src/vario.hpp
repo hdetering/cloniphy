@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+using seqio::SeqRecord;
+
 /** Mutations specifiy a modification of a sequence.
  *  TODO: Do I really belong here?
  */

@@ -29,6 +29,7 @@ typedef boost::mt19937 base_generator_type;
 #define PROGRAM_NAME "CloniPhy 0.1"
 
 using namespace std;
+using seqio::SeqRecord;
 
 boost::function<float()> initRandomNumberGenerator(long seed);
 bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree, bool verbose=true);
@@ -113,7 +114,7 @@ int main (int argc, char* argv[])
 
   // read reference sequence
   fprintf(stderr, "\nReading reference from file '%s'...", reference.c_str());
-  vector<SeqRecord> ref_seqs = SeqIO::readFasta(reference.c_str());
+  vector<SeqRecord> ref_seqs = seqio::readFasta(reference.c_str());
   unsigned i;
   unsigned long ref_len = 0;
   vector<unsigned long> cumStart; // cumulative start position of each sequence;
@@ -143,7 +144,7 @@ int main (int argc, char* argv[])
   // write "healthy" genome to file
   ofstream f_fasta;
   f_fasta.open("healthy_genome.fa");
-  SeqIO::writeFasta(ref_seqs, f_fasta);
+  seqio::writeFasta(ref_seqs, f_fasta);
   f_fasta.close();
 
   //fprintf(stderr, "generating FASTA index.\n");
@@ -181,7 +182,7 @@ cerr << c << ", " << c.m_vecMutations.size() << " mutations" << endl;
     string filename = boost::str(boost::format("%s_genome.fa") % clone_id);
     ofstream outfile;
     outfile.open(filename.c_str());
-    SeqIO::writeFasta(clone_genome, outfile);
+    seqio::writeFasta(clone_genome, outfile);
   }
 
   ofstream f_vcf;
