@@ -21,6 +21,7 @@ typedef boost::mt19937 base_generator_type;
 #include <ctime>
 #include <exception>
 #include <fstream>
+#include <math.h>
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
@@ -67,6 +68,15 @@ int main (int argc, char* argv[])
     num_clones = tree.getVisibleNodes().size();
     std::cerr << "num_nodes:\t" << tree.m_numNodes << std::endl;
     std::cerr << "num_clones:\t" << num_clones << std::endl;
+
+    // if number of mutations have not been supplied specifically,
+    // branch lengths are interpreted as number of mutations
+    if (num_mutations == 0) {
+      fprintf(stderr, "\nNumber of mutations has not specified, using tree branch lengths:\n");
+      double dbl_branch_length = tree.getTotalBranchLength();
+      num_mutations = floor(dbl_branch_length);
+      fprintf(stderr, "Simulating a total of %d mutations.\n", num_mutations);
+    }
   }
   else {
     //CoalescentCloneTree tree(num_clones, freqs);
