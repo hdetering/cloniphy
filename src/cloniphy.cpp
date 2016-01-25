@@ -30,6 +30,9 @@ typedef boost::mt19937 base_generator_type;
 
 using namespace std;
 using seqio::SeqRecord;
+using seqio::Genome;
+using vario::Genotype;
+using vario::Variant;
 
 boost::function<float()> initRandomNumberGenerator(long seed);
 bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree, bool verbose=true);
@@ -60,6 +63,10 @@ int main (int argc, char* argv[])
   // take that baby for a spin
   //for (int i=0; i<10; i++) { fprintf(stderr, "%.10f\n", random()); }
 
+  // test genome indexing
+  Genome g = Genome(reference.c_str());
+  exit(0);
+
   Tree<Clone> tree;
   if (tree_fn.size()>0) {
     std::cerr << "Reading tree from file '" << tree_fn << "'" << std::endl;
@@ -73,7 +80,7 @@ int main (int argc, char* argv[])
     // if number of mutations have not been supplied specifically,
     // branch lengths are interpreted as number of mutations
     if (num_mutations == 0) {
-      fprintf(stderr, "\nNumber of mutations has not specified, using tree branch lengths:\n");
+      fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths:\n");
       double dbl_branch_length = tree.getTotalBranchLength();
       num_mutations = floor(dbl_branch_length);
       fprintf(stderr, "Simulating a total of %d mutations.\n", num_mutations);
@@ -127,8 +134,8 @@ int main (int argc, char* argv[])
     fprintf(stderr, "applying reference variants (from %s).\n", ref_vcf.c_str());
     vector<Variant> ref_variants;
     vector<vector<Genotype > > ref_gt_matrix;
-    VarIO::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
-    VarIO::applyVariants(ref_seqs, ref_variants, ref_gt_matrix[0]);
+    vario::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
+    vario::applyVariants(ref_seqs, ref_variants, ref_gt_matrix[0]);
   }
   else {
     // duplicate genome (all loci homozygous reference)
@@ -151,7 +158,7 @@ int main (int argc, char* argv[])
   //SeqIO::indexFasta(reference.c_str());
 
   // generate mutations (absolute position + nucleotide shift + chr copy)
-  vector<Mutation> mutations = VarIO::generateMutations(num_mutations, ref_len, random);
+  vector<Mutation> mutations = vario::generateMutations(num_mutations, ref_len, random);
 
   fprintf(stderr, "\nTotal set of mutations (bp, offset):\n");
   for (int i=0; i<num_mutations; i++) {
@@ -187,7 +194,7 @@ cerr << c << ", " << c.m_vecMutations.size() << " mutations" << endl;
 
   ofstream f_vcf;
   f_vcf.open("mutations.vcf");
-  VarIO::writeVcf(ref_seqs, mutations, mutMatrix, f_vcf);
+  vario::writeVcf(ref_seqs, mutations, mutMatrix, f_vcf);
   f_vcf.close();
 
   return EXIT_SUCCESS;

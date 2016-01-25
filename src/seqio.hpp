@@ -18,6 +18,21 @@ struct SeqRecord
   SeqRecord(const std::string&, const std::string&, const std::string&);
 };
 
+/** Stores a set of SeqRecords along with indexing information. */
+struct Genome
+{
+  unsigned num_records;
+  unsigned length;                        /** total length of all sequences */
+  unsigned masked_length;                 /** length of unmasked (non-'N') positions */
+  std::vector<SeqRecord> records;
+  std::vector<unsigned> vec_start_chr;    /** cumulative start positions of sequences */
+  std::vector<unsigned> vec_start_masked; /** cumulative start positions of unmasked regions */
+  std::vector<unsigned> vec_cumlen_masked; /** cumulative lengths of unmasked regions */
+
+  Genome(const char*);
+  void indexRecords();
+};
+
 /** Reads sequences from file. */
 std::vector<SeqRecord> readFasta(const char*);
 /** Reads sequences from istream. */
@@ -26,6 +41,8 @@ std::vector<SeqRecord> readFasta(std::istream&);
 int writeFasta(const std::vector<SeqRecord>&, std::ostream&);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
+/** Identify start positions of chromosomes and masked regions. */
+void indexGenome();
 /** Convert a nucleotide char into Nuc */
 Nuc charToNuc(const char);
 /** Convert Nuc into a nucleotide char */

@@ -14,6 +14,8 @@ using std::map;
 using std::string;
 using std::vector;
 
+namespace vario {
+
 Mutation::Mutation() {
   this->id = 0;
   this->absPos = 0;
@@ -44,7 +46,11 @@ bool Variant::isSnv() {
   return true;
 }
 
-vector<Mutation> VarIO::generateMutations(const int num_mutations, unsigned long ref_len, boost::function<float()>& random) {
+/*------------------------------------*/
+/*           Utility methods          */
+/*------------------------------------*/
+
+vector<Mutation> generateMutations(const int num_mutations, unsigned long ref_len, boost::function<float()>& random) {
 
   vector<Mutation> mutations(num_mutations);
   std::set<unsigned long> mutPositions; // remember mutated positions (enforce infinite sites model)
@@ -69,14 +75,14 @@ vector<Mutation> VarIO::generateMutations(const int num_mutations, unsigned long
   return mutations;
 }
 
-void VarIO::readVcf(string vcf_filename, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
+void readVcf(string vcf_filename, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
   std::ifstream f_vcf;
   f_vcf.open(vcf_filename.c_str(), std::ios::in);
   readVcf(f_vcf, variants, gtMatrix);
   f_vcf.close();
 }
 
-void VarIO::readVcf(std::istream &input, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
+void readVcf(std::istream &input, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
   unsigned num_samples = 0;
   string line = "";
   string header_line;
@@ -130,7 +136,7 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
   }
 }
 
-void VarIO::writeVcf(const vector<SeqRecord> &seqs, const vector<Mutation> &muts, const vector<vector<short> > &mutMatrix, std::ostream &out) {
+void writeVcf(const vector<SeqRecord> &seqs, const vector<Mutation> &muts, const vector<vector<short> > &mutMatrix, std::ostream &out) {
   unsigned num_samples = mutMatrix.size();
   short  var_qual = 40; // QUAL column
   string var_info = (format("NS=%d") % num_samples).str(); // INFO column
@@ -187,7 +193,7 @@ void VarIO::writeVcf(const vector<SeqRecord> &seqs, const vector<Mutation> &muts
   }
 }
 
-void VarIO::applyVariants(vector<SeqRecord>& sequences, const vector<Variant>& variants, const vector<Genotype>& genotypes) {
+void applyVariants(vector<SeqRecord>& sequences, const vector<Variant>& variants, const vector<Genotype>& genotypes) {
   unsigned num_sequences = sequences.size();
   // generate lookup table for sequences
   map<string,unsigned> chr2seq;
@@ -227,3 +233,5 @@ fprintf(stderr, "genotypes: %lu\n", genotypes.size());
     }
   }
 }
+
+} /* namespace vario */

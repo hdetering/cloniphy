@@ -8,6 +8,7 @@
 #include <vector>
 
 using seqio::SeqRecord;
+using vario::Mutation;
 
 struct Clone: public Node
 {

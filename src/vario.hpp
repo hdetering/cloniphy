@@ -9,6 +9,8 @@
 
 using seqio::SeqRecord;
 
+namespace vario {
+
 /** Mutations specifiy a modification of a sequence.
  *  TODO: Do I really belong here?
  */
@@ -44,18 +46,17 @@ struct Genotype
   short paternal; /** allele on paternal strand */
 };
 
-class VarIO {
-  public:
-    /** Generate random mutations out of thin air. */
-    static std::vector<Mutation> generateMutations(const int num_mutations, unsigned long ref_len, boost::function<float()>& random);
-    /** Read VCF file and return list of variants. */
-    static void readVcf(std::string vcf_filename, std::vector<Variant>& variants, std::vector<std::vector<Genotype> >& gtMatrix);
-    /** Read input stream with variants in VCF format and return list of variants. */
-    static void readVcf(std::istream& vcf_filename, std::vector<Variant>& variants, std::vector<std::vector<Genotype> >& gtMatrix);
-    /** Generate VCF output from a reference sequence and a set of mutations.  */
-    static void writeVcf(const std::vector<SeqRecord>&, const std::vector<Mutation>&, const std::vector<std::vector<short> >&, std::ostream&);
-    /** Apply variants to a given reference sequence */
-    static void applyVariants(std::vector<SeqRecord>&, const std::vector<Variant>&, const std::vector<Genotype>&);
-};
+/** Generate random mutations out of thin air. */
+std::vector<Mutation> generateMutations(const int num_mutations, unsigned long ref_len, boost::function<float()>& random);
+/** Read VCF file and return list of variants. */
+void readVcf(std::string vcf_filename, std::vector<Variant>& variants, std::vector<std::vector<Genotype> >& gtMatrix);
+/** Read input stream with variants in VCF format and return list of variants. */
+void readVcf(std::istream& vcf_filename, std::vector<Variant>& variants, std::vector<std::vector<Genotype> >& gtMatrix);
+/** Generate VCF output from a reference sequence and a set of mutations.  */
+void writeVcf(const std::vector<SeqRecord>&, const std::vector<Mutation>&, const std::vector<std::vector<short> >&, std::ostream&);
+/** Apply variants to a given reference sequence */
+void applyVariants(std::vector<SeqRecord>&, const std::vector<Variant>&, const std::vector<Genotype>&);
+
+} /* namespace vario */
 
 #endif /* VARIO_H */

@@ -11,7 +11,44 @@ using namespace std;
 
 namespace seqio {
 
-SeqRecord::SeqRecord(const string& id, const string& desc, const string& seq) : id(id), description(desc), seq(seq) {}
+SeqRecord::SeqRecord(const string& id, const string& desc, const string& seq)
+  : id(id), description(desc), seq(seq) {}
+
+Genome::Genome(const char* filename) {
+  length = 0;
+  masked_length = 0;
+
+  // read records from file
+  records = readFasta(filename);
+  num_records = records.size();
+  // initialize indices
+  indexRecords();
+}
+
+void Genome::indexRecords() {
+  unsigned cum_start = 0;
+  vec_start_chr.push_back(cum_start);
+  for (vector<SeqRecord>::const_iterator rec=records.begin(); rec!=records.end(); ++rec) {
+    unsigned seq_len = rec->seq.length();
+    // index masked regions
+    for (unsigned p=0; p<seq_len;) {
+      // skip to next unmasked position
+      while (p<seq_len && rec->seq[p] == 'N') { p++; }
+      vec_start_masked.push_back(cum_start + p);
+      // skip to next masked position
+      while (p<seq_len && rec->seq[p] != 'N') { p++; masked_length++; }
+      vec_cumlen_masked.push_back(masked_length);
+    }
+    cum_start += seq_len;
+    vec_start_chr.push_back(cum_start);
+  }
+  length = vec_start_chr[num_records];
+fprintf(stderr, "\nGenome stats:\n\trecords:\t%u\n\tlength:\t%u\n", num_records, length);
+}
+
+/*------------------------------------*/
+/*           Utility methods          */
+/*------------------------------------*/
 
 vector<SeqRecord> readFasta(const char *filename) {
   ifstream inputFile;
