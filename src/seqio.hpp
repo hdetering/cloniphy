@@ -54,6 +54,8 @@ std::vector<std::string> &split(const std::string&, char, std::vector<std::strin
 /** Splits a string by a delimiter into an existing vector */
 std::vector<std::string> split(const std::string&, char);
 
-}
+} /* namespace seqio */
+
+std::istream& safeGetline(std::istream& is, std::string& t);
 
 #endif /* SEQIO_H */
