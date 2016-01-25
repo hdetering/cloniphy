@@ -1,6 +1,7 @@
 #ifndef SEQIO_H
 #define SEQIO_H
 
+#include "stringio.hpp"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -49,13 +50,7 @@ Nuc charToNuc(const char);
 char nucToChar(const Nuc);
 /** Mutate a nucleotide by an offset. */
 char shiftNucleotide(const char, const int);
-/** Splits a string by a delimitor into an existing vector */
-std::vector<std::string> &split(const std::string&, char, std::vector<std::string>&);
-/** Splits a string by a delimiter into an existing vector */
-std::vector<std::string> split(const std::string&, char);
 
 } /* namespace seqio */
-
-std::istream& safeGetline(std::istream& is, std::string& t);
 
 #endif /* SEQIO_H */

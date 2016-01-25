@@ -6,13 +6,9 @@
 #include <map>
 #include <set>
 #include <stdio.h>
-#include <string>
-#include <vector>
 
+using namespace std;
 using boost::format;
-using std::map;
-using std::string;
-using std::vector;
 
 namespace vario {
 
@@ -34,8 +30,8 @@ bool Mutation::operator< (const Mutation &other) const {
 }
 
 vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
-  std::vector<Mutation> mutationsCopy = mutations;
-  std::sort(mutationsCopy.begin(), mutationsCopy.end());
+  vector<Mutation> mutationsCopy = mutations;
+  sort(mutationsCopy.begin(), mutationsCopy.end());
   return mutationsCopy;
 }
 
@@ -76,8 +72,8 @@ vector<Mutation> generateMutations(const int num_mutations, unsigned long ref_le
 }
 
 void readVcf(string vcf_filename, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
-  std::ifstream f_vcf;
-  f_vcf.open(vcf_filename.c_str(), std::ios::in);
+  ifstream f_vcf;
+  f_vcf.open(vcf_filename.c_str(), ios::in);
   readVcf(f_vcf, variants, gtMatrix);
   f_vcf.close();
 }
@@ -87,22 +83,22 @@ void readVcf(std::istream &input, vector<Variant>& variants, vector<vector<Genot
   string line = "";
   string header_line;
   // consume header lines
-  while (getline(input, line) && line[0]=='#') {
+  while (stringio::safeGetline(input, line) && line[0]=='#') {
     header_line = line;
   }
 fprintf(stderr, "VCF header: %s\n", header_line.c_str());
   // parse header
-  vector<string> hdr_cols = seqio::split(header_line, '\t');
+  vector<string> hdr_cols = stringio::split(header_line, '\t');
   num_samples = hdr_cols.size()-9; // samples start at column 10
   gtMatrix = vector<vector<Genotype> >(num_samples);
 
   // parse variants
   unsigned var_idx = 0;
   while(input.good()) {
-    vector<string> var_cols = seqio::split(line, '\t');
+    vector<string> var_cols = stringio::split(line, '\t');
     if (var_cols.size() != num_samples+9) {
       fprintf(stderr, "[ERROR] number of columns does not match header (variant '%s').\n", var_cols[2].c_str());
-      getline(input, line);
+      stringio::safeGetline(input, line);
       continue;
     }
     Variant var;
@@ -110,11 +106,11 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
     var.pos = atol(var_cols[1].c_str());
     var.id  = var_cols[2];
     var.alleles.push_back(var_cols[3]);
-    vector<string> alt = seqio::split(var_cols[4], ',');
+    vector<string> alt = stringio::split(var_cols[4], ',');
     var.alleles.insert(var.alleles.end(), alt.begin(), alt.end());
     // TODO: at this point only SNVs are supported
     if (!var.isSnv()) {
-      getline(input, line);
+      stringio::safeGetline(input, line);
       continue;
     }
 
@@ -132,7 +128,7 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
       //gt->paternal = b_allele;
       gtMatrix[i].push_back(gt);
     }
-    getline(input, line);
+    stringio::safeGetline(input, line);
   }
 }
 
