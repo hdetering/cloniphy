@@ -33,6 +33,7 @@ using seqio::SeqRecord;
 using seqio::Genome;
 using vario::Genotype;
 using vario::Variant;
+using evolution::SubstitutionModel;
 
 boost::function<float()> initRandomNumberGenerator(long seed);
 bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree, bool verbose=true);
@@ -49,6 +50,7 @@ int main (int argc, char* argv[])
   string ref_vcf = "";
   string tree_fn = "";
   long seed;
+  double titv = 0.5; // TODO: make this a user parameter (?)
 
   bool args_ok = parseArgs(argc, argv, num_clones, freqs, num_mutations, num_transmuts, reference, ref_vcf, tree_fn);
   if (!args_ok) { return EXIT_FAILURE; }
@@ -62,10 +64,6 @@ int main (int argc, char* argv[])
   boost::function<float()> random = initRandomNumberGenerator(seed);
   // take that baby for a spin
   //for (int i=0; i<10; i++) { fprintf(stderr, "%.10f\n", random()); }
-
-  // test genome indexing
-  Genome g = Genome(reference.c_str());
-  exit(0);
 
   Tree<Clone> tree;
   if (tree_fn.size()>0) {
@@ -87,7 +85,6 @@ int main (int argc, char* argv[])
     }
   }
   else {
-    //CoalescentCloneTree tree(num_clones, freqs);
     tree = Tree<Clone>(num_clones);
     fprintf(stderr, "\nGenerating random topology...\n");
     tree.generateRandomTopology(random);
@@ -121,80 +118,62 @@ int main (int argc, char* argv[])
 
   // read reference sequence
   fprintf(stderr, "\nReading reference from file '%s'...", reference.c_str());
-  vector<SeqRecord> ref_seqs = seqio::readFasta(reference.c_str());
-  unsigned i;
-  unsigned long ref_len = 0;
-  vector<unsigned long> cumStart; // cumulative start position of each sequence;
-  for (i=0; i<ref_seqs.size(); ++i) {
-    cumStart.push_back(ref_len);
-    ref_len += ref_seqs[i].seq.size();
-  }
-  fprintf(stderr, "read (%lu bp in %u sequences).\n", ref_len, i);
+  Genome ref_genome = Genome(reference.c_str());
+  fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
+  // duplicate genome (all loci homozygous reference)
+  ref_genome.duplicate();
+
+  // if a VCF file was provided, apply germline variants
   if (ref_vcf.size() > 0) {
-    fprintf(stderr, "applying reference variants (from %s).\n", ref_vcf.c_str());
+    fprintf(stderr, "applying germline   variants (from %s).\n", ref_vcf.c_str());
     vector<Variant> ref_variants;
     vector<vector<Genotype > > ref_gt_matrix;
     vario::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
-    vario::applyVariants(ref_seqs, ref_variants, ref_gt_matrix[0]);
+    vario::applyVariants(ref_genome, ref_variants, ref_gt_matrix[0]);
   }
-  else {
-    // duplicate genome (all loci homozygous reference)
-    unsigned num_seqs = ref_seqs.size();
-    for (unsigned i=0; i<num_seqs; ++i) {
-      SeqRecord orig = ref_seqs[i];
-      SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
-      ref_seqs.push_back(*dupl);
-      ref_seqs[i].id += "_m";
-      ref_seqs[num_seqs+i].id += "_p";
-    }
-  }
+
   // write "healthy" genome to file
   ofstream f_fasta;
   f_fasta.open("healthy_genome.fa");
-  seqio::writeFasta(ref_seqs, f_fasta);
+  seqio::writeFasta(ref_genome.records, f_fasta);
   f_fasta.close();
 
   //fprintf(stderr, "generating FASTA index.\n");
   //SeqIO::indexFasta(reference.c_str());
 
-  // generate mutations (absolute position + nucleotide shift + chr copy)
-  vector<Mutation> mutations = vario::generateMutations(num_mutations, ref_len, random);
+  // generate mutations (relative position + chr copy)
+  vector<Mutation> mutations = vario::generateMutations(num_mutations, random);
+  // store variants separately (genomic positions and alleles)
+  vector<Variant> variants = vector<Variant>();
 
-  fprintf(stderr, "\nTotal set of mutations (bp, offset):\n");
+  fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
   for (int i=0; i<num_mutations; i++) {
-    fprintf(stderr, "%ld\t%d\n", mutations[i].absPos, mutations[i].offset);
+    fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
   }
 
   // initialize mutation matrix
-  vector<std::vector<short> > mutMatrix(num_clones+1, std::vector<short>(num_mutations,0));
+  vector<vector<short> > mutMatrix(tree.m_numNodes, std::vector<short>(num_mutations,0));
 
   // generate clone sequences based on clonal tree and mutations
+  fprintf(stderr, "---\nNow generating clone genomes...\n");
+  //vector<Clone *> clones = tree.getVisibleNodes();
+  SubstitutionModel model = SubstitutionModel(ref_genome.nuc_freq, titv);
+  Clone root = *(tree.m_root);
+  root.mutateGenome(ref_genome, mutations, variants, model, mutMatrix, random);
+
+  // compile variants for output (only visible nodes in clone tree)
   vector<Clone *> clones = tree.getVisibleNodes();
-  for (unsigned i=0; i<clones.size(); ++i) {
-    Clone c = *(clones[i]);
-cerr << c << ", " << c.m_vecMutations.size() << " mutations" << endl;
-    vector<SeqRecord> clone_genome = ref_seqs; // TODO: check memory footprint
-    // assign clone id (either by label or index)
-    string clone_id = "";
-    if (c.label.size()>0) {
-      clone_id = c.label;
-    } else {
-      clone_id = boost::str(boost::format("clone_%02d") % c.index);
-    }
-    // rename sequences including clone id
-    for (unsigned j=0; j<clone_genome.size(); ++j) {
-      clone_genome[j].id += '-' + clone_id;
-    }
-    c.mutateGenome(clone_genome, cumStart, mutations, mutMatrix[i]);
-    string filename = boost::str(boost::format("%s_genome.fa") % clone_id);
-    ofstream outfile;
-    outfile.open(filename.c_str());
-    seqio::writeFasta(clone_genome, outfile);
+  vector<vector<short> > mat_mut_filt;
+  vector<string> vec_labels;
+  for (unsigned i=0; i<clones.size(); i++) {
+    vec_labels.push_back(clones[i]->label);
+    mat_mut_filt.push_back(mutMatrix[clones[i]->index]);
   }
 
+  // write clonal variants to file
   ofstream f_vcf;
   f_vcf.open("mutations.vcf");
-  vario::writeVcf(ref_seqs, mutations, mutMatrix, f_vcf);
+  vario::writeVcf(ref_genome.records, variants, vec_labels, mat_mut_filt, f_vcf);
   f_vcf.close();
 
   return EXIT_SUCCESS;

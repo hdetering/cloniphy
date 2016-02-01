@@ -5,18 +5,53 @@
 namespace evolution {
 
 SubstitutionModel::SubstitutionModel(double p_i[4], double titv) {
-  kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]); /* this will change using doVarFreqs4 or doVarFreqs12 per site.. */
+  kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]);
 
 }
 
+/** Simulates the nucleotide substitution process for a site */
+short SubstitutionModel::MutateNucleotide(short ref_nuc, boost::function<float()>& random) {
+	double r, cumProb[4];
+  short new_nuc = 0;
+
+  // TODO: needs to be called at top-level context!
+	//HKY (Pij, (p->anc->time - p->time) * m, kappa, varRate, pi);
+  if (ref_nuc != 0) // reference nucleotide has probability zero
+    cumProb[0] = Pij[ref_nuc][0];
+  else
+    cumProb[0] = 0;
+  for (int i=1; i<4; i++) {
+    if (ref_nuc != i) // reference nucleotide has probability zero
+      cumProb[i] = cumProb[i-1] + Pij[ref_nuc][i];
+    else
+      cumProb[i] = cumProb[i-1];
+  }
+  for (int i=0; i<4; i++)
+    cumProb[i] /= cumProb[3]; // normalize probabilities
+
+	r = random();
+	if (r >= 0.0 && r <= cumProb[0])
+		new_nuc = 0;
+	else if (r > cumProb[0] && r <= cumProb[1])
+		new_nuc = 1;
+	else if (r > cumProb[1] && r <= cumProb[2])
+		new_nuc = 2;
+	else
+		new_nuc = 3;
+
+  return new_nuc;
+}
+
+
 /* parameters */
-double pinv; // proportion of invariable sites
-double titv; // transition/transversion ratio
-double Rmat[6]; // transition rate matrix A-C A-G A-T C-G C-T G-T, for GTR models
-double Qij[16]; // GTR substition rate matrix (4x4)
+double pinv;      // proportion of invariable sites
+double titv;      // transition/transversion ratio
+double Rmat[6];   // transition rate matrix A-C A-G A-T C-G C-T G-T, for GTR models
 double NRmat[12]; // general rate matrix (AC CA AG GA AT TA CG GC CT TC GT=1 TG)
 
 /* global variables */
+double Pij;        // per-site substitution rate matrix
+double Qij[16];    // rate matrix
 double Cijk[256];
 double Root[4];
 double mr;
@@ -24,9 +59,7 @@ double tstv;
 
 // set default values for parameters
 void init() {
-  // proportion of invariable sites
-  pinv = 0.0;
-  titv = -1;
+  pinv = 0.0; // proportion of invariable sites
   // transition rate matrix A-C A-G A-T C-G C-T G-T, for GTR models
   for (int i = 0; i < 6; i++)	Rmat[i] = -1;
   // general rate matrix (AC CA AG GA AT TA CG GC CT TC GT=1 TG)
@@ -36,7 +69,7 @@ void init() {
 
 /*---------------------------------- HKY -------------------------------------*/
 /**	HKY performs Hasegawa-Kishino-Yano 85 correction */
-void SubstitutionModel::HKY (double Pij[4][4], double branchLength, double kappa, double varRate, double p_i[4])
+void HKY (double Pij[4][4], double branchLength, double kappa, double varRate, double p_i[4])
 {
 	int			i, j;
 	double	A, t, PIj, beta;
@@ -80,7 +113,7 @@ void SubstitutionModel::HKY (double Pij[4][4], double branchLength, double kappa
 
 /*---------------------------------- GTR -------------------------------------*/
 /** General Time-Reversable model */
-void SubstitutionModel::GTR (double Pij[4][4], double branchLength, double varRate, double p_i[4])
+void GTR (double Pij[4][4], double branchLength, double varRate, double p_i[4])
 {
 	int 	i, j, k;
 	double	t, expt[4];
@@ -145,7 +178,7 @@ void SubstitutionModel::GTR (double Pij[4][4], double branchLength, double varRa
 
 /*----------------------------------- GTnR -----------------------------------*/
 /* GTR non reversible */
-void SubstitutionModel::GTnR (double Pij[4][4], double branchLength, double varRate, double p_i[4])
+void GTnR (double Pij[4][4], double branchLength, double varRate, double p_i[4])
 {
 	int 	i, j, k;
 	double	t, expt[4];
