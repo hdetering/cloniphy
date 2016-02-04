@@ -21,6 +21,7 @@ typedef boost::mt19937 base_generator_type;
 #include <ctime>
 #include <exception>
 #include <fstream>
+#include <map>
 #include <math.h>
 #include <sstream>
 #include <string>
@@ -51,6 +52,9 @@ int main (int argc, char* argv[])
   string tree_fn = "";
   long seed;
   double titv = 0.5; // TODO: make this a user parameter (?)
+
+  // internal vars
+  map<Clone*, string> clone2fn; // stores genome file names for each clone
 
   bool args_ok = parseArgs(argc, argv, num_clones, freqs, num_mutations, num_transmuts, reference, ref_vcf, tree_fn);
   if (!args_ok) { return EXIT_FAILURE; }
@@ -138,6 +142,7 @@ int main (int argc, char* argv[])
   f_fasta.open("healthy_genome.fa");
   seqio::writeFasta(ref_genome.records, f_fasta);
   f_fasta.close();
+  clone2fn[tree.m_root] = "healthy_genome.fa";
 
   //fprintf(stderr, "generating FASTA index.\n");
   //SeqIO::indexFasta(reference.c_str());
@@ -161,7 +166,8 @@ int main (int argc, char* argv[])
   //vector<Clone *> clones = tree.getVisibleNodes();
   SubstitutionModel model = SubstitutionModel(ref_genome.nuc_freq, titv);
   Clone root = *(tree.m_root);
-  root.mutateGenome(ref_genome, mutations, model, variants, mutMatrix, random);
+
+  root.mutateGenome(ref_genome, mutations, model, variants, mutMatrix, random, clone2fn);
 
   // compile variants for output (only visible nodes in clone tree + root)
   vector<Clone *> clones = tree.getVisibleNodes();

@@ -51,12 +51,14 @@ void Clone::replace(Clone *cloneToReplace) {
   }
 }
 
+// returns filenames of genome files in clone2fn
 void Clone::mutateGenome(Genome &ref_genome,
                          const vector<Mutation> &mutations,
                          SubstitutionModel model,
                          vector<Variant> &variants,
                          vector<vector<short> > &mutMatrix,
-                         boost::function<float()>& rng) {
+                         boost::function<float()>& rng,
+                         map<Clone*, string>& clone2fn) {
 cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size() << " mutations" << endl;
   Genome my_genome = ref_genome; // TODO: check memory footprint
   // collect ancestral variants
@@ -107,11 +109,12 @@ cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size
     ofstream outfile;
     outfile.open(filename.c_str());
     seqio::writeFasta(my_genome.records, outfile);
+    clone2fn[this] = filename;
   }
 
   // recurse for children
   for (unsigned i=0; i<this->m_vecChildren.size(); i++) {
-    m_vecChildren[i]->mutateGenome(ref_genome, mutations, model, variants, mutMatrix, rng);
+    m_vecChildren[i]->mutateGenome(ref_genome, mutations, model, variants, mutMatrix, rng, clone2fn);
   }
 //std::cerr << "applying a total of " << mut_ids.size() << " mutations to <Clone(label=" << this->label << ")>" << std::endl;
 cerr << endl;
