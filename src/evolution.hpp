@@ -8,6 +8,7 @@
 namespace evolution {
 
 struct SubstitutionModel {
+  double Qij[4][4]; // mutation rate matrix (diagonal entries 0)
   double Pij[4][4]; // per-site substitution rate matrix
   double kappa;   // transition-transversion rate
 

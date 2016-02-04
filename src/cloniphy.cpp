@@ -78,7 +78,8 @@ int main (int argc, char* argv[])
     // if number of mutations have not been supplied specifically,
     // branch lengths are interpreted as number of mutations
     if (num_mutations == 0) {
-      fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths:\n");
+      fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths (expected number of mutations).\n");
+      // TODO: should absolute number of mutations be encodable in branch lengths?
       double dbl_branch_length = tree.getTotalBranchLength();
       num_mutations = floor(dbl_branch_length);
       fprintf(stderr, "Simulating a total of %d mutations.\n", num_mutations);
@@ -141,15 +142,16 @@ int main (int argc, char* argv[])
   //fprintf(stderr, "generating FASTA index.\n");
   //SeqIO::indexFasta(reference.c_str());
 
-  // generate mutations (relative position + chr copy)
-  vector<Mutation> mutations = vario::generateMutations(num_mutations, random);
+  vector<Mutation> mutations;
+  if (num_mutations > 0) {
+    // generate mutations (relative position + chr copy)
+    mutations = vario::generateMutations(num_mutations, random);
+    fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
+    for (int i=0; i<num_mutations; i++)
+      fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
+  }
   // store variants separately (genomic positions and alleles)
   vector<Variant> variants = vector<Variant>();
-
-  fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
-  for (int i=0; i<num_mutations; i++) {
-    fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
-  }
 
   // initialize mutation matrix
   vector<vector<short> > mutMatrix(tree.m_numNodes, std::vector<short>(num_mutations,0));
@@ -159,12 +161,16 @@ int main (int argc, char* argv[])
   //vector<Clone *> clones = tree.getVisibleNodes();
   SubstitutionModel model = SubstitutionModel(ref_genome.nuc_freq, titv);
   Clone root = *(tree.m_root);
-  root.mutateGenome(ref_genome, mutations, variants, model, mutMatrix, random);
+  root.mutateGenome(ref_genome, mutations, model, variants, mutMatrix, random);
 
-  // compile variants for output (only visible nodes in clone tree)
+  // compile variants for output (only visible nodes in clone tree + root)
   vector<Clone *> clones = tree.getVisibleNodes();
   vector<vector<short> > mat_mut_filt;
   vector<string> vec_labels;
+  // add root
+  vec_labels.push_back(tree.m_root->label);
+  mat_mut_filt.push_back(mutMatrix[tree.m_root->index]);
+  // add visible nodes
   for (unsigned i=0; i<clones.size(); i++) {
     vec_labels.push_back(clones[i]->label);
     mat_mut_filt.push_back(mutMatrix[clones[i]->index]);

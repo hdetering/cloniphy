@@ -34,10 +34,17 @@ struct Clone: public Node
   /** replace other clone in the tree (needed to collapse branches) */
   void replace(Clone *);
   /** modify the given sequence by applying a set of mutations. */
-  void mutateGenome(Genome&, const std::vector<Mutation>&,
-                    std::vector<Variant>&, SubstitutionModel,
+  void mutateGenome(Genome&,
+                    const std::vector<Mutation>&,
+                    SubstitutionModel,
+                    std::vector<Variant>&,
                     std::vector<std::vector<short> >&,
-                    boost::function<float()>& random);
+                    boost::function<float()>&);
+  /** apply a predefined set of mutations to own genome */
+  void applyMutations(const std::vector<Mutation>&,
+                      SubstitutionModel,
+                      Genome&,
+                      boost::function<float()>&);
 };
 
 #endif /* CLONE_H */

@@ -150,10 +150,7 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
       short a_allele = atoi(&genotype[0]);
       short b_allele = atoi(&genotype[2]); // TODO: this will fail for >9 alleles.
 //fprintf(stderr, "Genotype for sample %u: %d, %d\n", i, a_allele, b_allele);
-      Genotype gt = {a_allele, b_allele};
-      //Genotype *gt = new Genotype();
-      //gt->maternal = a_allele;
-      //gt->paternal = b_allele;
+      Genotype gt = { a_allele, b_allele };
       gtMatrix[i].push_back(gt);
     }
     stringio::safeGetline(input, line);
@@ -196,7 +193,7 @@ void writeVcf(const vector<SeqRecord> &seqs, const vector<Variant> &vars, const 
     string ref = var->alleles[0];
     string alt = var->alleles[1];
     out << format("%s\t%d\t%d\t%s\t%s\t%d\tPASS\t%d\t%s")
-                  % var->chr % var->pos+1 % var->idx_mutation
+                  % (var->chr) % (var->pos+1) % (var->idx_mutation)
                   % ref % alt % var_qual % var_info % var_fmt;
     for (unsigned i=0; i<num_samples; ++i) {
       string genotype = "";
@@ -211,7 +208,7 @@ void writeVcf(const vector<SeqRecord> &seqs, const vector<Variant> &vars, const 
   }
 }
 
-void applyVariants(Genome& genome, const vector<Variant>& variants, const vector<Genotype>& genotypes) {
+void applyVariants(Genome &genome, const vector<Variant> &variants, const vector<Genotype> &genotypes) {
   unsigned num_sequences = genome.num_records;
   // generate lookup table for sequences
   map<string,unsigned> chr2seq;

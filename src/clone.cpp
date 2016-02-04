@@ -51,9 +51,10 @@ void Clone::replace(Clone *cloneToReplace) {
   }
 }
 
-void Clone::mutateGenome(Genome &ref_genome, const vector<Mutation> &mutations,
-                         vector<Variant> &variants,
+void Clone::mutateGenome(Genome &ref_genome,
+                         const vector<Mutation> &mutations,
                          SubstitutionModel model,
+                         vector<Variant> &variants,
                          vector<vector<short> > &mutMatrix,
                          boost::function<float()>& rng) {
 cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size() << " mutations" << endl;
@@ -63,6 +64,9 @@ cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size
   vector<Genotype> anc_genotypes;
   if (this->parent != 0) {
     for (Clone *c=this->parent; c->parent!=0; c=c->parent) {
+      // inherit ancestral mutations
+      for (vector<int>::iterator i=c->m_vecMutations.begin(); i!=c->m_vecMutations.end(); ++i)
+        mutMatrix[this->index][*i] = mutMatrix[c->index][*i];
       anc_variants.insert(anc_variants.end(), c->m_vec_variants.begin(), c->m_vec_variants.end());
       anc_genotypes.insert(anc_genotypes.end(), c->m_vec_genotypes.begin(), c->m_vec_genotypes.end());
     }
@@ -70,29 +74,18 @@ cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size
   // apply ancestral variants
   vario::applyVariants(my_genome, anc_variants, anc_genotypes);
 
-  // adjust nucleotide substitution rates
-  evolution::HKY(model.Pij, this->length, model.kappa, 1.0, my_genome.nuc_freq);
   // apply mutations for self, creating new variants
-  vector<Mutation> myMutations;
+  vector<Mutation> my_mutations = vector<Mutation>(0);
   for (vector<int>::iterator i=this->m_vecMutations.begin(); i!=this->m_vecMutations.end(); ++i) {
-    myMutations.push_back(mutations[*i]);
+    my_mutations.push_back(mutations[*i]);
     // remember the chromosome copy the mutation applies to
     mutMatrix[this->index][mutations[*i].id] = mutations[*i].copy+1;
   }
-  // sort mutations by position
-  std::vector<Mutation> mutSorted = Mutation::sortByPosition(myMutations);
-  // apply mutations in order of reference position
-  for (std::vector<Mutation>::iterator i=mutSorted.begin(); i!=mutSorted.end(); ++i) {
-    Mutation m = *i;
-    Variant var = m.apply(my_genome, model, rng);
-    m_vec_variants.push_back(var); // append to own variants
-    variants.push_back(var); // append to global variants
-    // derive genotype from mutation
-    Genotype gt = *(new Genotype());
-    gt.maternal = (m.copy==0 ? 1 : 0);
-    gt.paternal = (m.copy==1 ? 1 : 0);
-    m_vec_genotypes.push_back(gt);
-  }
+  this->applyMutations(my_mutations, model, my_genome, rng);
+
+  // remember variants generated for this clone
+  for (std::vector<Variant>::iterator var=m_vec_variants.begin(); var!=m_vec_variants.end(); ++var)
+    variants.push_back(*var); // append to global variants
 
   // am I a clone whose genome is to be output?
   if (this->is_visible) {
@@ -118,8 +111,28 @@ cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size
 
   // recurse for children
   for (unsigned i=0; i<this->m_vecChildren.size(); i++) {
-    m_vecChildren[i]->mutateGenome(ref_genome, mutations, variants, model, mutMatrix, rng);
+    m_vecChildren[i]->mutateGenome(ref_genome, mutations, model, variants, mutMatrix, rng);
   }
 //std::cerr << "applying a total of " << mut_ids.size() << " mutations to <Clone(label=" << this->label << ")>" << std::endl;
 cerr << endl;
+}
+
+void Clone::applyMutations(const vector<Mutation> &my_mutations,
+                          SubstitutionModel model,
+                          Genome &my_genome,
+                          boost::function<float()>& rng)
+{
+  // sort mutations by position
+  std::vector<Mutation> mut_sorted = Mutation::sortByPosition(my_mutations);
+  // apply mutations in order of reference position
+  for (std::vector<Mutation>::iterator i=mut_sorted.begin(); i!=mut_sorted.end(); ++i) {
+    Mutation m = *i;
+    Variant var = m.apply(my_genome, model, rng);
+    m_vec_variants.push_back(var); // append to own variants
+    // derive genotype from mutation
+    Genotype gt = *(new Genotype());
+    gt.maternal = (m.copy==0 ? 1 : 0);
+    gt.paternal = (m.copy==1 ? 1 : 0);
+    m_vec_genotypes.push_back(gt);
+  }
 }

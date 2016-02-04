@@ -4,30 +4,53 @@
 
 namespace evolution {
 
-SubstitutionModel::SubstitutionModel(double p_i[4], double titv) {
-  kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]);
+SubstitutionModel::SubstitutionModel(double p[4], double titv) {
+  //kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]);
 
+  // TODO: add support for GTR model
+  // set up HKY mutation rate matrix (A, C, G, T)
+  for (int i=0; i<4; ++i)
+    Qij[i][i] = 0;
+  // A -> X
+  Qij[0][1] = p[1];
+  Qij[0][2] = p[2]*titv;
+  Qij[0][3] = p[3];
+  // C -> X
+  Qij[1][0] = p[0];
+  Qij[1][2] = p[2];
+  Qij[1][3] = p[3]*titv;
+  // G -> X
+  Qij[2][1] = p[1]*titv;
+  Qij[2][3] = p[3];
+  Qij[2][4] = p[4];
+  // T -> X
+  Qij[3][0] = p[0];
+  Qij[3][1] = p[1]*titv;
+  Qij[3][2] = p[2];
+
+  // order: A, C, G, T
+  /* this does only work with '-std=gnu++11'
+  double k = titv;
+  Qij = {
+    {      0,   p[1], k*p[2],   p[3] },
+    {   p[0],      0,   p[2], k*p[3] },
+    { k*p[0],   p[1],      0,   p[3] },
+    {   p[0], k*p[1],   p[2],      0 },
+  };*/
 }
 
-/** Simulates the nucleotide substitution process for a site */
+/** Simulates the nucleotide substitution process for a site
+  * Assuming that mutation is certain -> use Qij to pick new nucleotide */
 short SubstitutionModel::MutateNucleotide(short ref_nuc, boost::function<float()>& random) {
 	double r, cumProb[4];
   short new_nuc = 0;
 
-  // TODO: needs to be called at top-level context!
-	//HKY (Pij, (p->anc->time - p->time) * m, kappa, varRate, pi);
-  if (ref_nuc != 0) // reference nucleotide has probability zero
-    cumProb[0] = Pij[ref_nuc][0];
-  else
-    cumProb[0] = 0;
-  for (int i=1; i<4; i++) {
-    if (ref_nuc != i) // reference nucleotide has probability zero
-      cumProb[i] = cumProb[i-1] + Pij[ref_nuc][i];
-    else
-      cumProb[i] = cumProb[i-1];
-  }
-  for (int i=0; i<4; i++)
-    cumProb[i] /= cumProb[3]; // normalize probabilities
+  cumProb[0] = Qij[ref_nuc][0];
+	for (short i=1; i<4; ++i)
+		cumProb[i] = cumProb[i-1] + Qij[ref_nuc][i];
+  // normalize
+  for (short i=1; i<4; ++i)
+    cumProb[i] /= cumProb[3];
 
 	r = random();
 	if (r >= 0.0 && r <= cumProb[0])

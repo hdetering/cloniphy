@@ -60,7 +60,7 @@ struct Genotype
 /** Generate random mutations out of thin air. */
 std::vector<Mutation> generateMutations(
   const int num_mutations,
-  boost::function<float()>& random
+  boost::function<float()>&
 );
 /** Read VCF file and return list of variants. */
 void readVcf(
