@@ -2,6 +2,7 @@
 #define SEQIO_H
 
 #include "stringio.hpp"
+#include <boost/function.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -56,8 +57,8 @@ std::vector<SeqRecord> readFasta(std::istream&);
 int writeFasta(const std::vector<SeqRecord>&, std::ostream&, int = 60);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
-/** Identify start positions of chromosomes and masked regions. */
-void indexGenome();
+/** Simulate allelic dropout events, masking parts of genome as 'N's. */
+void simulateADO(const std::string, const float, const int, boost::function<float()>&);
 /** Convert a nucleotide char into Nuc */
 Nuc charToNuc(const char);
 /** Convert Nuc into a nucleotide char */

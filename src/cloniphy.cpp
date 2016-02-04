@@ -52,6 +52,8 @@ int main (int argc, char* argv[])
   string tree_fn = "";
   long seed;
   double titv = 0.5; // TODO: make this a user parameter (?)
+  float ado_pct = 0.1; // TODO: make this a user parameter
+  int ado_frag_len = 1000; // TODO: make this a user parameter
 
   // internal vars
   map<Clone*, string> clone2fn; // stores genome file names for each clone
@@ -187,6 +189,11 @@ int main (int argc, char* argv[])
   f_vcf.open("mutations.vcf");
   vario::writeVcf(ref_genome.records, variants, vec_labels, mat_mut_filt, f_vcf);
   f_vcf.close();
+
+  // perform ADO
+  if (ado_pct > 0)
+    for (map<Clone*, string>::iterator it=clone2fn.begin(); it!=clone2fn.end(); ++it)
+      seqio::simulateADO(it->second, ado_pct, ado_frag_len, random);
 
   return EXIT_SUCCESS;
 }

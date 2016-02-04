@@ -182,6 +182,51 @@ void indexFasta(const char *filename) {
   system(cmd.c_str());
 }
 
+/** Simulate allelic dropout (ADO) events
+  *   percentage: fraction of genome to mask with 'N's
+  *   frag_len:   length of masked fragments (runs of 'N's) */
+void simulateADO(const string fn_input,
+                 const float percentage,
+                 const int frag_len,
+                 boost::function<float()>& random) {
+fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
+  // read input genome
+  Genome g = Genome(fn_input.c_str());
+
+  // calculate number of masked regions needed
+  int num_frags = (int)(ceil((g.masked_length * percentage) / frag_len));
+  // pick locations for masked regions
+  // (multiples of fragment length so they don't overlap)
+  // TODO: avoid a start position to be picked twice
+  vector<double> vec_pos_frag;
+  for (int i=0; i<num_frags; ++i) {
+    float r = random();
+    double pos_folded = (unsigned)trunc(r*(g.masked_length/frag_len));
+    double pos_abs = pos_folded * frag_len;
+    vec_pos_frag.push_back(pos_abs/g.masked_length);
+  }
+  sort(vec_pos_frag.begin(), vec_pos_frag.end());
+
+  // perform actual masking
+  for (size_t i=0; i<vec_pos_frag.size(); ++i) {
+    Locus loc = g.getAbsoluteLocusMasked(vec_pos_frag[i]);
+fprintf(stderr, "\tmasking: %s:%u-%u\n", g.records[loc.idx_record].id.c_str(), loc.start, loc.start+1000);
+    for (int p=0; p<frag_len; ++p)
+      g.records[loc.idx_record].seq[loc.start+p] = 'N';
+  }
+
+  // create output filename
+  size_t pos_dot = fn_input.find_last_of(".");
+  string fn_output = fn_input;
+  fn_output.insert(pos_dot, ".ado");
+
+  // write modified genome to file
+fprintf(stderr, "Writing modified genome to file '%s'\n", fn_output.c_str());
+  ofstream f_out;
+  f_out.open(fn_output.c_str());
+  writeFasta(g.records, f_out);
+  f_out.close();
+}
 
 Nuc charToNuc(const char c) {
   switch (c) {

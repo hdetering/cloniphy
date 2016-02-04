@@ -109,6 +109,7 @@ cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size
     ofstream outfile;
     outfile.open(filename.c_str());
     seqio::writeFasta(my_genome.records, outfile);
+    outfile.close();
     clone2fn[this] = filename;
   }
 

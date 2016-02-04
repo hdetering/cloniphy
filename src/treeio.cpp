@@ -1,6 +1,7 @@
 #define DEBUG
 #include "clone.hpp"
 #include "treeio.hpp"
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
@@ -290,8 +291,8 @@ void Tree<T>::printDot(T *node, std::ostream& os) {
 
 template<typename T>
 void Tree<T>::_printDotRecursive(T *node, std::ostream& os) {
-  os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << ", l=" << node->length << "\"";
-  if (node->isRoot()) {
+  os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << "\"";
+  if (node==this->m_root) { // TODO: fix assignment of parent node (is always 0...) during tree creation
     os << ",style=filled,color=limegreen";
   } else if (node->is_visible) {
     os << ",style=filled,color=tomato";
@@ -302,7 +303,7 @@ void Tree<T>::_printDotRecursive(T *node, std::ostream& os) {
     float edgeWeight = child->distanceToParent();
     os << "\t" << node->index << " -> " << child->index;
     if (edgeWeight > 0.0) {
-      os << "[style=bold,label=" << edgeWeight << "]";
+      os << "[style=bold,label=\"m=" << edgeWeight << ", l=" << boost::format("%0.2f") % child->length << "\"]";
     }
     os << ";" << std::endl;
 

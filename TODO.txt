@@ -1,6 +1,8 @@
 # refactor:
+  clean up Clone->Node mess!!! (Node should be a templated class)
   Clone::is_visible -> Node::is_visible
   Clone::setParent(Clone*) -> Node::setParent(Node*)
+  remove un-needed CloneTree class
 
 # avoid masked positions ('N', lower case letters?) from being mutated
 
