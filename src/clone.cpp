@@ -1,5 +1,8 @@
 #include "clone.hpp"
+#include <boost/format.hpp>
 #include <ostream>
+
+using namespace std;
 
 Clone::Clone() {
   this->label = -1;
@@ -48,34 +51,91 @@ void Clone::replace(Clone *cloneToReplace) {
   }
 }
 
-void Clone::mutateGenome(std::vector<SeqRecord> &genome, const std::vector<unsigned long>& cumStart, const std::vector<Mutation> &mutations, std::vector<short> &mutMatrixRow) {
-  // collect ancestral mutations
-  std::vector<int> mut_ids;
-  for (Clone *c=this; c->parent!=0; c=c->parent) {
-    mut_ids.insert(mut_ids.end(), c->m_vecMutations.begin(), c->m_vecMutations.end());
+// returns filenames of genome files in clone2fn
+void Clone::mutateGenome(Genome &ref_genome,
+                         const vector<Mutation> &mutations,
+                         SubstitutionModel model,
+                         vector<Variant> &variants,
+                         vector<vector<short> > &mutMatrix,
+                         boost::function<float()>& rng,
+                         map<Clone*, string>& clone2fn) {
+cerr << "\nGenerating genome for " << *this << ", " << this->m_vecMutations.size() << " mutations" << endl;
+  Genome my_genome = ref_genome; // TODO: check memory footprint
+  // collect ancestral variants
+  vector<Variant> anc_variants;
+  vector<Genotype> anc_genotypes;
+  if (this->parent != 0) {
+    for (Clone *c=this->parent; c->parent!=0; c=c->parent) {
+      // inherit ancestral mutations
+      for (vector<int>::iterator i=c->m_vecMutations.begin(); i!=c->m_vecMutations.end(); ++i)
+        mutMatrix[this->index][*i] = mutMatrix[c->index][*i];
+      anc_variants.insert(anc_variants.end(), c->m_vec_variants.begin(), c->m_vec_variants.end());
+      anc_genotypes.insert(anc_genotypes.end(), c->m_vec_genotypes.begin(), c->m_vec_genotypes.end());
+    }
   }
-  std::vector<Mutation> myMutations;
-  for (std::vector<int>::iterator i=mut_ids.begin(); i!=mut_ids.end(); ++i) {
-    myMutations.push_back(mutations[*i]);
-    mutMatrixRow[mutations[*i].id] = 1;
+  // apply ancestral variants
+  vario::applyVariants(my_genome, anc_variants, anc_genotypes);
+
+  // apply mutations for self, creating new variants
+  vector<Mutation> my_mutations = vector<Mutation>(0);
+  for (vector<int>::iterator i=this->m_vecMutations.begin(); i!=this->m_vecMutations.end(); ++i) {
+    my_mutations.push_back(mutations[*i]);
+    // remember the chromosome copy the mutation applies to
+    mutMatrix[this->index][mutations[*i].id] = mutations[*i].copy+1;
   }
-  // sort mutations by position
-  std::vector<Mutation> mutSorted = Mutation::sortByPosition(myMutations);
-  // apply mutations in order of reference position
-  unsigned numSeqs = cumStart.size();
-  for (std::vector<Mutation>::iterator i=mutSorted.begin(); i!=mutSorted.end(); ++i) {
-    Mutation m = *i;
-//std::cerr << (*i).absPos << ", " << (*i).offset << std::endl;
-    unsigned s=0;
-    // identify index of sequence to be mutated 
-    while (s<cumStart.size() && cumStart[s]<=m.absPos) { s++; }
-    unsigned long loc_pos = m.absPos - cumStart[s-1];
-    unsigned targetSeqIndex = (s-1)+(numSeqs*m.copy);
-    char old_base = genome[targetSeqIndex].seq[loc_pos];
-    char new_base = SeqIO::shiftNucleotide(old_base, m.offset);
-    genome[targetSeqIndex].seq[loc_pos] = new_base;
-std::cerr << "<Mutation(abs_pos=" << m.absPos << ",offset=" << m.offset << ",copy=" << m.copy << ")> mutating " << old_base << " to " << new_base << "" << std::endl;
+  this->applyMutations(my_mutations, model, my_genome, rng);
+
+  // remember variants generated for this clone
+  for (std::vector<Variant>::iterator var=m_vec_variants.begin(); var!=m_vec_variants.end(); ++var)
+    variants.push_back(*var); // append to global variants
+
+  // am I a clone whose genome is to be output?
+  if (this->is_visible) {
+    // assign clone id (either by label or index)
+    string clone_id = "";
+    if (this->label.size()>0)
+      clone_id = this->label;
+    else
+      clone_id = boost::str(boost::format("clone_%02d") % this->index);
+
+    // rename sequences adding clone id
+    // (maybe not such a good idea afterall...)
+    //for (unsigned j=0; j<clone_genome.records.size(); ++j) {
+    //  clone_genome.records[j].id += '-' + clone_id;
+    //}
+
+    // write clone genome to file
+    string filename = boost::str(boost::format("%s_genome.fa") % clone_id);
+    ofstream outfile;
+    outfile.open(filename.c_str());
+    seqio::writeFasta(my_genome.records, outfile);
+    clone2fn[this] = filename;
+  }
+
+  // recurse for children
+  for (unsigned i=0; i<this->m_vecChildren.size(); i++) {
+    m_vecChildren[i]->mutateGenome(ref_genome, mutations, model, variants, mutMatrix, rng, clone2fn);
   }
 //std::cerr << "applying a total of " << mut_ids.size() << " mutations to <Clone(label=" << this->label << ")>" << std::endl;
-std::cerr << std::endl;
+cerr << endl;
+}
+
+void Clone::applyMutations(const vector<Mutation> &my_mutations,
+                          SubstitutionModel model,
+                          Genome &my_genome,
+                          boost::function<float()>& rng)
+{
+  // sort mutations by position
+  std::vector<Mutation> mut_sorted = Mutation::sortByPosition(my_mutations);
+  // apply mutations in order of reference position
+  for (std::vector<Mutation>::iterator i=mut_sorted.begin(); i!=mut_sorted.end(); ++i) {
+    Mutation m = *i;
+    Variant var = m.apply(my_genome, model, rng);
+    m_vec_variants.push_back(var); // append to own variants
+    // derive genotype from mutation
+    Genotype gt = *(new Genotype());
+    gt.maternal = (m.copy==0 ? 1 : 0);
+    gt.paternal = (m.copy==1 ? 1 : 0);
+    m_vec_genotypes.push_back(gt);
+  }
 }
