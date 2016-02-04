@@ -213,7 +213,7 @@ void applyVariants(Genome &genome, const vector<Variant> &variants, const vector
   // generate lookup table for sequences
   map<string,unsigned> chr2seq;
   for (unsigned i=0; i<num_sequences; ++i) {
-    chr2seq[genome.records[i].id] = i;
+    chr2seq[genome.records[i].id_ref] = i;
   }
 fprintf(stderr, "variants: %lu\n", variants.size());
 fprintf(stderr, "genotypes: %lu\n", genotypes.size());
@@ -237,6 +237,7 @@ fprintf(stderr, "genotypes: %lu\n", genotypes.size());
     }
     else {
       fprintf(stderr, "[WARN] sequence '%s' not contained in reference genome\n", var.chr.c_str());
+      return;
     }
   }
 }

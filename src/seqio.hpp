@@ -14,9 +14,10 @@ enum Nuc { A, C, G, T, N };
 
 struct SeqRecord
 {
-  std::string id;          /** Identifier */
-  std::string description; /** Sequence description (everything after first space in ID line) */
-  std::string seq;         /** Actual sequence */
+  std::string id;          /** identifier */
+  std::string description; /** sequence description (everything after first space in ID line) */
+  std::string seq;         /** actual sequence */
+  std::string id_ref;      /** identifier in reference genome (ploidy) */
   SeqRecord(const std::string&, const std::string&, const std::string&);
 };
 
