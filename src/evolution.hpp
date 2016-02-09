@@ -12,6 +12,8 @@ struct SubstitutionModel {
   double Pij[4][4]; // per-site substitution rate matrix
   double kappa;   // transition-transversion rate
 
+  /**custom transition probabilities */
+  SubstitutionModel(double Qij[4][4]);
   // default model: HKY with titv=0.5
   SubstitutionModel(double p_i[4], double titv);
   /** Simulates the nucleotide substitution process for a site */

@@ -34,9 +34,9 @@ struct Clone: public Node
   float distanceToParent();
   /** replace other clone in the tree (needed to collapse branches) */
   void replace(Clone *);
-  /** modify the given sequence by applying a set of mutations. */
+  /** create a modified genome based on given sequence by applying a set of mutations. */
   void mutateGenome(
-    Genome&,
+    const Genome&,
     const std::vector<Mutation>&,
     SubstitutionModel,
     std::vector<Variant>&,
@@ -44,10 +44,11 @@ struct Clone: public Node
     boost::function<float()>&,
     std::map<Clone*, std::string>&);
   /** apply a predefined set of mutations to own genome */
-  void applyMutations(const std::vector<Mutation>&,
-                      SubstitutionModel,
-                      Genome&,
-                      boost::function<float()>&);
+  void applyMutations(
+    const std::vector<Mutation>&,
+    SubstitutionModel,
+    Genome&,
+    boost::function<float()>&);
 };
 
 #endif /* CLONE_H */

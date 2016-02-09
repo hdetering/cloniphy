@@ -37,26 +37,36 @@ vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
   return mutationsCopy;
 }
 
-Variant Mutation::apply(Genome &genome, SubstitutionModel model, boost::function<float()>& rng) {
+void Mutation::apply(
+       Genome &genome,
+       SubstitutionModel model,
+       boost::function<float()> &rng,
+       Variant &var,
+       Genotype &gt)
+{
   Locus loc = genome.getAbsoluteLocusMasked(this->relPos);
   Nuc nuc_ref = seqio::charToNuc(genome.records[loc.idx_record].seq[loc.start]);
   Nuc nuc_alt = (Nuc)(model.MutateNucleotide((short)nuc_ref, rng));
 
   // initialize variant
-  Variant var = *(new Variant());
-  var.chr = genome.records[loc.idx_record].id;
+  var.id = str(boost::format("m%u") % this->id);
+  var.chr = genome.records[loc.idx_record].id_ref;
   var.pos = loc.start;
   var.alleles.push_back(seqio::nucToString(nuc_ref));
   var.alleles.push_back(seqio::nucToString(nuc_alt));
   var.idx_mutation = this->id;
   var.rel_pos = this->relPos;
 
+  // derive genotype from mutation
+  gt.id_variant = var.id;
+  gt.maternal = (this->copy==0 ? 1 : 0);
+  gt.paternal = (this->copy==1 ? 1 : 0);
+
   // modify genomic sequence
   unsigned targetSeqIndex = loc.idx_record + (genome.num_records * this->copy);
   genome.records[targetSeqIndex].seq[loc.start] = seqio::nucToChar(nuc_alt);
 
 fprintf(stderr, "Mutated '%s:%u' (%s>%s)\n", genome.records[targetSeqIndex].id.c_str(), loc.start, var.alleles[0].c_str(), var.alleles[1].c_str());
-  return var;
 }
 
 Variant::Variant() : id(""), chr(""), pos(0), alleles(0), idx_mutation(0), rel_pos(0.0) {}
@@ -150,7 +160,7 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
       short a_allele = atoi(&genotype[0]);
       short b_allele = atoi(&genotype[2]); // TODO: this will fail for >9 alleles.
 //fprintf(stderr, "Genotype for sample %u: %d, %d\n", i, a_allele, b_allele);
-      Genotype gt = { a_allele, b_allele };
+      Genotype gt = { var.id, a_allele, b_allele };
       gtMatrix[i].push_back(gt);
     }
     stringio::safeGetline(input, line);

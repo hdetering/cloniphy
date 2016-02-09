@@ -18,7 +18,7 @@ struct SeqRecord
   std::string description; /** sequence description (everything after first space in ID line) */
   std::string seq;         /** actual sequence */
   std::string id_ref;      /** identifier in reference genome (ploidy) */
-  SeqRecord(const std::string&, const std::string&, const std::string&);
+  SeqRecord(const std::string, const std::string, const std::string&);
 };
 
 /** Represents a genomic location */
@@ -51,9 +51,9 @@ struct Genome
 };
 
 /** Reads sequences from file. */
-std::vector<SeqRecord> readFasta(const char*);
+void readFasta(const char*, std::vector<SeqRecord>&);
 /** Reads sequences from istream. */
-std::vector<SeqRecord> readFasta(std::istream&);
+void readFasta(std::istream&, std::vector<SeqRecord>&);
 /** Writes sequences to ostream. */
 int writeFasta(const std::vector<SeqRecord>&, std::ostream&, int = 60);
 /** Generate an index for a FASTA file containing multiple sequences */

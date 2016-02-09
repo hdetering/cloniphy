@@ -11,7 +11,7 @@ using namespace std;
 
 namespace seqio {
 
-SeqRecord::SeqRecord(const string& id, const string& desc, const string& seq)
+SeqRecord::SeqRecord(const string id, const string desc, const string& seq)
   : id(id), description(desc), seq(seq), id_ref(id) {}
 
 Genome::Genome(const char* filename) {
@@ -22,7 +22,7 @@ Genome::Genome(const char* filename) {
     nuc_freq[i] = 0;
 
   // read records from file
-  records = readFasta(filename);
+  readFasta(filename, records);
   num_records = records.size();
   // initialize indices
   indexRecords();
@@ -120,26 +120,24 @@ Locus Genome::getAbsoluteLocusMasked(double rel_pos) {
 /*           Utility methods          */
 /*------------------------------------*/
 
-vector<SeqRecord> readFasta(const char *filename) {
+void readFasta(const char *filename, vector<SeqRecord> &records) {
   ifstream inputFile;
   inputFile.open(filename, ios::in);
-  vector<SeqRecord> records;
-  records = readFasta(inputFile);
+  readFasta(inputFile, records);
   inputFile.close();
-
-  return records;
 }
 
-vector<SeqRecord> readFasta(istream &input) {
-  vector<SeqRecord> records;
+void readFasta(istream &input, vector<SeqRecord> &records) {
   string header;
   string seq;
   string line;
 
   try {
-    getline(input, header);
+    stringio::safeGetline(input, header);
     while (input.good()) {
-      while (stringio::safeGetline(input, line) && line[0]!='>') {
+      while (stringio::safeGetline(input, line)) {
+        if (line.length()>0 && line[0]=='>')
+          break;
         seq += line;
       }
       size_t space_pos = header.find(' ');
@@ -155,8 +153,6 @@ vector<SeqRecord> readFasta(istream &input) {
     cerr << e.what() << endl;
     cerr << "Possibly premature end of FASTA file?" << endl;
   }
-
-  return records;
 }
 
 /** Write SeqRecords to FASTA file, using a defined line width. */

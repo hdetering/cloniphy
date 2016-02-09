@@ -4,6 +4,13 @@
 
 namespace evolution {
 
+/**custom transition probabilities */
+SubstitutionModel::SubstitutionModel(double Q[4][4]) {
+  for (int i=0; i<4; ++i)
+    for (int j=0; j<4; ++j)
+      this->Qij[i][j] = Q[i][j];
+}
+
 SubstitutionModel::SubstitutionModel(double p[4], double titv) {
   //kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]);
 

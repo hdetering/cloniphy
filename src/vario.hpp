@@ -34,6 +34,13 @@ struct Variant
   bool isSnv();
 };
 
+struct Genotype
+{
+  std::string id_variant; /** the variant this genotype refers to */
+  short maternal; /** allele on maternal strand */
+  short paternal; /** allele on paternal strand */
+};
+
 /** Mutations specifiy a modification of a sequence.
  *  TODO: Do I really belong here?
  */
@@ -48,13 +55,14 @@ struct Mutation
 
   bool operator< (const Mutation&) const; /** make mutations sortable */
   static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
-  Variant apply(Genome&, SubstitutionModel, boost::function<float()>& random);
-};
-
-struct Genotype
-{
-  short maternal; /** allele on maternal strand */
-  short paternal; /** allele on paternal strand */
+  /** Apply mutation to a given genomic sequence, */
+  /** returning a Variant and Genotype object */
+  void apply(
+    Genome& genome,
+    SubstitutionModel model,
+    boost::function<float()>& random,
+    Variant &var,
+    Genotype &gt);
 };
 
 /** Generate random mutations out of thin air. */

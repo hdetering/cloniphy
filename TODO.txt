@@ -1,9 +1,15 @@
+# user parameters
+  ADO percentage of genome
+  transition probabilities for sequence evolution model
+  Ti/Tv ratio
+
 # refactor:
   clean up Clone->Node mess!!! (Node should be a templated class)
   Clone::is_visible -> Node::is_visible
   Clone::setParent(Clone*) -> Node::setParent(Node*)
-  remove un-needed CloneTree class
+  remove un-needed classes CloneTree, BasicCloneTree, CoalescentCloneTree
 
-# avoid masked positions ('N', lower case letters?) from being mutated
+# implement streaming I/O for genomes (memory footprint too large a/t/m)
 
-# VCF output: flag private mutations
+# introduce class Chromosome?
+  to bundle SequenceRecords belonging to same CHR (i.e. copies)
