@@ -18,6 +18,7 @@ struct SeqRecord
   std::string description; /** sequence description (everything after first space in ID line) */
   std::string seq;         /** actual sequence */
   std::string id_ref;      /** identifier in reference genome (ploidy) */
+  short copy;              /** chromosome copy (1 for haploid) */
   SeqRecord(const std::string, const std::string, const std::string&);
 };
 
@@ -47,7 +48,7 @@ struct Genome
   void indexRecords();
   void duplicate(); // increase ploidy
   /** Get absolute coordinates for a relative position in unmasked pard of the genome */
-  Locus getAbsoluteLocusMasked(double);
+  Locus getAbsoluteLocusMasked(double) const;
 };
 
 /** Reads sequences from file. */

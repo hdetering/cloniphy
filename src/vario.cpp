@@ -28,7 +28,7 @@ Mutation::Mutation(char ref, char alt) {
 }*/
 
 bool Mutation::operator< (const Mutation &other) const {
-  return relPos < other.relPos;
+  return (relPos + copy) < (other.relPos + other.copy);
 }
 
 vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
@@ -109,6 +109,36 @@ vector<Mutation> generateMutations(const int num_mutations, boost::function<floa
   return mutations;
 }
 
+/** Apply set of mutation to a given genomic sequence,
+    returning a set of Variant objects
+    (actual reference sequence is not changed) */
+void applyMutations(
+  const std::vector<Mutation> & mutations,
+  const Genome& genome,
+  SubstitutionModel model,
+  boost::function<float()>& random,
+  vector<Variant> &variants)
+{
+  for (vector<Mutation>::const_iterator m=mutations.begin(); m!=mutations.end(); ++m) {
+    Locus loc = genome.getAbsoluteLocusMasked(m->relPos);
+    Nuc nuc_ref = seqio::charToNuc(genome.records[loc.idx_record].seq[loc.start]);
+    Nuc nuc_alt = (Nuc)(model.MutateNucleotide((short)nuc_ref, random));
+
+    // initialize variant
+    Variant var = *(new Variant());
+    var.id = str(boost::format("m%u") % m->id);
+    var.chr = genome.records[loc.idx_record].id_ref;
+    var.pos = loc.start;
+    var.alleles.push_back(seqio::nucToString(nuc_ref));
+    var.alleles.push_back(seqio::nucToString(nuc_alt));
+    var.idx_mutation = m->id;
+    var.rel_pos = m->relPos;
+
+    // append variant to output
+    variants.push_back(var);
+  }
+}
+
 void readVcf(string vcf_filename, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
   ifstream f_vcf;
   f_vcf.open(vcf_filename.c_str(), ios::in);
@@ -178,7 +208,7 @@ void writeVcf(const vector<SeqRecord> &seqs, const vector<Variant> &vars, const 
   out << "##fileformat=VCFv4.1" << std::endl;
   time_t timer = time(NULL);
   tm* t = localtime(&timer);
-  out << "##fileDate=" << (1900+t->tm_year) << t->tm_mon << t->tm_mday << std::endl;
+  out << boost::format("##fileDate=%d-%d-%d") % (1900+t->tm_year) % t->tm_mon % t->tm_mday << std::endl;
   out << "##source=CloniPhy v0.01" << std::endl;
   //out << "##reference=" << std::endl; # TODO: include ref filename
   for (vector<SeqRecord>::const_iterator ref=seqs.begin(); ref!=seqs.end(); ++ref) {
@@ -197,7 +227,6 @@ void writeVcf(const vector<SeqRecord> &seqs, const vector<Variant> &vars, const 
   out << std::endl;
 
   // write variants
-  /* TODO: fix variant output */
   vector<Variant> sorted_vars = Variant::sortByPosition(vars);
   for (vector<Variant>::iterator var=sorted_vars.begin(); var!=sorted_vars.end(); ++var) {
     string ref = var->alleles[0];
@@ -249,6 +278,48 @@ fprintf(stderr, "genotypes: %lu\n", genotypes.size());
       fprintf(stderr, "[WARN] sequence '%s' not contained in reference genome\n", var.chr.c_str());
       return;
     }
+  }
+}
+
+void applyVariantsStream(
+  const Genome &g,
+  const vector<Mutation> &mutations,
+  const vector<Variant> &variants,
+  ostream &outstream,
+  short len_line)
+{
+  // sort mutations according to (diploid) genomic position
+  vector<Mutation> vec_mut_sorted = Mutation::sortByPosition(mutations);
+  unsigned idx_mut = 0;
+  unsigned idx_chr = 0;
+  unsigned idx_nuc = 0;
+  short idx_char = 0;
+  bool chr_mutated = false;
+  Variant next_var = variants[vec_mut_sorted[idx_mut].id];
+  for (idx_chr=0; idx_chr<g.records.size(); ++idx_chr) {
+    chr_mutated = (g.records[idx_chr].id_ref == next_var.chr); // is this chromosome mutated?
+    chr_mutated = chr_mutated && (g.records[idx_chr].copy == vec_mut_sorted[idx_mut].copy); // is this sequence the right copy?
+    // print header
+    outstream << ">" << g.records[idx_chr].id << endl;
+    idx_nuc = 0;
+    for (string::const_iterator nuc=g.records[idx_chr].seq.begin();
+         nuc!=g.records[idx_chr].seq.end(); ++nuc) {
+      if (chr_mutated && idx_nuc++ == next_var.pos) {
+        outstream << next_var.alleles[1];
+        if (++idx_mut<vec_mut_sorted.size())
+          next_var = variants[vec_mut_sorted[idx_mut].id];
+        else // print reference nucleotide
+          chr_mutated = false;
+      }
+      else
+        outstream << *nuc;
+      if (++idx_char == len_line) { // enforce fixed line width
+        outstream << endl;
+        idx_char = 0;
+      }
+    }
+    if (idx_char != 0) // end of sequence
+      outstream << endl;
   }
 }
 

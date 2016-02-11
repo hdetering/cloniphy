@@ -55,7 +55,7 @@ struct Mutation
 
   bool operator< (const Mutation&) const; /** make mutations sortable */
   static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
-  /** Apply mutation to a given genomic sequence, */
+  /** Apply single mutation to a given genomic sequence, */
   /** returning a Variant and Genotype object */
   void apply(
     Genome& genome,
@@ -70,6 +70,15 @@ std::vector<Mutation> generateMutations(
   const int num_mutations,
   boost::function<float()>&
 );
+/** Apply set of mutation to a given genomic sequence,
+    returning a set of Variant objects
+    (reference sequence is not changed) */
+void applyMutations(
+  const std::vector<Mutation> &,
+  const Genome& genome,
+  SubstitutionModel model,
+  boost::function<float()>& random,
+  std::vector<Variant> &variants);
 /** Read VCF file and return list of variants. */
 void readVcf(
   std::string vcf_filename,
@@ -92,7 +101,13 @@ void applyVariants(
   Genome&,
   const std::vector<Variant>&,
   const std::vector<Genotype>&);
-
+/** Apply variants to a given reference sequence. streaming modified genome to output. */
+void applyVariantsStream(
+  const Genome &ref_genome,
+  const std::vector<Mutation> &mutations,
+  const std::vector<Variant> &variants,
+  std::ostream &outstream,
+  short len_line = 60);
 } /* namespace vario */
 
 #endif /* VARIO_H */

@@ -12,7 +12,7 @@ using namespace std;
 namespace seqio {
 
 SeqRecord::SeqRecord(const string id, const string desc, const string& seq)
-  : id(id), description(desc), seq(seq), id_ref(id) {}
+  : id(id), description(desc), seq(seq), id_ref(id), copy(0) {}
 
 Genome::Genome(const char* filename) {
   length = 0;
@@ -86,13 +86,14 @@ void Genome::duplicate() {
   for (unsigned i=0; i<num_records; ++i) {
     SeqRecord orig = records[i];
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
+    dupl->copy = orig.copy+1;
     records.push_back(*dupl);
     records[i].id += "_m";
     records[num_records+i].id += "_p";
   }
 }
 
-Locus Genome::getAbsoluteLocusMasked(double rel_pos) {
+Locus Genome::getAbsoluteLocusMasked(double rel_pos) const {
   unsigned abs_pos_masked = floor(rel_pos * masked_length);
   // identify genomic region
   int idx_region = 0;
@@ -206,7 +207,7 @@ fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   // perform actual masking
   for (size_t i=0; i<vec_pos_frag.size(); ++i) {
     Locus loc = g.getAbsoluteLocusMasked(vec_pos_frag[i]);
-fprintf(stderr, "\tmasking: %s:%u-%u\n", g.records[loc.idx_record].id.c_str(), loc.start, loc.start+1000);
+//fprintf(stderr, "\tmasking: %s:%u-%u\n", g.records[loc.idx_record].id.c_str(), loc.start, loc.start+1000);
     for (int p=0; p<frag_len; ++p)
       g.records[loc.idx_record].seq[loc.start+p] = 'N';
   }

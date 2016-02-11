@@ -56,7 +56,7 @@ short SubstitutionModel::MutateNucleotide(short ref_nuc, boost::function<float()
 	for (short i=1; i<4; ++i)
 		cumProb[i] = cumProb[i-1] + Qij[ref_nuc][i];
   // normalize
-  for (short i=1; i<4; ++i)
+  for (short i=0; i<4; ++i)
     cumProb[i] /= cumProb[3];
 
 	r = random();

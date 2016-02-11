@@ -151,28 +151,29 @@ int main (int argc, char* argv[])
 
   vector<Mutation> mutations;
   if (num_mutations > 0) {
-    // generate mutations (relative position + chr copy)
+    // generate point mutations (relative position + chr copy)
     mutations = vario::generateMutations(num_mutations, random);
     fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
     for (int i=0; i<num_mutations; i++)
       fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
   }
-  // store variants separately (genomic positions and alleles)
+  // apply mutations, creating variants in the process
   vector<Variant> variants = vector<Variant>();
+  SubstitutionModel model = SubstitutionModel(ref_genome.nuc_freq, titv);
+  vario::applyMutations(mutations, ref_genome, model, random, variants);
 
   // initialize mutation matrix
   vector<vector<short> > mutMatrix(tree.m_numNodes, std::vector<short>(num_mutations,0));
 
   // generate clone sequences based on clonal tree and mutations
   fprintf(stderr, "---\nNow generating clone genomes...\n");
-  //vector<Clone *> clones = tree.getVisibleNodes();
-  SubstitutionModel model = SubstitutionModel(ref_genome.nuc_freq, titv);
-  Clone root = *(tree.m_root);
-
-  root.mutateGenome(ref_genome, mutations, model, variants, mutMatrix, random, clone2fn);
+  vector<Clone *> clones = tree.getVisibleNodes();
+  //Clone root = *(tree.m_root);
+  for (unsigned i=0; i<clones.size(); ++i)
+    clones[i]->mutateGenome(ref_genome, mutations, variants, mutMatrix, clone2fn);
 
   // compile variants for output (only visible nodes in clone tree + root)
-  vector<Clone *> clones = tree.getVisibleNodes();
+  //vector<Clone *> clones = tree.getVisibleNodes();
   vector<vector<short> > mat_mut_filt;
   vector<string> vec_labels;
   // add root

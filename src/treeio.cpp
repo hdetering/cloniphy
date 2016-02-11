@@ -238,7 +238,7 @@ void Tree<T>::dropTransformingMutations(int n_mutations) {
     for (int m=0; m<n_mutations; ++m) {
 cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
-      node->m_vecMutations.push_back(m);
+      node->m_vec_mutations.push_back(m);
     }
   }
 }
@@ -249,7 +249,7 @@ void Tree<T>::dropMandatoryMutations(T *node, int &mutation_id) {
   if (node!=m_root) {
 cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
-    node->m_vecMutations.push_back(mutation_id);
+    node->m_vec_mutations.push_back(mutation_id);
   }
   else {
     mutation_id--;
@@ -277,7 +277,7 @@ void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, boost::func
     T *node = m_vecNodes[idx_node];
 cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
-    node->m_vecMutations.push_back(mutation_id++);
+    node->m_vec_mutations.push_back(mutation_id++);
   }
 }
 
