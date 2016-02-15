@@ -318,8 +318,10 @@ void applyVariantsStream(
         idx_char = 0;
       }
     }
-    if (idx_char != 0) // end of sequence
+    if (idx_char != 0) { // end of sequence
       outstream << endl;
+      idx_char = 0;
+    }
   }
 }
 

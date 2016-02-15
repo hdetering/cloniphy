@@ -17,6 +17,7 @@ data
 *.dot
 *.png
 *.fa
+*.fai
 *.fq
 *.sam
 *.aln

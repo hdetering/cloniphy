@@ -4,6 +4,7 @@
 #include "seqio.hpp"
 #include "evolution.hpp"
 #include <boost/function.hpp>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>

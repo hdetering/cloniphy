@@ -60,7 +60,9 @@ int writeFasta(const std::vector<SeqRecord>&, std::ostream&, int = 60);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
-void simulateADO(const std::string, const float, const int, boost::function<float()>&);
+void simulateADO_old(const std::string, const float, const int, boost::function<float()>&);
+/** Simulate allelic dropout events, masking parts of genome as 'N's. */
+void simulateADO(const std::string, const unsigned, const float, const int, boost::function<float()>&);
 /** Convert a nucleotide char into Nuc */
 Nuc charToNuc(const char);
 /** Convert Nuc into a nucleotide char */

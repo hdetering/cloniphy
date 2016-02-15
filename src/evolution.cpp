@@ -27,9 +27,9 @@ SubstitutionModel::SubstitutionModel(double p[4], double titv) {
   Qij[1][2] = p[2];
   Qij[1][3] = p[3]*titv;
   // G -> X
-  Qij[2][1] = p[1]*titv;
+  Qij[2][0] = p[0]*titv;
+  Qij[2][1] = p[1];
   Qij[2][3] = p[3];
-  Qij[2][4] = p[4];
   // T -> X
   Qij[3][0] = p[0];
   Qij[3][1] = p[1]*titv;
