@@ -1,7 +1,5 @@
-# Ignore the build, include and lib dirs
+# Ignore the build dir
 build
-include/*
-lib/*
 
 # Ignore any executables
 bin/*
@@ -12,7 +10,7 @@ util
 # Ignore example data
 data
 
-# Ignore intermediate output files
+# Ignore data output files
 *.log
 *.dot
 *.png
@@ -22,3 +20,4 @@ data
 *.sam
 *.aln
 *.vcf
+*.bed

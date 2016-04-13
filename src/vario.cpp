@@ -305,13 +305,13 @@ void applyVariantsStream(
     for (string::const_iterator nuc=g.records[idx_chr].seq.begin();
          nuc!=g.records[idx_chr].seq.end(); ++nuc) {
       if (chr_mutated && idx_nuc++ == next_var.pos) {
-        outstream << next_var.alleles[1];
+        outstream << next_var.alleles[1]; // print variant nucleotide
         if (++idx_mut<vec_mut_sorted.size())
           next_var = variants[vec_mut_sorted[idx_mut].id];
-        else // print reference nucleotide
+        else
           chr_mutated = false;
       }
-      else
+      else // print reference nucleotide
         outstream << *nuc;
       if (++idx_char == len_line) { // enforce fixed line width
         outstream << endl;

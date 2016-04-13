@@ -26,6 +26,7 @@ typedef boost::mt19937 base_generator_type;
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
+#include "yaml-cpp/yaml.h"
 
 #define PROGRAM_NAME "CloniPhy 0.1"
 
@@ -37,20 +38,31 @@ using vario::Variant;
 using evolution::SubstitutionModel;
 
 boost::function<float()> initRandomNumberGenerator(long seed);
-bool parseArgs (int ac, char* av[], int& n_clones, std::vector<float>& freqs, int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree, bool verbose=true);
+bool parseArgs (int ac, char* av[], YAML::Node&);
+/*bool parseArgs (
+  int ac, char* av[], string& conf, int& n_clones, std::vector<float>& freqs,
+  int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree,
+  bool verbose=true);*/
+bool readConfig (string filename);
 bool fileExists(string filename);
 
 int main (int argc, char* argv[])
 {
-  // params specified by command line
-  int num_clones = 0;
-  int num_mutations = 0;
-  int num_transmuts = 0;
-  vector<float> freqs;
-  string reference = "";
-  string ref_vcf = "";
-  string tree_fn = "";
-  long seed;
+  // user params (defined in config file or command line)
+  YAML::Node config = YAML::Node();
+  bool args_ok = parseArgs(argc, argv, config);
+  if (!args_ok) { return EXIT_FAILURE; }
+
+  // params specified by user (in config file or command line)
+  int num_clones = config["clones"].as<int>();
+  int num_mutations = config["mutations"].as<int>();
+  int num_transmuts = config["init-muts"].as<int>();
+  vector<float> freqs = config["freqs"].as<vector<float> >();
+  string reference = config["reference"].as<string>();
+  string ref_vcf = config["reference-vcf"].as<string>();
+  string tree_fn = config["tree"].as<string>();
+
+  long seed = config["seed"].as<long>();
   double titv = 1; // TODO: make this a user parameter (?)
   float ado_pct = 0.1; // TODO: make this a user parameter
   int ado_frag_len = 10000; // TODO: make this a user parameter
@@ -58,11 +70,6 @@ int main (int argc, char* argv[])
   // internal vars
   map<Clone*, string> clone2fn; // stores genome file names for each clone
 
-  bool args_ok = parseArgs(argc, argv, num_clones, freqs, num_mutations, num_transmuts, reference, ref_vcf, tree_fn);
-  if (!args_ok) { return EXIT_FAILURE; }
-
-  // specify random seed
-  seed = 123456789;
   //seed = time(NULL) + clock();
 #ifdef DEBUG
     fprintf(stderr, "seed: %ld\n", seed);
@@ -216,10 +223,24 @@ boost::function<float()> initRandomNumberGenerator(long seed) {
 /** Parse command line arguments.
  * @return true: program can run normally, false: indication to stop
  */
-bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& num_mutations, int& num_transmuts, string& reference, string& ref_vcf, string& tree, bool verbose)
+bool parseArgs (int ac, char* av[], YAML::Node& config)
+  /*(int ac, char* av[], string& conf, int& num_clones, vector<float>& freqs,
+  int& num_mutations, int& num_transmuts, string& reference, string& ref_vcf,
+  string& tree, bool verbose)*/
 {
-  std::stringstream ss;
-  ss << std::endl << PROGRAM_NAME << std::endl << std::endl << "Available options:";
+  // default values
+  int n_clones = 0;
+  int n_mut = 0;
+  int n_mut_init = 0;
+  vector<float> freqs;
+  string fn_ref = "";
+  string fn_ref_vcf = "";
+  string fn_tree = "";
+  int verb = 1;
+  long seed = time(0);
+
+  stringstream ss;
+  ss << endl << PROGRAM_NAME << endl << endl << "Available options";
 
   namespace po = boost::program_options;
 
@@ -229,13 +250,16 @@ bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& 
   po::options_description desc(ss.str());
   desc.add_options()
     ("help,h", "print help message")
-    ("clones,c", po::value<int>(&num_clones), "number of clones to simulate")
+    ("config,c", po::value<string>(), "config file")
+    ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
     ("freqs,f", po::value<vector<float> >(&freqs)->multitoken(), "clone relative frequencies")
-    ("mutations,m", po::value<int>(&num_mutations), "total number of mutations")
-    ("reference,r", po::value<string>(&reference), "reference sequence")
-    ("reference-vcf,v", po::value<string>(&ref_vcf), "reference variants")
-    ("initial-muts,i", po::value<int>(&num_transmuts)->default_value(1), "number of transforming mutations (separating healthy genome from first cancer genome)")
-    ("tree,t", po::value<string>(&tree), "file containing user defined clone tree (Newick format)")
+    ("mutations,m", po::value<int>(&n_mut), "total number of mutations")
+    ("reference,r", po::value<string>(&fn_ref), "reference sequence")
+    ("reference-vcf,v", po::value<string>(&fn_ref_vcf), "reference variants")
+    ("init-muts,i", po::value<int>(&n_mut_init)->default_value(1), "number of transforming mutations (separating healthy genome from first cancer genome)")
+    ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
+    ("verbosity,v", po::value<int>(&verb), "detail level of console output")
+    ("seed,s", po::value<long>(&seed), "random seed")
   ;
 
   po::variables_map var_map;
@@ -255,81 +279,135 @@ bool parseArgs (int ac, char* av[], int& num_clones, vector<float>& freqs, int& 
     std::cerr << desc << std::endl;
   }
 
-  // check: num_clones > 0
-  if (num_clones == 0 && !var_map.count("tree")) {
-    fprintf(stderr, "\nArgumentError: Please specify clones>0 ('-c') or input tree ('-t'). Aborting...bye.\n");
+  // check: config file exists
+  if (var_map.count("config")) {
+    string fn_config = var_map["config"].as<string>();
+    if (!fileExists(fn_config)) {
+      fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", fn_config.c_str());
+      return false;
+    }
+    // initialize global configuration from config file
+    config = YAML::LoadFile(fn_config);
+  }
+
+  // overwrite/set config params
+  // (making sure parameters are set)
+  if (var_map.count("clones") || !config["clones"]) {
+    config["clones"] = n_clones;
+  }
+  n_clones = config["clones"].as<int>();
+  if (var_map.count("freqs") || !config["freqs"]) {
+    config["freqs"] = freqs;
+  }
+  freqs = config["freqs"].as<vector<float> >();
+  if (var_map.count("mutations") || !config["mutations"]) {
+    config["mutations"] = n_mut;
+  }
+  n_mut = config["mutations"].as<int>();
+  if (var_map.count("init-muts") || !config["init-muts"]) {
+    config["init-muts"] = n_mut_init;
+  }
+  n_mut_init = config["init-muts"].as<int>();
+  if (var_map.count("reference") || !config["reference"]) {
+    config["reference"] = fn_ref;
+  }
+  fn_ref = config["reference"].as<string>();
+  if (var_map.count("reference-vcf") || !config["reference-vcf"]) {
+    config["reference-vcf"] = fn_ref_vcf;
+  }
+  fn_ref = config["reference-vcf"].as<string>();
+  if (var_map.count("tree") || !config["tree"]) {
+    config["tree"] = fn_tree;
+  }
+  fn_tree = config["tree"].as<string>();
+  if (var_map.count("verbosity") || !config["verbosity"]) {
+    config["verbosity"] = verb;
+  }
+  verb = config["verbosity"].as<int>();
+  if (var_map.count("seed") || !config["seed"]) {
+    config["seed"] = seed;
+  }
+  seed = config["seed"].as<long>();
+
+
+  // perform sanity checks
+
+  // check: numClones > 0?
+  if (n_clones == 0 && fn_tree.length() == 0) {
+    fprintf(stderr, "\nArgumentError: Please specify clones ('-n') or input tree ('-t'). Aborting...bye.\n");
     return false;
   }
-  // check: #freqs == num_clones
-  else if ((int)freqs.size() != num_clones) {
-    fprintf(stderr, "\nArgumentError: Frequencies (%zu) need to match number of clones (%d).\n", freqs.size(), num_clones);
+  // #freqs == num_clones?
+  else if ((int)freqs.size() != n_clones) {
+    fprintf(stderr, "\nArgumentError: Frequencies (%zu) need to match number of clones (%d).\n", freqs.size(), n_clones);
     return false;
   }
-  // check: sum(freqs) == 1
+  // sum(freqs) == 1?
   else {
     float sum_freqs = 0;
     for (unsigned int i=0; i<freqs.size(); i++) {
       sum_freqs += freqs[i];
     }
     if (sum_freqs != 1.0) {
-      //fprintf(stderr, "\nArgumentError: Sum of frequencies (%.2f) needs to be 1.\n", sum_freqs);
-      //return false;
+      fprintf(stderr, "\nArgumentError: Sum of frequencies (%.2f) needs to be 1.\n", sum_freqs);
+      return false;
     }
   }
-  // check: num_mutations >= num_clones
-  if (num_mutations < num_clones) {
-    fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", num_mutations, num_clones);
+  // at least one mutation per clone?
+  if (n_mut < n_clones) {
+    fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut, n_clones);
     return false;
   }
-  // check: reference file exists
-  if (var_map.count("reference")) {
-    if (!fileExists(reference)) {
-      fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", reference.c_str());
-      return false;
-    }
+  // initial mutations do not exceed total mutations?
+  if (n_mut_init > (n_mut-n_clones)) {
+    fprintf(stderr, "\nArgumentError: Too many initial mutations (%d)\n -> can't be more than total mutations minus #clones (%d).\n", n_mut_init, n_mut-n_clones);
+    return false;
   }
-  else {
-    reference = "./data/chr7_114-115Mb.fa";
+  // reference file exists?
+  if (fn_ref.length()>0 && !fileExists(fn_ref)) {
+    fprintf(stderr, "\nArgumentError: Reference genome file '%s' does not exist.\n", fn_ref.c_str());
+    return false;
   }
-  // check: reference VCF file exists
-  if (var_map.count("reference-vcf")) {
-    if (!fileExists(ref_vcf)) {
-      fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", ref_vcf.c_str());
-      return false;
-    }
+  // reference VCF file exists?
+  if (fn_ref_vcf.length()>0 && !fileExists(fn_ref_vcf)) {
+    fprintf(stderr, "\nArgumentError: Reference VCF file '%s' does not exist.\n", fn_ref_vcf.c_str());
+    return false;
   }
-  // check: was a clone tree provided by the user?
-  if (var_map.count("tree")) {
+  // was a clone tree provided by the user?
+  if (fn_tree.length()>0) {
     fprintf(stderr, "\nUser-defined clone tree was specified, parameter '-c/--clones' will be ignored\n");
     // check: does tree file exist?
-    if (!fileExists(tree)) {
-      fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", tree.c_str());
+    if (!fileExists(fn_tree)) {
+      fprintf(stderr, "\nArgumentError: Tree file '%s' does not exist.\n", fn_tree.c_str());
       return false;
     }
   }
 
-  if (verbose) {
+  if(config["verbosity"].as<int>() > 0) {
     fprintf(stderr, "---\n");
     fprintf(stderr, "Running with the following options:\n");
-    if (var_map.count("tree")) {
-      fprintf(stderr, "clone tree:\t%s\n", tree.c_str());
+    if (fn_tree.length()>0) {
+      fprintf(stderr, "clone tree:\t%s\n", fn_tree.c_str());
     } else {
-      fprintf(stderr, "clones:\t\t%d\n", num_clones);
+      fprintf(stderr, "clones:\t\t%d\n", n_clones);
     }
-    if (!var_map["freqs"].empty()) {
+    if (freqs.size()>0) {
       fprintf(stderr, "frequencies:\t[ ");
       for (unsigned int i=0; i<freqs.size(); i++) {
         fprintf(stderr, "%.2f ", freqs[i]);
       }
       fprintf(stderr, "]\n");
     }
-    fprintf(stderr, "mutations:\t%d\n", num_mutations);
-    fprintf(stderr, "reference:\t%s\n", reference.c_str());
-    if (var_map.count("reference-vcf")) {
-      fprintf(stderr, "reference VCF:\t%s\n", ref_vcf.c_str());
+    fprintf(stderr, "mutations:\t%d\n", n_mut);
+    fprintf(stderr, "transforming mutations:\t%d\n", n_mut_init);
+    fprintf(stderr, "reference:\t%s\n", fn_ref.c_str());
+    if (fn_ref_vcf.length() > 0) {
+      fprintf(stderr, "reference VCF:\t%s\n", fn_ref_vcf.c_str());
     }
+    fprintf(stderr, "random seed:\t%ld\n", seed);
     fprintf(stderr, "---\n\n");
   }
+
   return true;
 }
 
