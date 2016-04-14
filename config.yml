@@ -32,7 +32,7 @@ init-muts: 50
 reference: data/input/hs37d5_chr20.fa
 
 # somatic variants (to generate personal genome from reference)
-reference-vcf: data/input/1000G_phase1.indels.b37.vcf
+#reference-vcf: data/input/1000G_phase1.indels.b37.vcf
 
 
 #-------------------------------#

@@ -61,7 +61,7 @@ int main (int argc, char* argv[])
   string reference = config["reference"].as<string>();
   string ref_vcf = config["reference-vcf"].as<string>();
   string tree_fn = config["tree"].as<string>();
-
+  int verbosity = config["verbosity"].as<int>();
   long seed = config["seed"].as<long>();
   double titv = 1; // TODO: make this a user parameter (?)
   float ado_pct = 0.1; // TODO: make this a user parameter

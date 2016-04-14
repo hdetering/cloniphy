@@ -262,11 +262,19 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 /** Drop mutations randomly along tree. */
 template<typename T>
 void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, boost::function<float()>& random) {
+  // are branch lengths specified?
+  double tot_len = this->getTotalBranchLength();
+  vector<double> vec_branch_len;
+  if (tot_len > 0) {
+    vec_branch_len = this->getRelativeBranchLengths();
+  } else { // if tree has no branch length, assign equal values to each
+    long n_nodes = this->m_vecNodes.size();
+    vec_branch_len = vector<double>(n_nodes, 1.0/n_nodes);
+  }
   // build cumulative sum of branch lengths
-  vector<double> vec_branch_len = this->getRelativeBranchLengths();
-  vector<double> vec_cum_len = vector<double>(vec_branch_len.size());
+  vector<double> vec_cum_len = vec_branch_len;
   for (unsigned i=1; i<vec_branch_len.size(); ++i) {
-    vec_cum_len[i] = vec_cum_len[i-1] + vec_branch_len[i];
+    vec_cum_len[i] += vec_cum_len[i-1];
   }
   // drop mutations randomly, but in proportion to branch length
   for (int i=0; i<n_mutations; ++i) {

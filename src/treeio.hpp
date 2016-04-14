@@ -81,7 +81,7 @@ namespace treeio {
   struct node
   {
     std::string label;
-    double length;
+    double length = 0;
     children_vector children;
   };
 
