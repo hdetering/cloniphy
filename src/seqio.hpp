@@ -2,6 +2,7 @@
 #define SEQIO_H
 
 #include "stringio.hpp"
+#include <boost/function.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -13,10 +14,12 @@ enum Nuc { A, C, G, T, N };
 
 struct SeqRecord
 {
-  std::string id;          /** Identifier */
-  std::string description; /** Sequence description (everything after first space in ID line) */
-  std::string seq;         /** Actual sequence */
-  SeqRecord(const std::string&, const std::string&, const std::string&);
+  std::string id;          /** identifier */
+  std::string description; /** sequence description (everything after first space in ID line) */
+  std::string seq;         /** actual sequence */
+  std::string id_ref;      /** identifier in reference genome (ploidy) */
+  short copy;              /** chromosome copy (1 for haploid) */
+  SeqRecord(const std::string, const std::string, const std::string&);
 };
 
 /** Represents a genomic location */
@@ -45,19 +48,21 @@ struct Genome
   void indexRecords();
   void duplicate(); // increase ploidy
   /** Get absolute coordinates for a relative position in unmasked pard of the genome */
-  Locus getAbsoluteLocusMasked(double);
+  Locus getAbsoluteLocusMasked(double) const;
 };
 
 /** Reads sequences from file. */
-std::vector<SeqRecord> readFasta(const char*);
+void readFasta(const char*, std::vector<SeqRecord>&);
 /** Reads sequences from istream. */
-std::vector<SeqRecord> readFasta(std::istream&);
+void readFasta(std::istream&, std::vector<SeqRecord>&);
 /** Writes sequences to ostream. */
 int writeFasta(const std::vector<SeqRecord>&, std::ostream&, int = 60);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
-/** Identify start positions of chromosomes and masked regions. */
-void indexGenome();
+/** Simulate allelic dropout events, masking parts of genome as 'N's. */
+void simulateADO_old(const std::string, const float, const int, boost::function<float()>&);
+/** Simulate allelic dropout events, masking parts of genome as 'N's. */
+void simulateADO(const std::string, const unsigned, const float, const int, boost::function<float()>&);
 /** Convert a nucleotide char into Nuc */
 Nuc charToNuc(const char);
 /** Convert Nuc into a nucleotide char */

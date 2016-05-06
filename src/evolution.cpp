@@ -4,6 +4,13 @@
 
 namespace evolution {
 
+/**custom transition probabilities */
+SubstitutionModel::SubstitutionModel(double Q[4][4]) {
+  for (int i=0; i<4; ++i)
+    for (int j=0; j<4; ++j)
+      this->Qij[i][j] = Q[i][j];
+}
+
 SubstitutionModel::SubstitutionModel(double p[4], double titv) {
   //kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]);
 
@@ -20,9 +27,9 @@ SubstitutionModel::SubstitutionModel(double p[4], double titv) {
   Qij[1][2] = p[2];
   Qij[1][3] = p[3]*titv;
   // G -> X
-  Qij[2][1] = p[1]*titv;
+  Qij[2][0] = p[0]*titv;
+  Qij[2][1] = p[1];
   Qij[2][3] = p[3];
-  Qij[2][4] = p[4];
   // T -> X
   Qij[3][0] = p[0];
   Qij[3][1] = p[1]*titv;
@@ -49,7 +56,7 @@ short SubstitutionModel::MutateNucleotide(short ref_nuc, boost::function<float()
 	for (short i=1; i<4; ++i)
 		cumProb[i] = cumProb[i-1] + Qij[ref_nuc][i];
   // normalize
-  for (short i=1; i<4; ++i)
+  for (short i=0; i<4; ++i)
     cumProb[i] /= cumProb[3];
 
 	r = random();

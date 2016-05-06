@@ -1,0 +1,58 @@
+%YAML 1.2
+---
+#--------------------#
+# general parameters #
+#--------------------#
+
+# how much debug output should be printed to screen? (1: lowest)
+verbosity: 1
+
+# random seed
+seed: 123456789
+
+
+#-----------------------#
+# clone tree parameters #
+#-----------------------#
+
+# number of clones to simulate
+clones: 3
+
+# each clone's cellular frequency (among the tumor cells)
+# note: number of frequencies needs to match "clones" parameter
+freqs: [ 0.5, 0.3, 0.2 ]
+
+# number of total mutations to simulate
+mutations: 1000
+# number of transforming mutations shared by all clones
+# (included in total mutations)
+init-muts: 50
+
+# reference genome sequence
+reference: data/input/hs37d5_chr20.fa
+
+# somatic variants (to generate personal genome from reference)
+#reference-vcf: data/input/1000G_phase1.indels.b37.vcf
+
+
+#-------------------------------#
+# sequence evolution parameters #
+#-------------------------------#
+
+# evolutionary model
+# choices: 'HKY', 'matrix', 'matrixFromVcf'
+model: matrix
+
+# custom nucleotide substitution matrix (ACGT)
+pA: [    0.0, 0.0406, 0.1661, 0.0331 ]
+pC: [ 0.0417,    0.0, 0.0438, 0.1746 ]
+pG: [ 0.1744, 0.0440,    0.0, 0.0418 ]
+pT: [ 0.0331, 0.1662, 0.0405,    0.0 ]
+
+# HKY params:
+# transition/transversion ratio
+titv: 1.0
+# nucleotide frequencies
+# (will be inferred from reference genome if not provided)
+#nucFreqs: [ 0.25, 0.25, 0.25, 0.25 ]
+...

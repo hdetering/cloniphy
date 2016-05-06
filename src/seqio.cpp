@@ -1,5 +1,6 @@
 #include "seqio.hpp"
 #include <algorithm>
+#include <boost/format.hpp>
 #include <cctype>
 #include <cmath>
 #include <fstream>
@@ -11,8 +12,8 @@ using namespace std;
 
 namespace seqio {
 
-SeqRecord::SeqRecord(const string& id, const string& desc, const string& seq)
-  : id(id), description(desc), seq(seq) {}
+SeqRecord::SeqRecord(const string id, const string desc, const string& seq)
+  : id(id), description(desc), seq(seq), id_ref(id), copy(0) {}
 
 Genome::Genome(const char* filename) {
   length = 0;
@@ -22,7 +23,7 @@ Genome::Genome(const char* filename) {
     nuc_freq[i] = 0;
 
   // read records from file
-  records = readFasta(filename);
+  readFasta(filename, records);
   num_records = records.size();
   // initialize indices
   indexRecords();
@@ -86,13 +87,14 @@ void Genome::duplicate() {
   for (unsigned i=0; i<num_records; ++i) {
     SeqRecord orig = records[i];
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
+    dupl->copy = orig.copy+1;
     records.push_back(*dupl);
     records[i].id += "_m";
     records[num_records+i].id += "_p";
   }
 }
 
-Locus Genome::getAbsoluteLocusMasked(double rel_pos) {
+Locus Genome::getAbsoluteLocusMasked(double rel_pos) const {
   unsigned abs_pos_masked = floor(rel_pos * masked_length);
   // identify genomic region
   int idx_region = 0;
@@ -120,26 +122,24 @@ Locus Genome::getAbsoluteLocusMasked(double rel_pos) {
 /*           Utility methods          */
 /*------------------------------------*/
 
-vector<SeqRecord> readFasta(const char *filename) {
+void readFasta(const char *filename, vector<SeqRecord> &records) {
   ifstream inputFile;
   inputFile.open(filename, ios::in);
-  vector<SeqRecord> records;
-  records = readFasta(inputFile);
+  readFasta(inputFile, records);
   inputFile.close();
-
-  return records;
 }
 
-vector<SeqRecord> readFasta(istream &input) {
-  vector<SeqRecord> records;
+void readFasta(istream &input, vector<SeqRecord> &records) {
   string header;
   string seq;
   string line;
 
   try {
-    getline(input, header);
+    stringio::safeGetline(input, header);
     while (input.good()) {
-      while (stringio::safeGetline(input, line) && line[0]!='>') {
+      while (stringio::safeGetline(input, line)) {
+        if (line.length()>0 && line[0]=='>')
+          break;
         seq += line;
       }
       size_t space_pos = header.find(' ');
@@ -155,8 +155,6 @@ vector<SeqRecord> readFasta(istream &input) {
     cerr << e.what() << endl;
     cerr << "Possibly premature end of FASTA file?" << endl;
   }
-
-  return records;
 }
 
 /** Write SeqRecords to FASTA file, using a defined line width. */
@@ -182,9 +180,121 @@ void indexFasta(const char *filename) {
   system(cmd.c_str());
 }
 
+/** Simulate allelic dropout (ADO) events
+  *   percentage: fraction of genome to mask with 'N's
+  *   frag_len:   length of masked fragments (runs of 'N's) */
+void simulateADO_old(const string fn_input,
+                 const float percentage,
+                 const int frag_len,
+                 boost::function<float()>& random) {
+fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
+  // read input genome
+  Genome g = Genome(fn_input.c_str());
+
+  // calculate number of masked regions needed
+  int num_frags = (int)(ceil((g.masked_length * percentage) / frag_len));
+  // pick locations for masked regions
+  // (multiples of fragment length so they don't overlap)
+  // TODO: avoid a start position to be picked twice
+  vector<double> vec_pos_frag;
+  for (int i=0; i<num_frags; ++i) {
+    float r = random();
+    double pos_folded = (unsigned)trunc(r*(g.masked_length/frag_len));
+    double pos_abs = pos_folded * frag_len;
+    vec_pos_frag.push_back(pos_abs/g.masked_length);
+  }
+  sort(vec_pos_frag.begin(), vec_pos_frag.end());
+
+  // perform actual masking
+  for (size_t i=0; i<vec_pos_frag.size(); ++i) {
+    Locus loc = g.getAbsoluteLocusMasked(vec_pos_frag[i]);
+//fprintf(stderr, "\tmasking: %s:%u-%u\n", g.records[loc.idx_record].id.c_str(), loc.start, loc.start+1000);
+    for (int p=0; p<frag_len; ++p)
+      g.records[loc.idx_record].seq[loc.start+p] = 'N';
+  }
+
+  // create output filename
+  size_t pos_dot = fn_input.find_last_of(".");
+  string fn_output = fn_input;
+  fn_output.insert(pos_dot, ".ado");
+
+  // write modified genome to file
+fprintf(stderr, "Writing modified genome to file '%s'\n", fn_output.c_str());
+  ofstream f_out;
+  f_out.open(fn_output.c_str());
+  writeFasta(g.records, f_out);
+  f_out.close();
+}
+
+/** Simulate allelic dropout (ADO) events
+  *   percentage: fraction of genome to mask with 'N's
+  *   frag_len:   length of masked fragments (runs of 'N's) */
+void simulateADO(const string fn_input,
+                 const unsigned genome_len,
+                 const float percentage,
+                 const int frag_len,
+                 boost::function<float()>& random) {
+fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
+  // TODO: might be worth doing this in streaming fashion
+  // open genome input file
+  //ifstream f_in;
+  //f_in.open(fn_input);
+  Genome g = Genome(fn_input.c_str());
+
+  // create output filenames
+  size_t pos_dot = fn_input.find_last_of(".");
+  string fn_output = fn_input;
+  string fn_bed = fn_input;
+  fn_output.insert(pos_dot, ".ado");
+  fn_bed.replace(pos_dot, string::npos, ".ado.bed");
+
+  // generate BED file keeping track of ADO fragments
+  ofstream f_bed;
+  f_bed.open(fn_bed.c_str());
+
+  // calculate number of masked regions needed
+  int num_frags = (int)(ceil((genome_len * percentage) / frag_len));
+  double r_frag = ((double)num_frags) / genome_len; // fragment start rate
+  // pick locations for masked regions
+  // (multiples of fragment length so they don't overlap)
+  // TODO: avoid a start position to be picked twice
+  bool is_fragment = false;
+  int idx_char = 0;
+  for (unsigned idx_chr=0; idx_chr<g.records.size(); ++idx_chr) {
+    unsigned seq_len = g.records[idx_chr].seq.length();
+    for (unsigned idx_nuc=0; idx_nuc<seq_len; ++idx_nuc) {
+      if (!is_fragment) {
+        float r = random();
+        if (r <= r_frag) {
+          is_fragment = true;
+          f_bed << boost::format("%s\t%u\t%u\n") % g.records[idx_chr].id % idx_nuc % min(idx_nuc+frag_len, seq_len);
+        }
+      }
+      if (is_fragment) {
+        if (idx_char < frag_len) {
+          g.records[idx_chr].seq[idx_nuc] = 'N';
+          idx_char++;
+        }
+        else {
+          is_fragment = false;
+          idx_char = 0;
+        }
+      }
+    }
+  }
+  f_bed.close();
+
+  // write modified genome to file
+fprintf(stderr, "Writing modified genome to file '%s'\n", fn_output.c_str());
+  ofstream f_out;
+  f_out.open(fn_output.c_str());
+  writeFasta(g.records, f_out);
+  f_out.close();
+}
+
 
 Nuc charToNuc(const char c) {
-  switch (c) {
+  switch (toupper(c)) {
     case 'A':
       return A;
     case 'C':
@@ -223,6 +333,7 @@ string nucToString(const Nuc n) {
   return s;
 }
 
+// TODO: deprecated?
 char shiftNucleotide(const char base, const int offset) {
   Nuc nuc_old = charToNuc(base);
   Nuc nuc_new = static_cast<Nuc>((static_cast<int>(nuc_old) + offset) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)

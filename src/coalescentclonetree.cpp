@@ -84,7 +84,7 @@ fprintf(stderr, "\ndropping %d mandatory mutations (%d transforming + %d to assu
   Clone *mrca = m_root->m_vecChildren[0];
   while (m<num_transmuts) {
 fprintf(stderr, "\tdropping mutation %d on node %s\n", m, mrca->label.c_str());
-    mrca->m_vecMutations.push_back(m);
+    mrca->m_vec_mutations.push_back(m);
     m++;
   }
   // each intermediate node needs to introduce a mutation
@@ -102,12 +102,12 @@ void CoalescentCloneTree::_putMandatoryMutation(Clone *c, int& mutationId, boost
     if (is_leftMutated) {
 std::cerr << "\tdropping mutation " << mutationId << " on " << node.m_vecChildren[0] << std::endl;
 //fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[0]->label);
-      node.m_vecChildren[0]->m_vecMutations.push_back(mutationId);
+      node.m_vecChildren[0]->m_vec_mutations.push_back(mutationId);
     }
     else {
 std::cerr << "\tdropping mutation " << mutationId << " on " << node.m_vecChildren[1] << std::endl;
 //fprintf(stderr, "\tdropping mutation %d on node %d\n", mutationId, node.m_vecChildren[1]->label);
-      node.m_vecChildren[1]->m_vecMutations.push_back(mutationId);
+      node.m_vecChildren[1]->m_vec_mutations.push_back(mutationId);
     }
     mutationId++;
     _putMandatoryMutation(node.m_vecChildren[0], mutationId, random);
@@ -120,7 +120,7 @@ fprintf(stderr, "\nnow dropping %d random mutations...\n", num_mutations);
   while (num_mutations > 0) {
     // mutate random node
     int i = random()*(m_numClones+1);
-    m_vecNodes[i]->m_vecMutations.push_back(nextMutationId);
+    m_vecNodes[i]->m_vec_mutations.push_back(nextMutationId);
 fprintf(stderr, "\tdropping mutation %d on node %s\n", nextMutationId, m_vecNodes[i]->label.c_str());
     nextMutationId++;
     num_mutations--;

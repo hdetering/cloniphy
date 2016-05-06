@@ -1,6 +1,7 @@
 #define DEBUG
 #include "clone.hpp"
 #include "treeio.hpp"
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
@@ -237,7 +238,7 @@ void Tree<T>::dropTransformingMutations(int n_mutations) {
     for (int m=0; m<n_mutations; ++m) {
 cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
-      node->m_vecMutations.push_back(m);
+      node->m_vec_mutations.push_back(m);
     }
   }
 }
@@ -248,7 +249,7 @@ void Tree<T>::dropMandatoryMutations(T *node, int &mutation_id) {
   if (node!=m_root) {
 cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
-    node->m_vecMutations.push_back(mutation_id);
+    node->m_vec_mutations.push_back(mutation_id);
   }
   else {
     mutation_id--;
@@ -261,11 +262,19 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 /** Drop mutations randomly along tree. */
 template<typename T>
 void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, boost::function<float()>& random) {
+  // are branch lengths specified?
+  double tot_len = this->getTotalBranchLength();
+  vector<double> vec_branch_len;
+  if (tot_len > 0) {
+    vec_branch_len = this->getRelativeBranchLengths();
+  } else { // if tree has no branch length, assign equal values to each
+    long n_nodes = this->m_vecNodes.size();
+    vec_branch_len = vector<double>(n_nodes, 1.0/n_nodes);
+  }
   // build cumulative sum of branch lengths
-  vector<double> vec_branch_len = this->getRelativeBranchLengths();
-  vector<double> vec_cum_len = vector<double>(vec_branch_len.size());
+  vector<double> vec_cum_len = vec_branch_len;
   for (unsigned i=1; i<vec_branch_len.size(); ++i) {
-    vec_cum_len[i] = vec_cum_len[i-1] + vec_branch_len[i];
+    vec_cum_len[i] += vec_cum_len[i-1];
   }
   // drop mutations randomly, but in proportion to branch length
   for (int i=0; i<n_mutations; ++i) {
@@ -276,7 +285,7 @@ void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, boost::func
     T *node = m_vecNodes[idx_node];
 cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
-    node->m_vecMutations.push_back(mutation_id++);
+    node->m_vec_mutations.push_back(mutation_id++);
   }
 }
 
@@ -290,8 +299,8 @@ void Tree<T>::printDot(T *node, std::ostream& os) {
 
 template<typename T>
 void Tree<T>::_printDotRecursive(T *node, std::ostream& os) {
-  os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << ", l=" << node->length << "\"";
-  if (node->isRoot()) {
+  os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << "\"";
+  if (node==this->m_root) { // TODO: fix assignment of parent node (is always 0...) during tree creation
     os << ",style=filled,color=limegreen";
   } else if (node->is_visible) {
     os << ",style=filled,color=tomato";
@@ -302,7 +311,7 @@ void Tree<T>::_printDotRecursive(T *node, std::ostream& os) {
     float edgeWeight = child->distanceToParent();
     os << "\t" << node->index << " -> " << child->index;
     if (edgeWeight > 0.0) {
-      os << "[style=bold,label=" << edgeWeight << "]";
+      os << "[style=bold,label=\"m=" << edgeWeight << ", l=" << boost::format("%0.2f") % child->length << "\"]";
     }
     os << ";" << std::endl;
 
