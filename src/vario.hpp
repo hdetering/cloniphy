@@ -1,6 +1,7 @@
 #ifndef VARIO_H
 #define VARIO_H
 
+#include "random.hpp"
 #include "seqio.hpp"
 #include "evolution.hpp"
 #include <boost/function.hpp>
@@ -35,6 +36,23 @@ struct Variant
   bool isSnv();
 };
 
+/** VariantSets store a set of variants and summary statistics about them. */
+struct VariantSet
+{
+  std::vector<Variant> vec_variants; /** variants that belong to the set */
+  /** summary statistics */
+  double mat_freqs[4][4] = {
+    { 0.0, 0.0, 0.0, 0.0 },
+    { 0.0, 0.0, 0.0, 0.0 },
+    { 0.0, 0.0, 0.0, 0.0 },
+    { 0.0, 0.0, 0.0, 0.0 }
+  }; /** nucleotide substitution frequencies */
+
+  VariantSet();
+  ~VariantSet();
+  long calculateSumstats();
+};
+
 struct Genotype
 {
   std::string id_variant; /** the variant this genotype refers to */
@@ -61,7 +79,7 @@ struct Mutation
   void apply(
     Genome& genome,
     SubstitutionModel model,
-    boost::function<float()>& random,
+    boost::function<double()>& random,
     Variant &var,
     Genotype &gt);
 };
@@ -69,7 +87,7 @@ struct Mutation
 /** Generate random mutations out of thin air. */
 std::vector<Mutation> generateMutations(
   const int num_mutations,
-  boost::function<float()>&
+  boost::function<double()>&
 );
 /** Apply set of mutation to a given genomic sequence,
     returning a set of Variant objects
@@ -78,17 +96,18 @@ void applyMutations(
   const std::vector<Mutation> &,
   const Genome& genome,
   SubstitutionModel model,
-  boost::function<float()>& random,
+  boost::function<double()>& random,
   std::vector<Variant> &variants);
+
 /** Read VCF file and return list of variants. */
 void readVcf(
   std::string vcf_filename,
-  std::vector<Variant>& variants,
+  VariantSet& variants,
   std::vector<std::vector<Genotype> >& gtMatrix);
 /** Read input stream with variants in VCF format and return list of variants. */
 void readVcf(
   std::istream& vcf_filename,
-  std::vector<Variant>& variants,
+  VariantSet& variants,
   std::vector<std::vector<Genotype> >& gtMatrix);
 /** Generate VCF output from a reference sequence and a set of mutations.  */
 void writeVcf(
@@ -97,6 +116,15 @@ void writeVcf(
   const std::vector<std::string>&,
   const std::vector<std::vector<short> >&,
   std::ostream&);
+
+/** Generate variant loci in a given genome based on evolutionary model.
+    Nucleotide substitution probabilities guide selection of loci. */
+std::vector<Variant> generateVariants(
+  const int num_variants,
+  const Genome& genome,
+  SubstitutionModel& model,
+  RandomNumberGenerator<>&
+);
 /** Apply variants to a given reference sequence */
 void applyVariants(
   Genome&,

@@ -45,7 +45,7 @@ struct Clone: public Node
     const std::vector<Mutation>&,
     SubstitutionModel,
     Genome&,
-    boost::function<float()>&);
+    boost::function<double()>&);
 };
 
 #endif /* CLONE_H */

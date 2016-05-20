@@ -117,7 +117,7 @@ void CloneTree::printNodes() {
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "|%2u ", i); }; fprintf(stderr, "|\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "+---"); }; fprintf(stderr, "+\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) {
-    if (m_vecNodes[i] > 0) { fprintf(stderr, "|%s ", m_vecNodes[i]->label.c_str()); }
+    if (m_vecNodes[i]) { fprintf(stderr, "|%s ", m_vecNodes[i]->label.c_str()); }
     else { fprintf(stderr, "| - "); }
   };
   fprintf(stderr, "|\n");

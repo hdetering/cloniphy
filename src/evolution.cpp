@@ -4,6 +4,21 @@
 
 namespace evolution {
 
+/** default c'tor */
+SubstitutionModel::SubstitutionModel() {
+  double q = 1.0/12.0;
+  for (int i=0; i<4; ++i) {
+    for (int j=0; j<4; ++j) {
+      if (i==j) {
+        Qij[i][j] = 0.0;
+      }
+      else {
+        Qij[i][j] = q;
+      }
+    }
+  }
+}
+
 /**custom transition probabilities */
 SubstitutionModel::SubstitutionModel(double Q[4][4]) {
   for (int i=0; i<4; ++i)
@@ -48,7 +63,7 @@ SubstitutionModel::SubstitutionModel(double p[4], double titv) {
 
 /** Simulates the nucleotide substitution process for a site
   * Assuming that mutation is certain -> use Qij to pick new nucleotide */
-short SubstitutionModel::MutateNucleotide(short ref_nuc, boost::function<float()>& random) {
+short SubstitutionModel::MutateNucleotide(short ref_nuc, boost::function<double()>& random) {
 	double r, cumProb[4];
   short new_nuc = 0;
 

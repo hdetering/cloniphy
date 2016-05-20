@@ -5,19 +5,15 @@
  *
  */
 #include "clone.hpp"
+#include "random.hpp"
 #include "seqio.hpp"
 #include "treeio.hpp"
 #include "vario.hpp"
 #include "basicclonetree.hpp"
 #include "coalescentclonetree.hpp"
 
-#include <boost/bind.hpp>
 #include <boost/format.hpp>
-#include <boost/function.hpp>
 #include <boost/program_options.hpp>
-#include <boost/random.hpp>
-// Choosing the random number generator. (mt19937: Mersenne-Twister)
-typedef boost::mt19937 base_generator_type;
 #include <ctime>
 #include <exception>
 #include <fstream>
@@ -35,9 +31,10 @@ using seqio::SeqRecord;
 using seqio::Genome;
 using vario::Genotype;
 using vario::Variant;
+using vario::VariantSet;
 using evolution::SubstitutionModel;
 
-boost::function<float()> initRandomNumberGenerator(long seed);
+
 bool parseArgs (int ac, char* av[], YAML::Node&);
 /*bool parseArgs (
   int ac, char* av[], string& conf, int& n_clones, std::vector<float>& freqs,
@@ -71,12 +68,10 @@ int main (int argc, char* argv[])
   map<Clone*, string> clone2fn; // stores genome file names for each clone
 
   //seed = time(NULL) + clock();
-#ifdef DEBUG
-    fprintf(stderr, "seed: %ld\n", seed);
-#endif
-  boost::function<float()> random = initRandomNumberGenerator(seed);
-  // take that baby for a spin
-  //for (int i=0; i<10; i++) { fprintf(stderr, "%.10f\n", random()); }
+  fprintf(stderr, "random seed: %ld\n", seed);
+  RandomNumberGenerator<> rng(seed);
+  boost::function<double()> random = rng.getRandomFunctionDouble(0.0, 1.0);
+
 
   Tree<Clone> tree;
   if (tree_fn.size()>0) {
@@ -139,11 +134,11 @@ int main (int argc, char* argv[])
 
   // if a VCF file was provided, apply germline variants
   if (ref_vcf.size() > 0) {
-    fprintf(stderr, "applying germline   variants (from %s).\n", ref_vcf.c_str());
-    vector<Variant> ref_variants;
+    fprintf(stderr, "applying germline variants (from %s).\n", ref_vcf.c_str());
+    VariantSet ref_variants;
     vector<vector<Genotype > > ref_gt_matrix;
     vario::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
-    vario::applyVariants(ref_genome, ref_variants, ref_gt_matrix[0]);
+    vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix[0]);
   }
 
   // write "healthy" genome to file
@@ -206,19 +201,6 @@ int main (int argc, char* argv[])
   return EXIT_SUCCESS;
 }
 
-/** Initialize random number generator
- */
-boost::function<float()> initRandomNumberGenerator(long seed) {
-  // init random number generator
-  base_generator_type rng(seed);
-  boost::uniform_real<> uni_dist(0, 1);
-  boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(rng, uni_dist);
-
-  boost::function<float()> f;
-  f = boost::bind(uni_dist, rng);
-
-  return f;
-}
 
 /** Parse command line arguments.
  * @return true: program can run normally, false: indication to stop

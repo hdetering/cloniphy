@@ -14,6 +14,50 @@ using seqio::Nuc;
 
 namespace vario {
 
+VariantSet::VariantSet() {}
+VariantSet::~VariantSet() {}
+
+long VariantSet::calculateSumstats() {
+  string nucs = "ACGTacgt";
+  long num_variants = 0;
+  long num_substitutions = 0;
+  long mat_subs[4][4] = {
+    { 0, 0, 0, 0},
+    { 0, 0, 0, 0},
+    { 0, 0, 0, 0},
+    { 0, 0, 0, 0}
+  };
+
+  for (Variant v : vec_variants) {
+    num_variants++;
+    string ref = v.alleles[0];
+    if (ref.length() == 1) { // make sure we're not dealing with an InDel
+      char ref_nuc = ref[0];
+      for (unsigned i=1; i<v.alleles.size(); ++i) {
+        string alt = v.alleles[i];
+        if (alt.length() == 1) { // make sure we're not dealing with an InDel
+          char alt_nuc = alt[0];
+          if (nucs.find(alt_nuc) != string::npos) {
+            num_substitutions++;
+            short ref_idx = seqio::nuc2idx(ref_nuc);
+            short alt_idx = seqio::nuc2idx(alt_nuc);
+            mat_subs[ref_idx][alt_idx] += 1;
+          }
+        }
+      }
+    }
+  }
+
+  // normalize substitution counts
+  for (auto i=0; i<4; ++i) {
+    for (auto j=0; j<4; ++j) {
+      mat_freqs[i][j] = (double)mat_subs[i][j] / num_substitutions;
+    }
+  }
+
+  return num_substitutions;
+}
+
 Mutation::Mutation() {
   this->id = 0;
   this->relPos = 0.0;
@@ -40,7 +84,7 @@ vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
 void Mutation::apply(
        Genome &genome,
        SubstitutionModel model,
-       boost::function<float()> &rng,
+       boost::function<double()> &rng,
        Variant &var,
        Genotype &gt)
 {
@@ -93,7 +137,10 @@ bool Variant::isSnv() {
 /*           Utility methods          */
 /*------------------------------------*/
 
-vector<Mutation> generateMutations(const int num_mutations, boost::function<float()>& random) {
+vector<Mutation> generateMutations(
+  const int num_mutations,
+  boost::function<double()>& random)
+{
   vector<Mutation> mutations(num_mutations);
   unsigned i=0;
 
@@ -116,7 +163,7 @@ void applyMutations(
   const std::vector<Mutation> & mutations,
   const Genome& genome,
   SubstitutionModel model,
-  boost::function<float()>& random,
+  boost::function<double()>& random,
   vector<Variant> &variants)
 {
   for (vector<Mutation>::const_iterator m=mutations.begin(); m!=mutations.end(); ++m) {
@@ -139,14 +186,22 @@ void applyMutations(
   }
 }
 
-void readVcf(string vcf_filename, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
+void readVcf(
+  string vcf_filename,
+  VariantSet& variants,
+  vector<vector<Genotype> > &gtMatrix)
+{
   ifstream f_vcf;
   f_vcf.open(vcf_filename.c_str(), ios::in);
   readVcf(f_vcf, variants, gtMatrix);
   f_vcf.close();
 }
 
-void readVcf(std::istream &input, vector<Variant>& variants, vector<vector<Genotype> > &gtMatrix) {
+void readVcf(
+  std::istream &input,
+  VariantSet& variants,
+  vector<vector<Genotype> > &gtMatrix)
+{
   unsigned num_samples = 0;
   string line = "";
   string header_line;
@@ -182,7 +237,7 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
       continue;
     }
 
-    variants.push_back(var);
+    variants.vec_variants.push_back(var);
     var_idx++;
 //fprintf(stderr, "read from VCF: <Variant(idx=%u,id=%s,pos=%lu,num_alleles=%lu)> ", var_idx, var->id.c_str(), var->pos, var->alt.size()+1);
     for (unsigned i=0; i<num_samples; ++i) {
@@ -195,9 +250,17 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
     }
     stringio::safeGetline(input, line);
   }
+  // calculate substitution freqs etc.
+  variants.calculateSumstats();
 }
 
-void writeVcf(const vector<SeqRecord> &seqs, const vector<Variant> &vars, const vector<string> &labels, const vector<vector<short> > &mutMatrix, std::ostream &out) {
+void writeVcf(
+  const vector<SeqRecord> &seqs,
+  const vector<Variant> &vars,
+  const vector<string> &labels,
+  const vector<vector<short> > &mutMatrix,
+  std::ostream &out)
+{
   unsigned num_samples = mutMatrix.size();
   short  var_qual = 40; // QUAL column
   string var_info = (format("NS=%d") % num_samples).str(); // INFO column
@@ -247,7 +310,59 @@ void writeVcf(const vector<SeqRecord> &seqs, const vector<Variant> &vars, const 
   }
 }
 
-void applyVariants(Genome &genome, const vector<Variant> &variants, const vector<Genotype> &genotypes) {
+/** Generate variant loci in a given genome based on evolutionary model.
+    Nucleotide substitution probabilities guide selection of loci. */
+vector<Variant> generateVariants(
+  const int num_variants,
+  const Genome& genome,
+  SubstitutionModel& model,
+  RandomNumberGenerator<>& rng)
+{
+  vector<Variant> variants = vector<Variant>();
+  boost::function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  random_selector<> selector(rng.generator); // used to pick random vector indices
+
+  // determine base mutation probs from model
+  double p_i[4] = { 0.0, 0.0, 0.0, 0.0 };
+  for (int i=0; i<4; ++i) {
+    for (int j=0; j<4; ++j) {
+      p_i[i] += model.Qij[i][j];
+    }
+  }
+  // construct cumulative probs
+  double cp_i[4] = { 0.0, 0.0, 0.0, 0.0 };
+  cp_i[0] = p_i[0];
+  for (int i=1; i<4; ++i) {
+    cp_i[i] = cp_i[i-1] + p_i[i];
+  }
+fprintf(stderr, "sum of nuc probs before normalization: %0.8f\n", cp_i[3]);
+  // normalize probs (for safety)
+  for (int i=0; i<4; ++i) {
+    cp_i[i] /= cp_i[3];
+  }
+fprintf(stderr, "sum of nuc probs after normalization: %0.8f\n", cp_i[3]);
+
+  for (int i=0; i<num_variants; ++i) {
+    // pick random nucleotide bucket
+    float r = random_float();
+    short idx_bucket = 0;
+    while (r > cp_i[idx_bucket]) {
+      idx_bucket++;
+    }
+    // pick random position
+    long nuc_pos = selector(genome.nuc_pos[idx_bucket]);
+    // pick new nucleotide
+    short nuc_alt = model.MutateNucleotide(idx_bucket, random_float);
+  }
+
+  return variants;
+}
+
+void applyVariants(
+  Genome &genome,
+  const vector<Variant> &variants,
+  const vector<Genotype> &genotypes)
+{
   unsigned num_sequences = genome.num_records;
   // generate lookup table for sequences
   map<string,unsigned> chr2seq;

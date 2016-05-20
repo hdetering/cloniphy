@@ -113,7 +113,7 @@ vector<T *> Tree<T>::getVisibleNodes() {
 }
 
 template<typename T>
-void Tree<T>::generateRandomTopology(boost::function<float()>& rng) {
+void Tree<T>::generateRandomTopology(boost::function<double()>& rng) {
   // TODO: call appropriate method based on user params
   if (true) {
     generateRandomTopologyInternalNodes(rng);
@@ -124,7 +124,7 @@ void Tree<T>::generateRandomTopology(boost::function<float()>& rng) {
 }
 
 template<typename T>
-void Tree<T>::generateRandomTopologyInternalNodes(boost::function<float()>& random) {
+void Tree<T>::generateRandomTopologyInternalNodes(boost::function<double()>& random) {
   // create root node
   T *r = new T();
   r->label = "0";
@@ -149,7 +149,7 @@ std::cerr << *n << " gets parent " << *p << std::endl;
 }
 
 template<typename T>
-void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<float()>& random) {
+void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random) {
   // generate N-1 internal nodes (each representing a coalescence event)
   int numNodes = m_numNodes;
   int k = numNodes-1;
@@ -210,7 +210,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<float()>& random) 
  * otherwise they cannot be distinguished.
  */
 template<typename T>
-void Tree<T>::evolve(int n_mutations, int n_transforming, boost::function<float()>& random) {
+void Tree<T>::evolve(int n_mutations, int n_transforming, boost::function<double()>& random) {
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
 #endif
@@ -261,7 +261,7 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 
 /** Drop mutations randomly along tree. */
 template<typename T>
-void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, boost::function<float()>& random) {
+void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, boost::function<double()>& random) {
   // are branch lengths specified?
   double tot_len = this->getTotalBranchLength();
   vector<double> vec_branch_len;
@@ -325,7 +325,7 @@ void Tree<T>::_printNodes() {
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "|%2u ", i); }; fprintf(stderr, "|\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) { fprintf(stderr, "+---"); }; fprintf(stderr, "+\n");
   for (unsigned i=0; i<m_vecNodes.size(); i++) {
-    if (m_vecNodes[i] > 0) { fprintf(stderr, "|%s ", m_vecNodes[i]->label.c_str()); }
+    if (m_vecNodes[i]) { fprintf(stderr, "|%s ", m_vecNodes[i]->label.c_str()); }
     else { fprintf(stderr, "| - "); }
   };
   fprintf(stderr, "|\n");

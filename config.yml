@@ -41,7 +41,7 @@ reference: data/input/hs37d5_chr20.fa
 
 # evolutionary model
 # choices: 'HKY', 'matrix', 'matrixFromVcf'
-model: matrix
+model: matrixFromVcf
 
 # custom nucleotide substitution matrix (ACGT)
 pA: [    0.0, 0.0406, 0.1661, 0.0331 ]

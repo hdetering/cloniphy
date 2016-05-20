@@ -4,7 +4,7 @@
 namespace matrix {
 
 /* global variables */
-int	nDIGITS = 53; /* no. of digits to the base BASE in the fraction */;
+int	nDIGITS = 53; /* no. of digits to the base BASE in the fraction */
 
 int abyx (double a, double x[], int n) {
   for (int i=0; i<n; x[i]*=a,i++);

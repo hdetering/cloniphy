@@ -4,6 +4,7 @@
 #include "stringio.hpp"
 #include <boost/function.hpp>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,26 @@
 namespace seqio {
 
 enum Nuc { A, C, G, T, N };
+
+inline short nuc2idx (char nuc) {
+  switch (nuc) {
+    case 'A': case 'a': return 0;
+    case 'C': case 'c': return 1;
+    case 'G': case 'g': return 2;
+    case 'T': case 't': return 3;
+  }
+  return -1; // default for unknown chars
+}
+
+inline char idx2nuc (short idx) {
+  switch (idx) {
+    case 0: return 'A';
+    case 1: return 'C';
+    case 2: return 'G';
+    case 3: return 'T';
+  }
+  return '?'; // default for unknown chars
+}
 
 struct SeqRecord
 {
@@ -43,6 +64,8 @@ struct Genome
   std::vector<unsigned> vec_start_masked; /** cumulative start positions of unmasked regions */
   std::vector<unsigned> vec_cumlen_masked; /** cumulative lengths of unmasked regions */
   double nuc_freq[4];                     /** nucleotide frequencies */
+  std::map<char, std::vector<long> > map_nuc_pos; /** absolute bp positions indexed by nucleotide */
+  std::vector<std::vector<long> > nuc_pos;
 
   Genome(const char*);
   void indexRecords();
@@ -60,9 +83,9 @@ int writeFasta(const std::vector<SeqRecord>&, std::ostream&, int = 60);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
-void simulateADO_old(const std::string, const float, const int, boost::function<float()>&);
+void simulateADO_old(const std::string, const float, const int, boost::function<double()>&);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
-void simulateADO(const std::string, const unsigned, const float, const int, boost::function<float()>&);
+void simulateADO(const std::string, const unsigned, const float, const int, boost::function<double()>&);
 /** Convert a nucleotide char into Nuc */
 Nuc charToNuc(const char);
 /** Convert Nuc into a nucleotide char */

@@ -33,14 +33,13 @@ Genome::Genome(const char* filename) {
   *  1) index chromosomes (start positions in genome)
   *  2) index unmasked regions (start positions in genome)
   *  3) count nucleotide frequencies
+  *  4) index bp positions into buckets by nucleotide
   */
 void Genome::indexRecords() {
   // initialize nucleotide counter
-  map<char, unsigned> nuc_count;
-  nuc_count['A'] = 0;
-  nuc_count['C'] = 0;
-  nuc_count['G'] = 0;
-  nuc_count['T'] = 0;
+  vector<unsigned> nuc_count(4, 0);
+  // initialize nucleotide buckets
+  nuc_pos = vector<vector<long> >(4);
   // initialize global start position
   unsigned cum_start = 0;
   vec_start_chr.push_back(cum_start);
@@ -51,15 +50,20 @@ void Genome::indexRecords() {
     bool is_new_region = false;
     string::const_iterator it = rec->seq.begin();
     while (it!=rec->seq.end()) {
+      short nuc = nuc2idx(*it);
       // skip to next unmasked position
-      while (it!=rec->seq.end() && *it == 'N') { it++; p++; }
+      while (it!=rec->seq.end() && nuc > -1) { it++; p++; }
       // skip to next masked position
-      while (it!=rec->seq.end() && *it != 'N') {
+      while (it!=rec->seq.end() && nuc > -1) {
         if (!is_new_region) {
           is_new_region = true;
           vec_start_masked.push_back(cum_start + p);
         }
-        nuc_count[toupper(*it)]++;
+        //nuc_count[toupper(*it)]++;
+
+        nuc_count[nuc]++;
+        //map_nuc_pos[toupper(*it)].push_back(cum_start + p);
+        nuc_pos[nuc].push_back(cum_start + p);
         it++; p++; masked_length++;
       }
       if (is_new_region)
@@ -71,13 +75,13 @@ void Genome::indexRecords() {
   }
   length = vec_start_chr[num_records];
 fprintf(stderr, "\nGenome stats:\n\trecords:\t%u\n\tlength:\t%u\n", num_records, length);
-fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_count['A'], nuc_count['C'], nuc_count['G'], nuc_count['T']);
+fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_count[0], nuc_count[1], nuc_count[2], nuc_count[3]);
   // calculate nucleotide frequencies (ACGT)
-  double num_acgt = nuc_count['A'] + nuc_count['C'] + nuc_count['G'] + nuc_count['T'];
-  nuc_freq[0] = nuc_count['A']/num_acgt;
-  nuc_freq[1] = nuc_count['C']/num_acgt;
-  nuc_freq[2] = nuc_count['G']/num_acgt;
-  nuc_freq[3] = nuc_count['T']/num_acgt;
+  double num_acgt = nuc_count[0] + nuc_count[1] + nuc_count[2] + nuc_count[3];
+  nuc_freq[0] = nuc_count[0]/num_acgt;
+  nuc_freq[1] = nuc_count[1]/num_acgt;
+  nuc_freq[2] = nuc_count[2]/num_acgt;
+  nuc_freq[3] = nuc_count[3]/num_acgt;
 fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n", nuc_freq[0], nuc_freq[1], nuc_freq[2], nuc_freq[3]);
 }
 
@@ -186,7 +190,7 @@ void indexFasta(const char *filename) {
 void simulateADO_old(const string fn_input,
                  const float percentage,
                  const int frag_len,
-                 boost::function<float()>& random) {
+                 boost::function<double()>& random) {
 fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   // read input genome
   Genome g = Genome(fn_input.c_str());
@@ -233,7 +237,7 @@ void simulateADO(const string fn_input,
                  const unsigned genome_len,
                  const float percentage,
                  const int frag_len,
-                 boost::function<float()>& random) {
+                 boost::function<double()>& random) {
 fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   // TODO: might be worth doing this in streaming fashion
   // open genome input file
