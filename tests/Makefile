@@ -2,7 +2,7 @@ CC := g++
 CXXFLAGS:=-std=c++11 -W -Wall -pedantic
 CXXFLAGS+=-g -O0 -DSEQAN_ENABLE_DEBUG=1
 
-LIB:=-pthread -lboost_program_options -lyaml-cpp -L ../lib #-lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt
+LIB:=-pthread -lboost_program_options -lboost_timer -lboost_system -lyaml-cpp -L ../lib #-lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt
 INC:=-I../include -I../src # place external header files in 'include' directory
 
 TARGET:=../bin/run_tests

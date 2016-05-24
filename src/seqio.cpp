@@ -25,8 +25,6 @@ Genome::Genome(const char* filename) {
   // read records from file
   readFasta(filename, records);
   num_records = records.size();
-  // initialize indices
-  indexRecords();
 }
 
 /** Scan genome and store structural information.
@@ -52,7 +50,7 @@ void Genome::indexRecords() {
     while (it!=rec->seq.end()) {
       short nuc = nuc2idx(*it);
       // skip to next unmasked position
-      while (it!=rec->seq.end() && nuc > -1) { it++; p++; }
+      while (it!=rec->seq.end() && nuc == -1) { it++; p++; nuc=nuc2idx(*it); }
       // skip to next masked position
       while (it!=rec->seq.end() && nuc > -1) {
         if (!is_new_region) {
@@ -60,15 +58,16 @@ void Genome::indexRecords() {
           vec_start_masked.push_back(cum_start + p);
         }
         //nuc_count[toupper(*it)]++;
-
         nuc_count[nuc]++;
         //map_nuc_pos[toupper(*it)].push_back(cum_start + p);
         nuc_pos[nuc].push_back(cum_start + p);
         it++; p++; masked_length++;
+        nuc = nuc2idx(*it);
       }
-      if (is_new_region)
+      if (is_new_region) {
         vec_cumlen_masked.push_back(masked_length);
         is_new_region = false;
+      }
     }
     cum_start += seq_len;
     vec_start_chr.push_back(cum_start);

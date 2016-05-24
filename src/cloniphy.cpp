@@ -128,6 +128,7 @@ int main (int argc, char* argv[])
   // read reference sequence
   fprintf(stderr, "\nReading reference from file '%s'...", reference.c_str());
   Genome ref_genome = Genome(reference.c_str());
+  ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
   // duplicate genome (all loci homozygous reference)
   ref_genome.duplicate();
