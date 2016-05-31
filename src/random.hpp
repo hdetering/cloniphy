@@ -4,6 +4,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/random.hpp>
+#include <vector>
 // Choosing the random number generator. (mt19937: Mersenne-Twister)
 typedef boost::mt19937 base_generator_type;
 
@@ -25,13 +26,21 @@ struct RandomNumberGenerator {
 	  return f;
 	}
 
-	boost::function<int()> getRandomFunctionInt(int min, int max) {
+	template <typename T>
+	boost::function<T()> getRandomFunctionInt(T min, T max) {
 	  boost::uniform_int<> uni_dist(min, max);
 	  boost::variate_generator<base_generator_type&, boost::uniform_int<> > uni(generator, uni_dist);
 
-	  boost::function<int()> f;
+	  boost::function<T()> f;
 	  f = boost::bind(uni_dist, generator);
 	  return f;
+	}
+
+	boost::function<int()> getRandomIndexWeighted(std::vector<double> probabilities) {
+		boost::random::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
+		boost::function<int()> f;
+	  f = boost::bind(dist, generator);
+		return f;
 	}
 };
 
@@ -41,15 +50,15 @@ struct random_selector
 {
 	//On most platforms, you probably want to use std::random_device("/dev/urandom")()
 	random_selector(RandomGenerator g = RandomGenerator(std::random_device("/dev/urandom")()))
-		: gen(g) {}
+		: _gen(g) {}
 
 	// provide a seed to initialize the random generator
-	random_selector(long seed)	: gen(RandomGenerator(seed)) {}
+	random_selector(long seed) : _gen(RandomGenerator(seed)) {}
 
 	template <typename Iter>
 	Iter select(Iter start, Iter end) {
 		boost::uniform_int<> dist(0, std::distance(start, end) - 1);
-		std::advance(start, dist(gen));
+		std::advance(start, dist(_gen));
 		return start;
 	}
 
@@ -59,14 +68,15 @@ struct random_selector
 		return select(start, end);
 	}
 
-	//convenience function that works on anything with a sensible begin() and end(), and returns with a ref to the value type
+	//convenience function that works on anything with a sensible begin() and end(),
+	// and returns with a ref to the value type
 	template <typename Container>
 	auto operator()(const Container& c) -> decltype(*begin(c))& {
 		return *select(begin(c), end(c));
 	}
 
 private:
-	RandomGenerator gen;
+	RandomGenerator _gen;
 };
 
 #endif /* RANDOM_H */

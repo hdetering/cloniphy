@@ -1,6 +1,7 @@
 #ifndef SEQIO_H
 #define SEQIO_H
 
+#include "random.hpp"
 #include "stringio.hpp"
 #include <boost/function.hpp>
 #include <iostream>
@@ -67,10 +68,15 @@ struct Genome
   std::map<char, std::vector<long> > map_nuc_pos; /** absolute bp positions indexed by nucleotide */
   std::vector<std::vector<long> > nuc_pos;
 
+  Genome();
   Genome(const char*);
+  void generate(const unsigned long, const std::vector<double>, RandomNumberGenerator<>&);
+  void generate(const unsigned long, const unsigned short, const std::vector<double>, RandomNumberGenerator<>&);
   void indexRecords();
   void duplicate(); // increase ploidy
-  /** Get absolute coordinates for a relative position in unmasked pard of the genome */
+  /** Get chromosome and local position for global position */
+  Locus getLocusByGlobalPos(long) const;
+  /** Get absolute coordinates for a relative position in unmasked part of the genome */
   Locus getAbsoluteLocusMasked(double) const;
 };
 
@@ -82,6 +88,12 @@ void readFasta(std::istream&, std::vector<SeqRecord>&);
 int writeFasta(const std::vector<SeqRecord>&, std::ostream&, int = 60);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
+/** Generate random DNA sequence */
+unsigned long generateRandomDnaSeq(
+  std::string &seq,
+  const unsigned long total_len,
+  const std::vector<double> nuc_freqs,
+  RandomNumberGenerator<> &rng);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
 void simulateADO_old(const std::string, const float, const int, boost::function<double()>&);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */

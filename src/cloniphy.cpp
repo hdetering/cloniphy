@@ -55,6 +55,8 @@ int main (int argc, char* argv[])
   int num_mutations = config["mutations"].as<int>();
   int num_transmuts = config["init-muts"].as<int>();
   vector<float> freqs = config["freqs"].as<vector<float> >();
+  unsigned long ref_len = config["ref-len"].as<unsigned long>();
+  vector<double> ref_nuc_freqs = config["ref-nuc-freqs"].as<vector<double> >();
   string reference = config["reference"].as<string>();
   string ref_vcf = config["reference-vcf"].as<string>();
   string tree_fn = config["tree"].as<string>();
@@ -125,9 +127,17 @@ int main (int argc, char* argv[])
   tree.printDot(tree.getRoot(), dotFileCol);
   dotFileCol.close();*/
 
-  // read reference sequence
-  fprintf(stderr, "\nReading reference from file '%s'...", reference.c_str());
-  Genome ref_genome = Genome(reference.c_str());
+  // get reference genome
+  Genome ref_genome = Genome();
+  if (ref_nuc_freqs.size() > 0) {
+    fprintf(stderr, "\nGenerating random reference genome sequence (%lu bp)...", ref_len);
+    ref_genome.generate(ref_len, ref_nuc_freqs, rng);
+  }
+  else if (reference.length() > 0) {
+    // read reference sequence
+    fprintf(stderr, "\nReading reference from file '%s'...", reference.c_str());
+    ref_genome = Genome(reference.c_str());
+  }
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
   // duplicate genome (all loci homozygous reference)

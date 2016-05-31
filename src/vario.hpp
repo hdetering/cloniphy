@@ -21,12 +21,14 @@ struct Variant
 {
   std::string id;     /** unique identifier */
   std::string chr;    /** reference chromosome id */
+  short chr_copy;     /** affected copy of chromosome (0: mat, 1: pat, ...) */
   unsigned long pos;  /** reference basepair position */
   std::vector<std::string> alleles; /** observed alleles */
   unsigned idx_mutation; /** reference to mutation that gave rise to this variant */
   double rel_pos;     /** relative position in genome (use for sorting) */
 
   Variant();
+  Variant(std::string id, std::string chr, unsigned long pos);
   ~Variant();
 
   bool operator< (const Variant&) const; /** make variants sortable */
@@ -39,6 +41,7 @@ struct Variant
 /** VariantSets store a set of variants and summary statistics about them. */
 struct VariantSet
 {
+  unsigned long num_variants = 0;
   std::vector<Variant> vec_variants; /** variants that belong to the set */
   /** summary statistics */
   double mat_freqs[4][4] = {
@@ -123,7 +126,17 @@ std::vector<Variant> generateVariants(
   const int num_variants,
   const Genome& genome,
   SubstitutionModel& model,
-  RandomNumberGenerator<>&
+  RandomNumberGenerator<>&,
+  const bool infinite_sites = true
+);
+/** Generate variant loci in a given genome based on evolutionary model.
+    Loci are selected randomly. */
+std::vector<Variant> generateVariantsRandomPos(
+  const int num_variants,
+  const Genome& genome,
+  SubstitutionModel& model,
+  RandomNumberGenerator<>&,
+  const bool infinite_sites = true
 );
 /** Apply variants to a given reference sequence */
 void applyVariants(

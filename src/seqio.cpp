@@ -9,15 +9,16 @@
 #include <stdlib.h> // for system() calls
 
 using namespace std;
+using boost::format;
 
 namespace seqio {
 
 SeqRecord::SeqRecord(const string id, const string desc, const string& seq)
   : id(id), description(desc), seq(seq), id_ref(id), copy(0) {}
 
-Genome::Genome(const char* filename) {
-  length = 0;
-  masked_length = 0;
+Genome::Genome() : length(0), masked_length(0), ploidy(1) {}
+
+Genome::Genome(const char* filename) : length(0), masked_length(0) {
   ploidy = 1;
   for (int i=0; i<4; i++)
     nuc_freq[i] = 0;
@@ -25,6 +26,53 @@ Genome::Genome(const char* filename) {
   // read records from file
   readFasta(filename, records);
   num_records = records.size();
+}
+
+void Genome::generate(
+  const unsigned long total_len,
+  const vector<double> nuc_freqs,
+  RandomNumberGenerator<> &rng
+) {
+  this->generate(total_len, 1, nuc_freqs, rng);
+}
+
+/** Generate random reference genome based on nucleotide frequencies. */
+void Genome::generate(
+  const unsigned long total_len,
+  const unsigned short num_chr,
+  const vector<double> nuc_freqs,
+  RandomNumberGenerator<> &rng
+) {
+  // generate random genomic sequence
+  string seq;
+  unsigned long gen_len = 0;
+  gen_len = generateRandomDnaSeq(seq, total_len, nuc_freqs, rng);
+
+  // generate chromosome limits
+  vector<unsigned long> chr_ends = { 0 };
+  if (num_chr > 1) {
+    unsigned long zero = 0;
+    boost::function<unsigned long()> rpos = rng.getRandomFunctionInt(zero, total_len);
+    for (auto i=0; i<num_chr-1; ++i) {
+      chr_ends.push_back(rpos());
+    }
+    sort(chr_ends.begin(), chr_ends.end());
+  }
+  chr_ends.push_back(total_len);
+
+  // split genome into chromsome sequences
+  unsigned long cum_start = 0;
+  string::iterator it_start = seq.begin();
+  string::iterator it_end = seq.begin();
+  for (auto i=0; i<num_chr; ++i) {
+    it_start = it_end;
+    advance(it_end, chr_ends[i+1]-chr_ends[i]);
+    string id_chr = (format("chr%d") % i).str();
+    SeqRecord rec(id_chr, "random sequence", string(it_start, it_end));
+    this->records.push_back(rec);
+  }
+  this->num_records = num_chr;
+  this->length = gen_len;
 }
 
 /** Scan genome and store structural information.
@@ -95,6 +143,20 @@ void Genome::duplicate() {
     records[i].id += "_m";
     records[num_records+i].id += "_p";
   }
+}
+
+Locus Genome::getLocusByGlobalPos(long global_pos) const {
+  int idx_seq = 0;
+  while (global_pos >= vec_start_chr[idx_seq+1])
+    idx_seq++;
+
+  // compile locus info
+  Locus *loc = new Locus();
+  loc->idx_record = idx_seq;
+  loc->start = global_pos - vec_start_chr[idx_seq];
+  loc->length = 1;
+
+  return *loc;
 }
 
 Locus Genome::getAbsoluteLocusMasked(double rel_pos) const {
@@ -181,6 +243,38 @@ void indexFasta(const char *filename) {
   string fn(filename);
   string cmd = "samtools faidx " + fn;
   system(cmd.c_str());
+}
+
+unsigned long generateRandomDnaSeq(
+  string &seq,
+  const unsigned long total_len,
+  const vector<double>nuc_freqs,
+  RandomNumberGenerator<> &rng
+) {
+  boost::function<double()> rdouble = rng.getRandomFunctionDouble(0.0, 1.0);
+  // build cumulative probs
+  vector<double> cum_probs = nuc_freqs;
+  for (unsigned i=1; i<cum_probs.size(); ++i) {
+    cum_probs[i] += cum_probs[i-1];
+  }
+  // normalize
+  for (unsigned i=0; i<cum_probs.size(); ++i) {
+    cum_probs[i] /= cum_probs[cum_probs.size()-1];
+  }
+
+  // generate random sequence
+  unsigned long gen_len = 0;
+  while (gen_len < total_len) {
+    // pick random nucleotide
+    double r = rdouble();
+    short i = 0;
+    while (r > cum_probs[i]) { ++i; }
+    char nuc = idx2nuc(i);
+    // add to genomic sequence
+    seq += nuc;
+    gen_len++;
+  }
+  return gen_len;
 }
 
 /** Simulate allelic dropout (ADO) events

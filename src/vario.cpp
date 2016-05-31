@@ -1,5 +1,6 @@
 #include "vario.hpp"
 #include <algorithm>
+#include <boost/container/flat_set.hpp>
 #include <boost/format.hpp>
 #include <ctime>
 #include <fstream>
@@ -13,6 +14,9 @@ using seqio::Locus;
 using seqio::Nuc;
 
 namespace vario {
+
+Variant::Variant(std::string id, std::string chr, unsigned long pos)
+ : id(id), chr(chr), pos(pos) {}
 
 VariantSet::VariantSet() {}
 VariantSet::~VariantSet() {}
@@ -316,43 +320,95 @@ vector<Variant> generateVariants(
   const int num_variants,
   const Genome& genome,
   SubstitutionModel& model,
-  RandomNumberGenerator<>& rng)
+  RandomNumberGenerator<>& rng,
+  const bool inf_sites)
 {
-  vector<Variant> variants = vector<Variant>();
+  vector<Variant> variants = vector<Variant>(num_variants);
+  boost::container::flat_set<int> var_pos; // keep track of variant positions
   boost::function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  boost::function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
-  // determine base mutation probs from model
-  double p_i[4] = { 0.0, 0.0, 0.0, 0.0 };
+  // determine base mutation probs from model (marginal sums)
+  vector<double> p_i(4, 0);
   for (int i=0; i<4; ++i) {
     for (int j=0; j<4; ++j) {
       p_i[i] += model.Qij[i][j];
     }
   }
-  // construct cumulative probs
-  double cp_i[4] = { 0.0, 0.0, 0.0, 0.0 };
-  cp_i[0] = p_i[0];
-  for (int i=1; i<4; ++i) {
-    cp_i[i] = cp_i[i-1] + p_i[i];
-  }
-fprintf(stderr, "sum of nuc probs before normalization: %0.8f\n", cp_i[3]);
-  // normalize probs (for safety)
-  for (int i=0; i<4; ++i) {
-    cp_i[i] /= cp_i[3];
-  }
-fprintf(stderr, "sum of nuc probs after normalization: %0.8f\n", cp_i[3]);
+  boost::function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
 
   for (int i=0; i<num_variants; ++i) {
     // pick random nucleotide bucket
-    float r = random_float();
-    short idx_bucket = 0;
-    while (r > cp_i[idx_bucket]) {
-      idx_bucket++;
-    }
+    int idx_bucket = random_nuc_idx();
     // pick random position
     long nuc_pos = selector(genome.nuc_pos[idx_bucket]);
+    if (inf_sites) {
+      while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
+// TODO: check verbosity setting
+fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated before, picking another one...\n", nuc_pos);
+        nuc_pos = selector(genome.nuc_pos[idx_bucket]);
+      }
+      var_pos.insert(nuc_pos);
+    }
+    Locus loc = genome.getLocusByGlobalPos(nuc_pos);
+    string id_chr = genome.records[loc.idx_record].id;
     // pick new nucleotide
     short nuc_alt = model.MutateNucleotide(idx_bucket, random_float);
+    Variant var;
+    var.id = to_string(i);
+    var.chr = id_chr;
+    var.chr_copy = random_copy();
+    var.pos = nuc_pos;
+    var.rel_pos = double(nuc_pos)/genome.length;
+    var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
+    var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
+    variants[i] = var;
+  }
+
+  return variants;
+}
+
+/** Generate variant loci in a given genome based on evolutionary model.
+    Nucleotide substitution probabilities guide selection of loci. */
+vector<Variant> generateVariantsRandomPos(
+  const int num_variants,
+  const Genome& genome,
+  SubstitutionModel& model,
+  RandomNumberGenerator<>& rng,
+  const bool inf_sites)
+{
+  vector<Variant> variants = vector<Variant>(num_variants);
+  boost::container::flat_set<int> var_pos; // keep track of variant positions
+  boost::function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  boost::function<long()> random_pos = rng.getRandomFunctionInt<long>(0, genome.length);
+  boost::function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+  random_selector<> selector(rng.generator); // used to pick random vector indices
+
+  for (int i=0; i<num_variants; ++i) {
+    // pick random position
+    long nuc_pos = random_pos();
+    if (inf_sites) {
+      while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
+fprintf(stderr, "locus %ld has beend mutated before, picking another one...\n", nuc_pos);
+        nuc_pos = random_pos();
+      }
+      var_pos.insert(nuc_pos);
+    }
+    Locus loc = genome.getLocusByGlobalPos(nuc_pos);
+    string id_chr = genome.records[loc.idx_record].id;
+    short ref_nuc = seqio::nuc2idx(genome.records[loc.idx_record].seq[loc.start]);
+    // pick new nucleotide
+    short nuc_alt = model.MutateNucleotide(ref_nuc, random_float);
+    Variant var;
+    var.id = to_string(i);
+    var.chr = id_chr;
+    var.chr_copy = random_copy();
+    var.pos = nuc_pos;
+    var.rel_pos = double(nuc_pos)/genome.length;
+    var.alleles.push_back(string(1, seqio::idx2nuc(ref_nuc)));
+    var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
+    variants[i] = var;
   }
 
   return variants;
