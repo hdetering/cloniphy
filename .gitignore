@@ -1,7 +1,8 @@
 # Ignore the build dir
 build
 
-# Ignore any executables
+# Ignore any binaries and executables
+*.o
 bin/*
 
 # Ignore third-party components (for now)
