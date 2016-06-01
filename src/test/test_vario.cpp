@@ -1,9 +1,9 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/timer/timer.hpp>
 
-#include "random.hpp"
-#include "seqio.hpp"
-#include "vario.hpp"
+#include "../core/random.hpp"
+#include "../core/seqio.hpp"
+#include "../core/vario.hpp"
 #include <boost/format.hpp>
 #include <vector>
 using boost::format;

@@ -2,8 +2,8 @@
 #include <boost/timer/timer.hpp>
 
 #include <vector>
-#include "random.hpp"
-#include "seqio.hpp"
+#include "../core/random.hpp"
+#include "../core/seqio.hpp"
 using namespace std;
 using namespace seqio;
 

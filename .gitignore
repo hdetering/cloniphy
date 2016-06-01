@@ -22,3 +22,6 @@ data
 *.aln
 *.vcf
 *.bed
+
+# backup copies of files should not be versioned
+legacy/
