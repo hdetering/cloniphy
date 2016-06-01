@@ -127,6 +127,7 @@ template<typename T>
 void Tree<T>::generateRandomTopologyInternalNodes(boost::function<double()>& random) {
   // create root node
   T *r = new T();
+  r->index = 0;
   r->label = "0";
   //r->is_healthy = true;
   r->parent = 0;
@@ -160,6 +161,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
     T *p = m_vecNodes[index1];
     m_vecNodes[index1] = m_vecNodes[2*i];
     m_vecNodes[2*i] = p;
+    p->index = 2*i;
 #ifdef DEBUG
     fprintf(stderr, "---\nIteration %d:\n", i);
     fprintf(stderr, "\tindex1: %d\n", index1);
@@ -171,6 +173,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
     T *q = m_vecNodes[index2];
     m_vecNodes[index2] = m_vecNodes[2*i+1];
     m_vecNodes[2*i+1] = q;
+    q->index = 2*i+1;
 #ifdef DEBUG
     fprintf(stderr, "\tindex2: %d\n", index2);
     fprintf(stderr, "\tnode2: %s\n", q->label.c_str());
@@ -178,7 +181,8 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
 #endif
     // create new internal node
     T *n = new T();
-    n->label = boost::lexical_cast<string>(++nextIndex);
+    n->index = nextIndex++;
+    n->label = boost::lexical_cast<string>(n->index+1);
     n->m_vecChildren.push_back(p);
     n->m_vecChildren.push_back(q);
     p->parent = n;
@@ -192,6 +196,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
 
   // generate a "healthy" clone as root node
   T *r = new T();
+  r->index = nextIndex;
   r->label = "0";
   //r->is_healthy = true;
   r->m_vecChildren.push_back(m_vecNodes[nextIndex-1]);

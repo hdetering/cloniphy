@@ -52,15 +52,15 @@ struct Tree
   std::vector<T *> getVisibleNodes();
   /** Build random tree topology. */
   void generateRandomTopology(boost::function<double()>&);
+  /** Arrange nodes randomly (internal nodes are visible) */
+  void generateRandomTopologyInternalNodes(boost::function<double()>&);
+  /** Arrange nodes randomly (internal nodes are invisible) */
+  void generateRandomTopologyLeafsOnly(boost::function<double()>&);
   /** Drop random mutations on clones. */
   virtual void evolve(int, int, boost::function<double()>&);
   void printDot(T*, std::ostream&);
 
 private:
-  /** Arrange nodes randomly (internal nodes are visible) */
-  void generateRandomTopologyInternalNodes(boost::function<double()>&);
-  /** Arrange nodes randomly (internal nodes are invisible) */
-  void generateRandomTopologyLeafsOnly(boost::function<double()>&);
   /** Assign initial mutations to founding clone. */
   void dropTransformingMutations(int);
   /** Make sure each clone has at least 1 mutation difference to every other clone. */
