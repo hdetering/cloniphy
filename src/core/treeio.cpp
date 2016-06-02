@@ -41,6 +41,7 @@ Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_vecNodes(n_nodes) {
     n->index = i+1;
     n->label = boost::lexical_cast<std::string>(i+1);
     n->is_visible = true;
+    n->length = 1;
     m_vecNodes[i] = n;
   }
 #ifdef DEBUG
@@ -183,6 +184,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
     T *n = new T();
     n->index = nextIndex++;
     n->label = boost::lexical_cast<string>(n->index+1);
+    n->length = 1;
     n->m_vecChildren.push_back(p);
     n->m_vecChildren.push_back(q);
     p->parent = n;
@@ -208,6 +210,29 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
   fprintf(stderr, "\twe have been ROOTed: %s\n", r->label.c_str());
   _printNodes();
 #endif
+}
+
+/** Shrink/expand branch length by a random factor */
+template <typename T>
+void Tree<T>::varyBranchLengths(
+  boost::function<double()>& random_double
+)
+{
+  T* root = this->m_root;
+  _varyBranchLengthsRec(root, random_double);
+}
+
+template <typename T>
+void Tree<T>::_varyBranchLengthsRec(
+  T* node,
+  boost::function<double()>& random_double
+)
+{
+  for (T* child : node->m_vecChildren) {
+    double scale_factor = random_double();
+    child->length *= scale_factor;
+    _varyBranchLengthsRec(child, random_double);
+  }
 }
 
 /** Place mutations randomly on the tree.
@@ -298,12 +323,12 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 template<typename T>
 void Tree<T>::printDot(T *node, std::ostream& os) {
   os << "digraph G {\n";
-  _printDotRecursive(node, os);
+  _printDotRec(node, os);
   os << "}\n";
 }
 
 template<typename T>
-void Tree<T>::_printDotRecursive(T *node, std::ostream& os) {
+void Tree<T>::_printDotRec(T *node, std::ostream& os) {
   os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << "\"";
   if (node==this->m_root) { // TODO: fix assignment of parent node (is always 0...) during tree creation
     os << ",style=filled,color=limegreen";
@@ -313,16 +338,45 @@ void Tree<T>::_printDotRecursive(T *node, std::ostream& os) {
   os << "];" << std::endl;
   for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
     T *child = node->m_vecChildren[i];
-    float edgeWeight = child->distanceToParent();
+    float edgeMut = child->distanceToParent();
+    float edgeLen = child->length;
     os << "\t" << node->index << " -> " << child->index;
-    if (edgeWeight > 0.0) {
-      os << "[style=bold,label=\"m=" << edgeWeight << ", l=" << boost::format("%0.2f") % child->length << "\"]";
+    if (edgeLen > 0.0) {
+      auto lbl = boost::format("%0.2f (%0.0f)") % edgeLen % edgeMut;
+      os << "[style=bold,label=<<font point-size=\"10\">" << lbl << "</font>>]";
     }
     os << ";" << std::endl;
 
-    _printDotRecursive(child, os);
+    _printDotRec(child, os);
   }
 }
+
+/* TODO: maybe use Boost Spirit Karma to generate Newick? */
+template<typename T>
+void Tree<T>::printNewick(T *node, ostream& os, bool first) {
+  bool has_children = (node->m_vecChildren.size() > 0);
+  if (!first) {
+    os << ","; }
+  if (has_children) {
+    os << "(";
+    bool first_child = true;
+    for (T *child : node->m_vecChildren) {
+      printNewick(child, os, first_child);
+      first_child = false;
+    }
+    os << ")";
+  } else {
+    os << boost::format("%s:%f") % node->label % node->length; }
+
+  if (node == this->m_root) {
+    os << ';'; }
+}
+
+template<typename T>
+void Tree<T>::_printNewickRec(T *node, ostream& os) {
+
+}
+
 
 // use me for debugging :-)
 template<typename T>

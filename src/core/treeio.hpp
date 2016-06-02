@@ -56,8 +56,11 @@ struct Tree
   void generateRandomTopologyInternalNodes(boost::function<double()>&);
   /** Arrange nodes randomly (internal nodes are invisible) */
   void generateRandomTopologyLeafsOnly(boost::function<double()>&);
+  /** Shrink/expand branch length by a random factor */
+  void varyBranchLengths(boost::function<double()>&);
   /** Drop random mutations on clones. */
   virtual void evolve(int, int, boost::function<double()>&);
+  void printNewick(T*, std::ostream&, bool first=true);
   void printDot(T*, std::ostream&);
 
 private:
@@ -67,7 +70,9 @@ private:
   void dropMandatoryMutations(T*, int&);
   /** Drop free mutations on random clone nodes. */
   void dropRandomMutations(int, int&, boost::function<double()>&);
-  void _printDotRecursive(T*, std::ostream&);
+  void _varyBranchLengthsRec(T*, boost::function<double()>&);
+  void _printNewickRec(T*, std::ostream&);
+  void _printDotRec(T*, std::ostream&);
   void _printNodes();
   T* _adaptNode(const treeio::node&);
 };

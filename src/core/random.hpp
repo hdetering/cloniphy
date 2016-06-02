@@ -42,6 +42,13 @@ struct RandomNumberGenerator {
 	  f = boost::bind(dist, generator);
 		return f;
 	}
+
+	boost::function<double()> getRandomGamma(double shape, double scale) {
+		boost::random::gamma_distribution<> dist(shape, scale);
+		boost::random::variate_generator<base_generator_type&, boost::random::gamma_distribution<>> rand_gamma(generator, dist);
+		boost::function<double()> f = boost::bind(dist, generator);
+		return f;
+	}
 };
 
 /** Selects random element from container */
