@@ -319,36 +319,10 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
   }
 }
 
-/** Print tree a graph in DOT format. */
 template<typename T>
-void Tree<T>::printDot(T *node, std::ostream& os) {
-  os << "digraph G {\n";
-  _printDotRec(node, os);
-  os << "}\n";
-}
-
-template<typename T>
-void Tree<T>::_printDotRec(T *node, std::ostream& os) {
-  os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << "\"";
-  if (node==this->m_root) { // TODO: fix assignment of parent node (is always 0...) during tree creation
-    os << ",style=filled,color=limegreen";
-  } else if (node->is_visible) {
-    os << ",style=filled,color=tomato";
-  }
-  os << "];" << std::endl;
-  for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
-    T *child = node->m_vecChildren[i];
-    float edgeMut = child->distanceToParent();
-    float edgeLen = child->length;
-    os << "\t" << node->index << " -> " << child->index;
-    if (edgeLen > 0.0) {
-      auto lbl = boost::format("%0.2f (%0.0f)") % edgeLen % edgeMut;
-      os << "[style=bold,label=<<font point-size=\"10\">" << lbl << "</font>>]";
-    }
-    os << ";" << std::endl;
-
-    _printDotRec(child, os);
-  }
+void Tree<T>::printNewick(ostream& os) {
+  printNewick(this->m_root, os);
+  os << ';' << endl;
 }
 
 /* TODO: maybe use Boost Spirit Karma to generate Newick? */
@@ -369,9 +343,40 @@ void Tree<T>::printNewick(T *node, ostream& os, bool first) {
   os << boost::format("%s:%f") % node->label % node->length;
 
   if (node == this->m_root) {
-    os << ';' << endl; }
+     }
 }
 
+/** Print tree a graph in DOT format. */
+template<typename T>
+void Tree<T>::printDot(T *node, std::ostream& os) {
+  os << "digraph G {\n";
+  _printDotRec(node, os);
+  os << "}\n";
+}
+
+template<typename T>
+void Tree<T>::_printDotRec(T *node, std::ostream& os) {
+  os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << "\"";
+  if (node==this->m_root) {
+    os << ",style=filled,color=limegreen";
+  } else if (node->is_visible) {
+    os << ",style=filled,color=tomato";
+  }
+  os << "];" << std::endl;
+  for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
+    T *child = node->m_vecChildren[i];
+    float edgeMut = child->distanceToParent();
+    float edgeLen = child->length;
+    os << "\t" << node->index << " -> " << child->index;
+    if (edgeLen > 0.0) {
+      auto lbl = boost::format("%0.2f (%0.0f)") % edgeLen % edgeMut;
+      os << "[style=bold,label=<<font point-size=\"10\">" << lbl << "</font>>]";
+    }
+    os << ";" << std::endl;
+
+    _printDotRec(child, os);
+  }
+}
 
 // use me for debugging :-)
 template<typename T>

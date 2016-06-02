@@ -60,6 +60,7 @@ struct Tree
   void varyBranchLengths(boost::function<double()>&);
   /** Drop random mutations on clones. */
   virtual void evolve(int, int, boost::function<double()>&);
+  void printNewick(std::ostream&);
   void printNewick(T*, std::ostream&, bool first=true);
   void printDot(T*, std::ostream&);
 

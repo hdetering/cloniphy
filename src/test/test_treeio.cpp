@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE( random_clone_tree )
   BOOST_TEST_MESSAGE( "  random_clone_tree.tre" );
   ofstream fs_nwk;
   fs_nwk.open("random_clone_tree.tre");
-  tree.printNewick(tree.m_root, fs_nwk);
+  tree.printNewick(fs_nwk);
   fs_nwk.close();
 }
 
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE( random_sample_tree )
   BOOST_TEST_MESSAGE( "  random_sample_tree.tre" );
   ofstream fs_nwk;
   fs_nwk.open("random_sample_tree.tre");
-  tree.printNewick(tree.m_root, fs_nwk);
+  tree.printNewick(fs_nwk);
   fs_nwk.close();
 }
 
