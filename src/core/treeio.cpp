@@ -365,16 +365,11 @@ void Tree<T>::printNewick(T *node, ostream& os, bool first) {
       first_child = false;
     }
     os << ")";
-  } else {
-    os << boost::format("%s:%f") % node->label % node->length; }
+  }
+  os << boost::format("%s:%f") % node->label % node->length;
 
   if (node == this->m_root) {
-    os << ';'; }
-}
-
-template<typename T>
-void Tree<T>::_printNewickRec(T *node, ostream& os) {
-
+    os << ';' << endl; }
 }
 
 

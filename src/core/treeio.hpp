@@ -71,7 +71,6 @@ private:
   /** Drop free mutations on random clone nodes. */
   void dropRandomMutations(int, int&, boost::function<double()>&);
   void _varyBranchLengthsRec(T*, boost::function<double()>&);
-  void _printNewickRec(T*, std::ostream&);
   void _printDotRec(T*, std::ostream&);
   void _printNodes();
   T* _adaptNode(const treeio::node&);
