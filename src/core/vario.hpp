@@ -112,12 +112,20 @@ void readVcf(
   std::istream& vcf_filename,
   VariantSet& variants,
   std::vector<std::vector<Genotype> >& gtMatrix);
-/** Generate VCF output from a reference sequence and a set of mutations.  */
+/** Generate VCF output from a reference sequence and a set of mutations.
+    (multiple samples) */
 void writeVcf(
-  const std::vector<SeqRecord>&,
-  const std::vector<Variant>&,
-  const std::vector<std::string>&,
-  const std::vector<std::vector<short> >&,
+  const std::vector<SeqRecord>& seqs,
+  const std::vector<Variant>& vars,
+  const std::vector<std::string>& labels,
+  const std::vector<std::vector<short> >& mutMatrix,
+  std::ostream&);
+/** Generate VCF output from a reference sequence and a set of mutations.
+    (single sample) */
+void writeVcf(
+  const std::vector<SeqRecord>& seqs,
+  const std::vector<Variant>& vars,
+  const std::string label,
   std::ostream&);
 
 /** Generate variant loci in a given genome based on evolutionary model.
@@ -127,7 +135,7 @@ std::vector<Variant> generateVariants(
   const Genome& genome,
   SubstitutionModel& model,
   RandomNumberGenerator<>&,
-  const bool infinite_sites = true
+  const bool infinite_sites = false
 );
 /** Generate variant loci in a given genome based on evolutionary model.
     Loci are selected randomly. */
@@ -136,7 +144,7 @@ std::vector<Variant> generateVariantsRandomPos(
   const Genome& genome,
   SubstitutionModel& model,
   RandomNumberGenerator<>&,
-  const bool infinite_sites = true
+  const bool infinite_sites = false
 );
 /** Apply variants to a given reference sequence */
 void applyVariants(

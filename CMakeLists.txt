@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5.1)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
 
-project(cloniphy)
+project(cloniphy CXX)
 add_subdirectory(src)
 
 # provides "add_test()" command

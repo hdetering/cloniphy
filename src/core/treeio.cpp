@@ -38,7 +38,7 @@ Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_vecNodes(n_nodes) {
   // initialize nodes
   for (int i=0; i<n_nodes; i++) {
     T *n = new T();
-    n->index = i+1;
+    n->index = i;
     n->label = boost::lexical_cast<std::string>(i+1);
     n->is_visible = true;
     n->length = 1;
@@ -92,6 +92,15 @@ double Tree<T>::getTotalBranchLength() {
 }
 
 template<typename T>
+vector<double> Tree<T>::getAbsoluteBranchLengths() {
+  vector<double> vec_len = vector<double>(m_vecNodes.size());
+  for (unsigned i=0; i<this->m_vecNodes.size(); ++i) {
+    vec_len[i] = this->m_vecNodes[i]->length;
+  }
+  return vec_len;
+}
+
+template<typename T>
 vector<double> Tree<T>::getRelativeBranchLengths() {
   double total_branch_len = this->getTotalBranchLength();
   vector<double> branch_lens = vector<double>(m_vecNodes.size());
@@ -128,10 +137,10 @@ template<typename T>
 void Tree<T>::generateRandomTopologyInternalNodes(boost::function<double()>& random) {
   // create root node
   T *r = new T();
-  r->index = 0;
   r->label = "0";
   //r->is_healthy = true;
   r->parent = 0;
+  r->index = m_vecNodes.size();
   m_vecNodes.push_back(r);
   m_root = r;
   // first clone becomes child of root
@@ -233,6 +242,11 @@ void Tree<T>::_varyBranchLengthsRec(
     child->length *= scale_factor;
     _varyBranchLengthsRec(child, random_double);
   }
+  // normalize branch lengths to MRCA's length
+  double len_mrca = this->m_root->m_vecChildren[0]->length;
+  for (T* node : this->m_vecNodes) {
+    node->length /= len_mrca;
+  }
 }
 
 /** Place mutations randomly on the tree.
@@ -240,7 +254,7 @@ void Tree<T>::_varyBranchLengthsRec(
  * otherwise they cannot be distinguished.
  */
 template<typename T>
-void Tree<T>::evolve(int n_mutations, int n_transforming, boost::function<double()>& random) {
+void Tree<T>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<> &rng) {
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
 #endif
@@ -256,7 +270,11 @@ void Tree<T>::evolve(int n_mutations, int n_transforming, boost::function<double
 #ifdef DEBUG
   fprintf(stderr, "Now dropping %d random mutations...\n", n_random);
 #endif
-  dropRandomMutations(n_random, ++next_mut_id, random);
+  dropRandomMutations(n_random, ++next_mut_id, rng);
+
+  // adjust MRCA branch length to match #mutations
+  T* mrca = this->m_root->m_vecChildren[0];
+  mrca->length = (double)n_transforming/n_mutations;
 }
 
 /** Drop transforming mutations on immediate children of root node. */
@@ -291,29 +309,25 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 
 /** Drop mutations randomly along tree. */
 template<typename T>
-void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, boost::function<double()>& random) {
+void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, RandomNumberGenerator<>& rng) {
+  long n_nodes = this->m_vecNodes.size();
+  boost::function<long()> f_random_index;
   // are branch lengths specified?
   double tot_len = this->getTotalBranchLength();
-  vector<double> vec_branch_len;
-  if (tot_len > 0) {
-    vec_branch_len = this->getRelativeBranchLengths();
-  } else { // if tree has no branch length, assign equal values to each
-    long n_nodes = this->m_vecNodes.size();
-    vec_branch_len = vector<double>(n_nodes, 1.0/n_nodes);
+  vector<double> vec_branch_len = this->getAbsoluteBranchLengths();
+  if (tot_len == 0) { // if tree has no branch length, assign equal weight to each
+    vec_branch_len = vector<double>(n_nodes, 1);
   }
-  // build cumulative sum of branch lengths
-  vector<double> vec_cum_len = vec_branch_len;
-  for (unsigned i=1; i<vec_branch_len.size(); ++i) {
-    vec_cum_len[i] += vec_cum_len[i-1];
-  }
+  // avoid MRCA node receiving random mutations
+  T* mrca = this->m_root->m_vecChildren[0];
+  vec_branch_len[mrca->index] = 0.0;
+  f_random_index = rng.getRandomIndexWeighted(vec_branch_len);
   // drop mutations randomly, but in proportion to branch length
   for (int i=0; i<n_mutations; ++i) {
     // pick clone to mutate
-    float r = random();
-    int idx_node = 0;
-    while (vec_cum_len[idx_node] < r) idx_node++;
+    long idx_node = f_random_index();
     T *node = m_vecNodes[idx_node];
-cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
+//cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
     node->m_vec_mutations.push_back(mutation_id++);
   }

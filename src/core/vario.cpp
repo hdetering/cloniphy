@@ -363,6 +363,7 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.rel_pos = double(nuc_pos)/genome.length;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
+    var.idx_mutation = i;
     variants[i] = var;
   }
 

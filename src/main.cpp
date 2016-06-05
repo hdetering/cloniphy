@@ -115,7 +115,7 @@ int main (int argc, char* argv[])
   CloneTree::printNewick(tree.m_root, cerr);
   fprintf(stderr, "\n");
 
-  tree.evolve(num_mutations, num_transmuts, random);
+  tree.evolve(num_mutations, num_transmuts, rng);
   fprintf(stderr, "\nNewick representation of mutated tree:\n");
   CloneTree::printNewick(tree.m_root, cerr);
   fprintf(stderr, "\n");
@@ -157,7 +157,7 @@ int main (int argc, char* argv[])
   if (ref_vcf.size() > 0) {
     fprintf(stderr, "applying germline variants (from %s).\n", ref_vcf.c_str());
     VariantSet ref_variants;
-    vector<vector<Genotype > > ref_gt_matrix;
+    vector<vector<Genotype >> ref_gt_matrix;
     vario::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
     vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix[0]);
   }

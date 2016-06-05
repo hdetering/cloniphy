@@ -16,9 +16,6 @@ struct FixtureVario {
   FixtureVario() {
     BOOST_TEST_MESSAGE( "setup fixure" );
     fn_vcf = "data/germline.vcf";
-    BOOST_TEST_MESSAGE( "loading benchmark VCF file '" << fn_vcf << "'..." );
-    readVcf(fn_vcf, variant_set, gtMatrix);
-    BOOST_TEST_MESSAGE( "  read " << variant_set.vec_variants.size() << " variants." );
 
     unsigned long ref_genome_len = 1000000;
     vector<double> nuc_freqs = { 0.3, 0.2, 0.2, 0.3 };
@@ -43,8 +40,6 @@ struct FixtureVario {
   }
 
   string fn_vcf;
-  VariantSet variant_set;
-  vector<vector<Genotype> > gtMatrix;
   SubstitutionModel model;
   seqio::Genome ref_genome;
   long seed = 123456789;
@@ -72,31 +67,39 @@ BOOST_AUTO_TEST_CASE( random )
 
   BOOST_TEST_MESSAGE( " Starting timer ... NOW! " );
   boost::timer::auto_cpu_timer t;
-  BOOST_TEST_MESSAGE( " Generating random gamma-distributed numbers (shape=5.0, scale=1.0)... " );
+  BOOST_TEST_MESSAGE( " Generating random gamma-distributed numbers (shape=2.0, scale=0.5)... " );
   auto fn_out = "gamma.k5_s1.csv";
-  ofstream fs_dot;
-  fs_dot.open(fn_out);
+  ofstream fs_out;
+  fs_out.open(fn_out);
 
   auto random_gamma = rng.getRandomGamma(5.0, 1.0);
   for (int i=0; i<100000; ++i) {
-    fs_dot << random_gamma() << endl;
+    fs_out << random_gamma() << endl;
   }
-  fs_dot.close();
+  fs_out.close();
   BOOST_TEST_MESSAGE( " Output numbers are in 'gamma.k5_s1.csv' " );
 }
 
-/* read benchmark variant set */
+/*
 BOOST_AUTO_TEST_CASE( vcf_sanity_check )
 {
+
+}
+*/
+
+/* read benchmark variant set and calculate sumstats */
+BOOST_AUTO_TEST_CASE( vcf_sumstats )
+{
+  VariantSet variant_set;
+  vector<vector<Genotype> > gtMatrix;
+  BOOST_TEST_MESSAGE( "loading benchmark VCF file '" << fn_vcf << "'..." );
+  readVcf(fn_vcf, variant_set, gtMatrix);
   vector<Variant> variants = variant_set.vec_variants;
+  BOOST_TEST_MESSAGE( "  read " << variants.size() << " variants." );
   BOOST_CHECK( variants.size() == 3100839 );
   BOOST_CHECK( gtMatrix.size() == 1 );
   BOOST_CHECK( gtMatrix[0].size() == variants.size() );
-}
 
-/* calculate sumstats */
-BOOST_AUTO_TEST_CASE( vcf_sumstats )
-{
   BOOST_TEST_MESSAGE( "calculating VCF sumstats..." );
   //variant_set.calculateSumstats();
   double (&f)[4][4] = variant_set.mat_freqs;
@@ -112,6 +115,9 @@ BOOST_AUTO_TEST_CASE( vcf_sumstats )
 /* generate set of novel variants */
 BOOST_AUTO_TEST_CASE( generate_variants )
 {
+  boost::timer::auto_cpu_timer t;
+  BOOST_TEST_MESSAGE( "duplicating reference chromosomes..." );
+  ref_genome.duplicate();
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
   vector<Variant> variants = generateVariants(1000, ref_genome, model, rng);
   BOOST_TEST_MESSAGE( "done generating 1000 variants, here are the first 10: " );
@@ -119,6 +125,25 @@ BOOST_AUTO_TEST_CASE( generate_variants )
   for (int i=0; i<10; ++i) {
     BOOST_TEST_MESSAGE( format("%s,%s,%d,%s,%s") % variants[i].id % variants[i].chr % variants[i].pos % variants[i].alleles[0] % variants[i].alleles[1] );
   }
+
+  // export variants to file
+  vector<string> labels = { "healthy" };
+  // create mutation matrix (contains info about which variants apply and to which chr copy)
+  vector<vector<short>> mutMatrix(1, vector<short>(variants.size(), 1));
+  for (auto i=0; i<variants.size(); ++i)
+    mutMatrix[0][i] += variants[i].chr_copy;
+
+  auto fn_out = "ref_variants.vcf";
+  ofstream fs_out;
+  fs_out.open(fn_out);
+  vario::writeVcf(ref_genome.records, variants, labels, mutMatrix, fs_out);
+  fs_out.close();
+  BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
+
+
+  BOOST_TEST_MESSAGE( "creating diploid reference genome:" );
+  BOOST_TEST_MESSAGE( "  applying variants to reference..." );
+
 }
 
 /* compare distributions for variants generated

@@ -47,6 +47,8 @@ struct Tree
   /** Return sum of all branch lengths */
   double getTotalBranchLength();
   /** Return vector of relative branch lengths */
+  std::vector<double> getAbsoluteBranchLengths();
+  /** Return vector of relative branch lengths */
   std::vector<double> getRelativeBranchLengths();
   /** Return visible tree nodes. */
   std::vector<T *> getVisibleNodes();
@@ -59,7 +61,7 @@ struct Tree
   /** Shrink/expand branch length by a random factor */
   void varyBranchLengths(boost::function<double()>&);
   /** Drop random mutations on clones. */
-  virtual void evolve(int, int, boost::function<double()>&);
+  virtual void evolve(int, int, RandomNumberGenerator<>&);
   void printNewick(std::ostream&);
   void printNewick(T*, std::ostream&, bool first=true);
   void printDot(T*, std::ostream&);
@@ -70,7 +72,7 @@ private:
   /** Make sure each clone has at least 1 mutation difference to every other clone. */
   void dropMandatoryMutations(T*, int&);
   /** Drop free mutations on random clone nodes. */
-  void dropRandomMutations(int, int&, boost::function<double()>&);
+  void dropRandomMutations(int, int&, RandomNumberGenerator<>&);
   void _varyBranchLengthsRec(T*, boost::function<double()>&);
   void _printDotRec(T*, std::ostream&);
   void _printNodes();
