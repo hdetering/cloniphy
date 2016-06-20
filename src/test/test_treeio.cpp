@@ -64,6 +64,12 @@ BOOST_AUTO_TEST_CASE( random_sample_tree )
   int num_mutations = 101000;
   int num_transmuts =   1000;
   tree.evolve(num_mutations, num_transmuts, rng);
+  // assign random weights
+  vector<double> w = rng.getRandomProbs(num_samples);
+  double c = 0.1; // contamination with normal cells
+  w.insert(w.begin(), c);
+  for_each(w.begin()+1, w.end(), [&](double &p) { p*=c; });
+  tree.assignWeights(w);
 
   BOOST_CHECK( tree.m_numNodes == num_samples );
 

@@ -13,6 +13,7 @@ struct Node
   int index;
   std::string label;
   double length;
+  double weight;
   bool is_visible;
   Node *parent;
   std::vector<Node *> m_vecChildren;
@@ -60,6 +61,8 @@ struct Tree
   void generateRandomTopologyLeafsOnly(boost::function<double()>&);
   /** Shrink/expand branch length by a random factor */
   void varyBranchLengths(boost::function<double()>&);
+  /** Assign random weights to visible nodes */
+  void assignWeights(std::vector<double> w);
   /** Drop random mutations on clones. */
   virtual void evolve(int, int, RandomNumberGenerator<>&);
   void printNewick(std::ostream&);

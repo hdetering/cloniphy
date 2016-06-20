@@ -42,6 +42,7 @@ Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_vecNodes(n_nodes) {
     n->label = boost::lexical_cast<std::string>(i+1);
     n->is_visible = true;
     n->length = 1;
+    n->weight = 0.0;
     m_vecNodes[i] = n;
   }
 #ifdef DEBUG
@@ -194,6 +195,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
     n->index = nextIndex++;
     n->label = boost::lexical_cast<string>(n->index+1);
     n->length = 1;
+    n->weight = 0.0;
     n->m_vecChildren.push_back(p);
     n->m_vecChildren.push_back(q);
     p->parent = n;
@@ -246,6 +248,28 @@ void Tree<T>::_varyBranchLengthsRec(
   double len_mrca = this->m_root->m_vecChildren[0]->length;
   for (T* node : this->m_vecNodes) {
     node->length /= len_mrca;
+  }
+}
+
+/** Assign random weights to visible nodes */
+template<typename T>
+void Tree<T>::assignWeights(vector<double> w) {
+  // note; node at index 0 must be root node
+  long num_weights = w.size();
+  if (m_vecNodes.size() != num_weights) {
+    fprintf(stderr, "[ERROR] number of node weights (%ld) must equal number of visible nodes (%ld)\n", m_vecNodes.size(), num_weights);
+  }
+  long i = 0;
+  for (auto node : m_vecNodes) {
+    if (node->is_visible) {
+      if (i == num_weights) {
+        fprintf(stderr, "[ERROR] number of visible nodes exceeds number of weights (%ld)\n", num_weights);
+      }
+      node->weight = w[i++];
+    }
+  }
+  if (i < num_weights) {
+    fprintf(stderr, "[WARN] number of visible nodes (%ld) less than number of weights (%ld)\n", i, num_weights);
   }
 }
 

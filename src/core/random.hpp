@@ -1,6 +1,7 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
+#include <algorithm>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/random.hpp>
@@ -48,6 +49,25 @@ struct RandomNumberGenerator {
 		boost::random::variate_generator<base_generator_type&, boost::random::gamma_distribution<>> rand_gamma(generator, dist);
 		boost::function<double()> f = boost::bind(dist, generator);
 		return f;
+	}
+
+  /** algorithm proposed in:
+	 *  Rubin, Donald B. The Bayesian Bootstrap.
+	 *  Ann. Statist. 9 (1981), no. 1, 130--134. doi:10.1214/aos/1176345338.
+   */
+	std::vector<double> getRandomProbs(int n) {
+		std::vector<double> p(n);
+		std::vector<double> r(n+1);
+		r[0] = 0.0;
+		r[1] = 1.0;
+		auto random_double = getRandomFunctionDouble(0.0, 1.0);
+		for (int i=2; i<n+1; ++i) {
+			r[i] = random_double();
+		}
+		std::sort(r.begin(), r.end());
+		for (int i=0; i<n; ++i) {
+			p[i] = r[i+1] - r[i];
+		}
 	}
 };
 
