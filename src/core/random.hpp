@@ -68,6 +68,8 @@ struct RandomNumberGenerator {
 		for (int i=0; i<n; ++i) {
 			p[i] = r[i+1] - r[i];
 		}
+
+		return p;
 	}
 };
 

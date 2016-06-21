@@ -2,6 +2,8 @@
 #include "clone.hpp"
 #include "treeio.hpp"
 #include <boost/format.hpp>
+using boost::format;
+using boost::str;
 #include <boost/lexical_cast.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
@@ -142,6 +144,7 @@ void Tree<T>::generateRandomTopologyInternalNodes(boost::function<double()>& ran
   //r->is_healthy = true;
   r->parent = 0;
   r->index = m_vecNodes.size();
+  r->is_visible = true;
   m_vecNodes.push_back(r);
   m_root = r;
   // first clone becomes child of root
@@ -254,12 +257,23 @@ void Tree<T>::_varyBranchLengthsRec(
 /** Assign random weights to visible nodes */
 template<typename T>
 void Tree<T>::assignWeights(vector<double> w) {
-  // note; node at index 0 must be root node
+  string str_w = str(format("%.4f") % w[0]);
+  for_each(w.begin()+1, w.end(), [&] (double p) {
+    str_w += str(format(", %.4f") % p);
+  });
+  fprintf(stderr, "Assigning weights:\n\t[ %s ]\n", str_w.c_str());
+
+  // note: first weight assigned to root node -> normal cell contamination
+  this->m_root->weight = w[0];
   long num_weights = w.size();
-  if (m_vecNodes.size() != num_weights) {
-    fprintf(stderr, "[ERROR] number of node weights (%ld) must equal number of visible nodes (%ld)\n", m_vecNodes.size(), num_weights);
+  if (this->m_numNodes != num_weights-1) {
+    fprintf(stderr, "[ERROR] number of node weights (%ld) must equal number of visible nodes (%d+1)\n", num_weights, m_numNodes);
   }
-  long i = 0;
+  auto it_w = w.begin()+1;
+  for (auto child : this->m_root->m_vecChildren) {
+    _assignWeightsRec(child, it_w, w);
+  }
+/*  long i = 1;
   for (auto node : m_vecNodes) {
     if (node->is_visible) {
       if (i == num_weights) {
@@ -270,6 +284,27 @@ void Tree<T>::assignWeights(vector<double> w) {
   }
   if (i < num_weights) {
     fprintf(stderr, "[WARN] number of visible nodes (%ld) less than number of weights (%ld)\n", i, num_weights);
+  }*/
+}
+
+/** Assign weights recursively (pre-order traversal) */
+template<typename T>
+void Tree<T>::_assignWeightsRec(
+  T* node,
+  vector<double>::iterator &it_w,
+  vector<double> w)
+{
+  if (node->is_visible) {
+    if (it_w == w.end()) {
+      fprintf(stderr, "[ERROR] end of node weights reached before end of nodes.\n");
+      return;
+    }
+    node->weight = *it_w;
+    it_w++;
+  }
+
+  for (auto child : node->m_vecChildren) {
+    _assignWeightsRec(child, it_w, w);
   }
 }
 
@@ -394,7 +429,8 @@ void Tree<T>::printDot(T *node, std::ostream& os) {
 
 template<typename T>
 void Tree<T>::_printDotRec(T *node, std::ostream& os) {
-  os << "\t" << node->index << "[label=\"(" << node->index << ") " << node->label << "\"";
+  auto node_lbl = boost::format("\"%s\\ni:%d\\nw:%.4f\"") % node->label % node->index % node->weight;
+  os << "\t" << node->index << "[label=" << node_lbl;
   if (node==this->m_root) {
     os << ",style=filled,color=limegreen";
   } else if (node->is_visible) {

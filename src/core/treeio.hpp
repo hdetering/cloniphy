@@ -77,6 +77,7 @@ private:
   /** Drop free mutations on random clone nodes. */
   void dropRandomMutations(int, int&, RandomNumberGenerator<>&);
   void _varyBranchLengthsRec(T*, boost::function<double()>&);
+  void _assignWeightsRec(T*, std::vector<double>::iterator&, std::vector<double>);
   void _printDotRec(T*, std::ostream&);
   void _printNodes();
   T* _adaptNode(const treeio::node&);
