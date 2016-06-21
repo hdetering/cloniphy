@@ -25,7 +25,7 @@ BOOST_AUTO_TEST_CASE( generate )
 {
   boost::timer::auto_cpu_timer t;
   unsigned long len = 1000000; // genome length
-  unsigned short num_chr = 2; // number of chromosomes
+  unsigned short num_chr = 3; // number of chromosomes
   vector<double> nuc_freqs = {0.3, 0.2, 0.2, 0.3};
   long seed = 123456789;
   RandomNumberGenerator<> rng(seed);
@@ -38,6 +38,15 @@ BOOST_AUTO_TEST_CASE( generate )
   BOOST_CHECK( ref_genome.num_records == num_chr );
   BOOST_CHECK( ref_genome.records.size() == num_chr );
 
+  // write genome to file
+  BOOST_TEST_MESSAGE( "writing generated genome to file 'ref_genome.fa'..." );
+  ofstream f_fasta;
+  f_fasta.open("ref_genome.fa");
+  writeFasta(ref_genome.records, f_fasta);
+  f_fasta.close();
+  BOOST_TEST_MESSAGE( "done." );
+
+  // display summary stats
   ref_genome.indexRecords();
 }
 

@@ -22,3 +22,6 @@ data
 
 # backup copies of files should not be versioned
 legacy/
+
+# some temporary files that are not of interest
+scripts/.ipynb_checkpoints
