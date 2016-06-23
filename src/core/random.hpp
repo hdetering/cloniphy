@@ -19,35 +19,31 @@ struct RandomNumberGenerator {
 	}
 
 	boost::function<double()> getRandomFunctionDouble(double min, double max) {
-	  boost::uniform_real<> uni_dist(min, max);
-	  boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(generator, uni_dist);
-
-	  boost::function<double()> f;
-	  f = boost::bind(uni_dist, generator);
+	  boost::uniform_real<> dist(min, max);
+	  boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(generator, dist);
+	  boost::function<double()> f = [dist, this] { return dist(generator); };
 	  return f;
 	}
 
 	template <typename T>
 	boost::function<T()> getRandomFunctionInt(T min, T max) {
-	  boost::uniform_int<> uni_dist(min, max);
-	  boost::variate_generator<base_generator_type&, boost::uniform_int<> > uni(generator, uni_dist);
-
-	  boost::function<T()> f;
-	  f = boost::bind(uni_dist, generator);
+	  boost::uniform_int<> dist(min, max);
+	  boost::variate_generator<base_generator_type&, boost::uniform_int<> > uni(generator, dist);
+	  boost::function<T()> f = [dist, this] { return dist(generator); };
 	  return f;
 	}
 
 	boost::function<int()> getRandomIndexWeighted(std::vector<double> probabilities) {
 		boost::random::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
-		boost::function<int()> f;
-	  f = boost::bind(dist, generator);
+		boost::function<int()> f = [dist, this] { return dist(generator); };
 		return f;
 	}
 
 	boost::function<double()> getRandomGamma(double shape, double scale) {
 		boost::random::gamma_distribution<> dist(shape, scale);
 		boost::random::variate_generator<base_generator_type&, boost::random::gamma_distribution<>> rand_gamma(generator, dist);
-		boost::function<double()> f = boost::bind(dist, generator);
+		//boost::function<double()> f = [dist, this] { return dist(generator); };
+		boost::function<double()> f = boost::bind(dist, boost::ref(generator));
 		return f;
 	}
 
