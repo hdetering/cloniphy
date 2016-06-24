@@ -92,7 +92,7 @@ int main (int argc, char* argv[])
     treeio::readNewick(tree_fn, root_node);
     tree = *(new Tree<Clone>(root_node));
     num_clones = tree.getVisibleNodes().size();
-    std::cerr << "num_nodes:\t" << tree.m_numNodes << std::endl;
+    std::cerr << "num_nodes:\t" << tree.m_numVisibleNodes << std::endl;
     std::cerr << "num_clones:\t" << num_clones << std::endl;
 
     // if number of mutations have not been supplied specifically,
@@ -186,7 +186,7 @@ int main (int argc, char* argv[])
   vario::applyMutations(mutations, ref_genome, model, random, variants);
 
   // initialize mutation matrix
-  vector<vector<short> > mutMatrix(tree.m_numNodes, std::vector<short>(num_mutations,0));
+  vector<vector<short> > mutMatrix(tree.m_numVisibleNodes, std::vector<short>(num_mutations,0));
 
   // generate clone sequences based on clonal tree and mutations
   fprintf(stderr, "---\nNow generating clone genomes...\n");
@@ -195,23 +195,22 @@ int main (int argc, char* argv[])
   for (unsigned i=0; i<clones.size(); ++i)
     clones[i]->mutateGenome(ref_genome, mutations, variants, mutMatrix, clone2fn);
 
-  // compile variants for output (only visible nodes in clone tree + root)
+  // compile variants for output
   //vector<Clone *> clones = tree.getVisibleNodes();
-  vector<vector<short> > mat_mut_filt;
+  int num_nodes = tree.m_numNodes;
+  vector<vector<bool> > mat_mut(num_nodes, vector<bool>(num_mutations, false));
+  tree.m_root->populateMutationMatrixRec(mat_mut);
+  vector<int> vec_vis_nodes_idx = tree.getVisibleNodesIdx();
   vector<string> vec_labels;
-  // add root
-  vec_labels.push_back(tree.m_root->label);
-  mat_mut_filt.push_back(mutMatrix[tree.m_root->index]);
-  // add visible nodes
-  for (unsigned i=0; i<clones.size(); i++) {
-    vec_labels.push_back(clones[i]->label);
-    mat_mut_filt.push_back(mutMatrix[clones[i]->index]);
+  // add node labels
+  for (auto i : vec_vis_nodes_idx) {
+    vec_labels.push_back(tree.m_vecNodes[i]->label);
   }
 
   // write clonal variants to file
   ofstream f_vcf;
   f_vcf.open("mutations.vcf");
-  vario::writeVcf(ref_genome.records, variants, vec_labels, mat_mut_filt, f_vcf);
+  vario::writeVcf(ref_genome.records, variants, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
   f_vcf.close();
 
   // perform ADO

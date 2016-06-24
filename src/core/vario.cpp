@@ -130,6 +130,15 @@ vector<Variant> Variant::sortByPosition(const vector<Variant> &variants) {
   return variantsCopy;
 }
 
+vector<Variant> Variant::sortByPositionRef(const vector<Variant> &variants) {
+  vector<Variant> variantsCopy = variants;
+  sort(variantsCopy.begin(), variantsCopy.end(),
+      [](const Variant &a, const Variant &b) -> bool {
+        return a.pos < b.pos;
+      });
+  return variantsCopy;
+}
+
 bool Variant::isSnv() {
   for (vector<string>::iterator allele=this->alleles.begin(); allele!=this->alleles.end(); ++allele) {
     if ((*allele).size()>1) { return false; }
@@ -261,11 +270,12 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
 void writeVcf(
   const vector<SeqRecord> &seqs,
   const vector<Variant> &vars,
+  const vector<int> &id_samples,
   const vector<string> &labels,
-  const vector<vector<short> > &mutMatrix,
+  const vector<vector<bool> > &mutMatrix,
   std::ostream &out)
 {
-  unsigned num_samples = mutMatrix.size();
+  unsigned num_samples = id_samples.size();
   short  var_qual = 40; // QUAL column
   string var_info = (format("NS=%d") % num_samples).str(); // INFO column
   string var_fmt  = "GT:GQ"; // FORMAT column
@@ -278,8 +288,12 @@ void writeVcf(
   out << boost::format("##fileDate=%d-%d-%d") % (1900+t->tm_year) % t->tm_mon % t->tm_mday << std::endl;
   out << "##source=CloniPhy v0.01" << std::endl;
   //out << "##reference=" << std::endl; # TODO: include ref filename
-  for (vector<SeqRecord>::const_iterator ref=seqs.begin(); ref!=seqs.end(); ++ref) {
-    out << format("##contig=<ID=%d, length=%u>") % ref->id % ref->seq.size() << std::endl;
+  vector<string> vec_ref_ids;
+  for (auto rec : seqs) {
+    if (find(vec_ref_ids.begin(), vec_ref_ids.end(), rec.id_ref) == vec_ref_ids.end()) {
+      vec_ref_ids.push_back(rec.id_ref);
+      out << format("##contig=<ID=%d, length=%u>") % rec.id_ref % rec.seq.size() << endl;
+    }
   }
   out << "##phasing=complete" << std::endl;
   out << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples With Data\">" << std::endl;
@@ -287,25 +301,24 @@ void writeVcf(
   out << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
   out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
   out << "\thealthy";
-  for (unsigned i=1; i<num_samples; ++i) {
-    out << '\t' << labels[i];
-    //out << format("\tclone%02d") % i;
-  }
-  out << std::endl;
+  for (auto lbl : labels)
+    out << '\t' << lbl;
+  out << endl;
 
   // write variants
-  vector<Variant> sorted_vars = Variant::sortByPosition(vars);
+  vector<Variant> sorted_vars = Variant::sortByPositionRef(vars);
   for (vector<Variant>::iterator var=sorted_vars.begin(); var!=sorted_vars.end(); ++var) {
     string ref = var->alleles[0];
     string alt = var->alleles[1];
     out << format("%s\t%d\t%d\t%s\t%s\t%d\tPASS\t%d\t%s")
                   % (var->chr) % (var->pos+1) % (var->idx_mutation)
                   % ref % alt % var_qual % var_info % var_fmt;
-    for (unsigned i=0; i<num_samples; ++i) {
+    for (auto sid : id_samples) {
       string genotype = "";
-      short copy = mutMatrix[i][var->idx_mutation];
-      if (copy != 0) {
-        genotype = (copy==1 ? "1|0" : "0|1"); }
+      if (mutMatrix[sid][var->idx_mutation] == true) {
+        short copy = var->chr_copy;
+        genotype = (copy==0 ? "1|0" : "0|1");
+      }
       else {
         genotype = "0|0"; }
       out << format("\t%s:%d") % genotype % gt_qual;
@@ -352,12 +365,12 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
       var_pos.insert(nuc_pos);
     }
     Locus loc = genome.getLocusByGlobalPos(nuc_pos);
-    string id_chr = genome.records[loc.idx_record].id;
+    string id_ref = genome.records[loc.idx_record].id_ref;
     // pick new nucleotide
     short nuc_alt = model.MutateNucleotide(idx_bucket, random_float);
     Variant var;
     var.id = to_string(i);
-    var.chr = id_chr;
+    var.chr = id_ref;
     var.chr_copy = random_copy();
     var.pos = nuc_pos;
     var.rel_pos = double(nuc_pos)/genome.length;

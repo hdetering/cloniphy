@@ -31,15 +31,16 @@ BOOST_AUTO_TEST_CASE( random_clone_tree )
   boost::timer::auto_cpu_timer t;
   boost::function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
   boost::function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
-  int num_clones = 10;
+  int num_clones = 5;
   Tree<Clone> tree(num_clones);
   tree.generateRandomTopologyInternalNodes(random_dbl);
   tree.varyBranchLengths(random_gamma);
-  int num_mutations = 101000;
-  int num_transmuts =   1000;
+  int num_mutations = 1010;
+  int num_transmuts =   10;
   tree.evolve(num_mutations, num_transmuts, rng);
 
-  BOOST_CHECK( tree.m_numNodes == num_clones );
+  BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
+  BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
 
   // assign random weights
   vector<double> w = rng.getRandomProbs(num_clones);
@@ -75,11 +76,12 @@ BOOST_AUTO_TEST_CASE( random_sample_tree )
   Tree<Clone> tree(num_samples);
   tree.generateRandomTopologyLeafsOnly(random_dbl);
   tree.varyBranchLengths(random_gamma);
-  int num_mutations = 101000;
-  int num_transmuts =   1000;
+  int num_mutations = 1010;
+  int num_transmuts =   10;
   tree.evolve(num_mutations, num_transmuts, rng);
 
-  BOOST_CHECK( tree.m_numNodes == num_samples );
+  BOOST_CHECK( tree.m_numVisibleNodes == num_samples+1 );
+  BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
 
   // assign random weights
   vector<double> w = rng.getRandomProbs(num_samples);
@@ -102,6 +104,11 @@ BOOST_AUTO_TEST_CASE( random_sample_tree )
   fs_nwk.open("random_sample_tree.tre");
   tree.printNewick(fs_nwk);
   fs_nwk.close();
+
+  BOOST_TEST_MESSAGE( "Building mutation matrix from tree..." );
+  int num_nodes = tree.m_numNodes;
+  vector<vector<bool>> mm(num_nodes, vector<bool>(num_mutations, false));
+  tree.m_root->populateMutationMatrixRec(mm);
 }
 
 

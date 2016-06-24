@@ -26,6 +26,18 @@ std::vector<Clone *> Clone::getChildren() {
   return m_vecChildren;
 }
 
+void Clone::populateMutationMatrixRec(std::vector<std::vector<bool>> &mm) {
+  // make sure the mutations matrix includes this clone
+  if (mm.size() <= this->index ) {
+    fprintf(stderr, "[ERROR] mutation matrix does not include index %d.\n", this->index);
+    return;
+  }
+  for (auto m : this->m_vec_mutations)
+    mm[this->index][m] = true;
+  for (auto child : this->m_vecChildren)
+    child->populateMutationMatrixRec(mm);
+}
+
 /** Represents a clone node in a clonal tree */
 float Clone::distanceToParent() {
   return static_cast<float>(m_vec_mutations.size());

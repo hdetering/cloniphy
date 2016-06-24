@@ -2,12 +2,13 @@
 #define RANDOM_H
 
 #include <algorithm>
+#include <functional>
 #include <boost/bind.hpp>
-#include <boost/function.hpp>
-#include <boost/random.hpp>
+#include <random>
 #include <vector>
 // Choosing the random number generator. (mt19937: Mersenne-Twister)
-typedef boost::mt19937 base_generator_type;
+//typedef boost::mt19937 base_generator_type;
+typedef std::mt19937 base_generator_type;
 
 template <typename GeneratorType = base_generator_type>
 struct RandomNumberGenerator {
@@ -18,33 +19,26 @@ struct RandomNumberGenerator {
 	  generator.seed(seed);
 	}
 
-	boost::function<double()> getRandomFunctionDouble(double min, double max) {
-	  boost::uniform_real<> dist(min, max);
-	  boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(generator, dist);
-	  boost::function<double()> f = [dist, this] { return dist(generator); };
-	  return f;
+	std::function<double()> getRandomFunctionDouble(double min, double max) {
+		std::uniform_real_distribution<> dist(min, max);
+		return boost::bind(dist, boost::ref(generator));
 	}
 
 	template <typename T>
-	boost::function<T()> getRandomFunctionInt(T min, T max) {
-	  boost::uniform_int<> dist(min, max);
-	  boost::variate_generator<base_generator_type&, boost::uniform_int<> > uni(generator, dist);
-	  boost::function<T()> f = [dist, this] { return dist(generator); };
-	  return f;
+	std::function<T()> getRandomFunctionInt(T min, T max) {
+		std::uniform_int_distribution<> dist(min, max);
+		return boost::bind(dist, boost::ref(generator));
 	}
 
-	boost::function<int()> getRandomIndexWeighted(std::vector<double> probabilities) {
-		boost::random::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
-		boost::function<int()> f = [dist, this] { return dist(generator); };
-		return f;
+	template <typename IndexType = int>
+	std::function<IndexType()> getRandomIndexWeighted(std::vector<double> weights) {
+		std::discrete_distribution<IndexType> dist(weights.begin(), weights.end());
+		return boost::bind(dist, boost::ref(generator));
 	}
 
-	boost::function<double()> getRandomGamma(double shape, double scale) {
-		boost::random::gamma_distribution<> dist(shape, scale);
-		boost::random::variate_generator<base_generator_type&, boost::random::gamma_distribution<>> rand_gamma(generator, dist);
-		//boost::function<double()> f = [dist, this] { return dist(generator); };
-		boost::function<double()> f = boost::bind(dist, boost::ref(generator));
-		return f;
+	std::function<double()> getRandomGamma(double shape, double scale) {
+		std::gamma_distribution<> dist(shape, scale);
+		return boost::bind(dist, boost::ref(generator));
 	}
 
   /** algorithm proposed in:
@@ -82,7 +76,7 @@ struct random_selector
 
 	template <typename Iter>
 	Iter select(Iter start, Iter end) {
-		boost::uniform_int<> dist(0, std::distance(start, end) - 1);
+		std::uniform_int_distribution<> dist(0, std::distance(start, end) - 1);
 		std::advance(start, dist(_gen));
 		return start;
 	}

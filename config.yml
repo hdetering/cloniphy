@@ -22,6 +22,9 @@ clones: 3
 # note: number of frequencies needs to match "clones" parameter
 freqs: [ 0.5, 0.3, 0.2 ]
 
+# contamination with healthy cells within the sample
+contamination: 0.0
+
 # number of total mutations to simulate
 mutations: 1000
 # number of transforming mutations shared by all clones

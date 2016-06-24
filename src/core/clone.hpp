@@ -30,6 +30,8 @@ struct Clone: public Node
   void setParent(Clone *);
   bool isLeaf();
   std::vector<Clone *> getChildren();
+  /** Fill a matrix (nodes x mutations) denoting mutational state of subtree rooted in this node. */
+  void populateMutationMatrixRec(std::vector<std::vector<bool>> &m);
   float distanceToParent();
   /** replace other clone in the tree (needed to collapse branches) */
   void replace(Clone *);

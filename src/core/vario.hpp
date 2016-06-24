@@ -34,6 +34,8 @@ struct Variant
   bool operator< (const Variant&) const; /** make variants sortable */
   /** Sort variants by absolute position in genome. */
   static std::vector<Variant> sortByPosition(const std::vector<Variant>&);
+  /** Sort variants by position in reference genome. */
+  static std::vector<Variant> sortByPositionRef(const std::vector<Variant>&);
   /** Returns true if this variant is a SNV, false otherwise. */
   bool isSnv();
 };
@@ -117,8 +119,9 @@ void readVcf(
 void writeVcf(
   const std::vector<SeqRecord>& seqs,
   const std::vector<Variant>& vars,
+  const std::vector<int>& id_samples,
   const std::vector<std::string>& labels,
-  const std::vector<std::vector<short> >& mutMatrix,
+  const std::vector<std::vector<bool> >& mutMatrix,
   std::ostream&);
 /** Generate VCF output from a reference sequence and a set of mutations.
     (single sample) */

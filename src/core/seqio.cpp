@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <sstream>
 #include <stdlib.h> // for system() calls
@@ -52,9 +53,10 @@ void Genome::generate(
   vector<unsigned long> chr_ends = { 0 };
   if (num_chr > 1) {
     unsigned long zero = 0;
-    boost::function<unsigned long()> rpos = rng.getRandomFunctionInt(zero, total_len);
+    function<unsigned long()> rpos = rng.getRandomFunctionInt(zero, total_len);
     for (auto i=0; i<num_chr-1; ++i) {
-      chr_ends.push_back(rpos());
+      unsigned long p = rpos();
+      chr_ends.push_back(p);
     }
     sort(chr_ends.begin(), chr_ends.end());
   }
@@ -135,6 +137,7 @@ fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n
 /** Increase the genome's ploidy to double its current value */
 void Genome::duplicate() {
   ploidy *= 2;
+  /* better to work with a haploid genome and store copy number in variants? */
   for (unsigned i=0; i<num_records; ++i) {
     SeqRecord orig = records[i];
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
@@ -251,25 +254,13 @@ unsigned long generateRandomDnaSeq(
   const vector<double>nuc_freqs,
   RandomNumberGenerator<> &rng
 ) {
-  boost::function<double()> rdouble = rng.getRandomFunctionDouble(0.0, 1.0);
-  // build cumulative probs
-  vector<double> cum_probs = nuc_freqs;
-  for (unsigned i=1; i<cum_probs.size(); ++i) {
-    cum_probs[i] += cum_probs[i-1];
-  }
-  // normalize
-  for (unsigned i=0; i<cum_probs.size(); ++i) {
-    cum_probs[i] /= cum_probs[cum_probs.size()-1];
-  }
+  function<short()> ridx = rng.getRandomIndexWeighted(nuc_freqs);
 
   // generate random sequence
   unsigned long gen_len = 0;
   while (gen_len < total_len) {
     // pick random nucleotide
-    double r = rdouble();
-    short i = 0;
-    while (r > cum_probs[i]) { ++i; }
-    char nuc = idx2nuc(i);
+    char nuc = idx2nuc(ridx());
     // add to genomic sequence
     seq += nuc;
     gen_len++;

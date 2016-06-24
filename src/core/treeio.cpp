@@ -8,6 +8,7 @@ using boost::str;
 #include <boost/spirit/include/qi.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <streambuf>
@@ -33,10 +34,10 @@ bool Node::isRoot() {
 }
 
 template<typename T>
-Tree<T>::Tree() : m_numNodes(0), m_vecNodes(0) {}
+Tree<T>::Tree() : m_numNodes(0), m_numVisibleNodes(0), m_vecNodes(0) {}
 
 template<typename T>
-Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_vecNodes(n_nodes) {
+Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_numVisibleNodes(n_nodes), m_vecNodes(n_nodes) {
   // initialize nodes
   for (int i=0; i<n_nodes; i++) {
     T *n = new T();
@@ -55,6 +56,7 @@ Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_vecNodes(n_nodes) {
 template<typename T>
 Tree<T>::Tree(const treeio::node& root) {
   this->m_numNodes = 0;
+  this->m_numVisibleNodes = 0;
   T *root_node = _adaptNode(root);
   root_node->parent = 0;
   this->m_root = root_node;
@@ -74,6 +76,7 @@ T* Tree<T>::_adaptNode(const treeio::node& node) {
   n->label = node.label;
   n->length = node.length;
   n->is_visible = (node.label.size() > 0); // unlabeled nodes are invisible
+  m_numVisibleNodes += n->is_visible ? 1 : 0;
   this->m_vecNodes.push_back(n);
 
   for (unsigned i=0; i<node.children.size(); ++i) {
@@ -126,6 +129,17 @@ vector<T *> Tree<T>::getVisibleNodes() {
 }
 
 template<typename T>
+vector<int> Tree<T>::getVisibleNodesIdx() {
+  vector<int> vis_nodes_idx;
+  for (auto node : m_vecNodes) {
+    if (node->is_visible)
+      vis_nodes_idx.push_back(node->index);
+  }
+  return vis_nodes_idx;
+}
+
+
+template<typename T>
 void Tree<T>::generateRandomTopology(boost::function<double()>& rng) {
   // TODO: call appropriate method based on user params
   if (true) {
@@ -146,6 +160,8 @@ void Tree<T>::generateRandomTopologyInternalNodes(boost::function<double()>& ran
   r->index = m_vecNodes.size();
   r->is_visible = true;
   m_vecNodes.push_back(r);
+  m_numNodes++;
+  m_numVisibleNodes++;
   m_root = r;
   // first clone becomes child of root
   m_vecNodes[0]->setParent(r);
@@ -153,7 +169,7 @@ void Tree<T>::generateRandomTopologyInternalNodes(boost::function<double()>& ran
   // pick parent for each clone
   std::vector<T*> parents;
   parents.push_back(m_vecNodes[0]);
-  for (int i=1; i<m_numNodes; ++i) {
+  for (int i=1; i<m_numNodes-1; ++i) {
     T *n = m_vecNodes[i];
     int p_index = random()*i;
     T *p = parents[p_index];
@@ -166,7 +182,7 @@ std::cerr << *n << " gets parent " << *p << std::endl;
 template<typename T>
 void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random) {
   // generate N-1 internal nodes (each representing a coalescence event)
-  int numNodes = m_numNodes;
+  int numNodes = m_numVisibleNodes;
   int k = numNodes-1;
   int nextIndex = numNodes;
   for (int i=0; i<numNodes-1; i++) {
@@ -204,6 +220,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
     p->parent = n;
     q->parent = n;
     m_vecNodes.push_back(n);
+    m_numNodes++;
 #ifdef DEBUG
     fprintf(stderr, "\tnew internal node: %s\n", n->label.c_str());
     _printNodes();
@@ -215,10 +232,13 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
   r->index = nextIndex;
   r->label = "0";
   //r->is_healthy = true;
+  r->is_visible = true;
   r->m_vecChildren.push_back(m_vecNodes[nextIndex-1]);
   r->parent = 0;
   m_vecNodes[nextIndex-1]->parent = r;
   m_vecNodes.push_back(r);
+  m_numNodes++;
+  m_numVisibleNodes++;
   m_root = r;
 #ifdef DEBUG
   fprintf(stderr, "\twe have been ROOTed: %s\n", r->label.c_str());
@@ -266,8 +286,8 @@ void Tree<T>::assignWeights(vector<double> w) {
   // note: first weight assigned to root node -> normal cell contamination
   this->m_root->weight = w[0];
   long num_weights = w.size();
-  if (this->m_numNodes != num_weights-1) {
-    fprintf(stderr, "[ERROR] number of node weights (%ld) must equal number of visible nodes (%d+1)\n", num_weights, m_numNodes);
+  if (this->m_numVisibleNodes != num_weights) {
+    fprintf(stderr, "[ERROR] number of node weights (%ld) must equal number of visible nodes (%d)\n", num_weights, m_numVisibleNodes);
   }
   auto it_w = w.begin()+1;
   for (auto child : this->m_root->m_vecChildren) {
@@ -325,7 +345,7 @@ void Tree<T>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<
   // each clone needs at least one private mutation
   dropMandatoryMutations(m_root, next_mut_id);
   // remaining mutations are dropped randomly, proportional to branch_length
-  int n_random = n_mutations - n_transforming - m_numNodes;
+  int n_random = n_mutations - n_transforming - m_numVisibleNodes;
 #ifdef DEBUG
   fprintf(stderr, "Now dropping %d random mutations...\n", n_random);
 #endif
@@ -370,7 +390,7 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 template<typename T>
 void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, RandomNumberGenerator<>& rng) {
   long n_nodes = this->m_vecNodes.size();
-  boost::function<long()> f_random_index;
+  function<int()> f_random_index;
   // are branch lengths specified?
   double tot_len = this->getTotalBranchLength();
   vector<double> vec_branch_len = this->getAbsoluteBranchLengths();

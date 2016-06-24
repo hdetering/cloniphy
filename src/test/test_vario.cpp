@@ -22,7 +22,7 @@ struct FixtureVario {
     // initialize random number generator
 
     BOOST_TEST_MESSAGE( "generating random genome (" << ref_genome_len << " bp)... ");
-    ref_genome.generate(ref_genome_len, nuc_freqs, rng);
+    ref_genome.generate(ref_genome_len, 2, nuc_freqs, rng);
 
     BOOST_TEST_MESSAGE( "indexing genome... ");
     ref_genome.indexRecords();
@@ -115,28 +115,34 @@ BOOST_AUTO_TEST_CASE( vcf_sumstats )
 /* generate set of novel variants */
 BOOST_AUTO_TEST_CASE( generate_variants )
 {
+  int num_vars = 1000;
   boost::timer::auto_cpu_timer t;
-  BOOST_TEST_MESSAGE( "duplicating reference chromosomes..." );
+  BOOST_TEST_MESSAGE( "duplicating reference genome..." );
   ref_genome.duplicate();
+
+  auto fn_ref = "ref.fa";
+  BOOST_TEST_MESSAGE( "writing reference genome to file '" << fn_ref << "'...\n" );
+  ofstream fs_ref;
+  fs_ref.open(fn_ref);
+  writeFasta(ref_genome.records, fs_ref);
+  fs_ref.close();
+
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateVariants(1000, ref_genome, model, rng);
+  vector<Variant> variants = generateVariants(num_vars, ref_genome, model, rng);
   BOOST_TEST_MESSAGE( "done generating 1000 variants, here are the first 10: " );
-  BOOST_TEST_MESSAGE( "  id, chr, bp, ref, alt" );
+  BOOST_TEST_MESSAGE( "  id, chr, bp, ref, alt, copy" );
   for (int i=0; i<10; ++i) {
-    BOOST_TEST_MESSAGE( format("%s,%s,%d,%s,%s") % variants[i].id % variants[i].chr % variants[i].pos % variants[i].alleles[0] % variants[i].alleles[1] );
+    BOOST_TEST_MESSAGE( format("%s,%s,%d,%s,%s,%s") % variants[i].id % variants[i].chr % variants[i].pos % variants[i].alleles[0] % variants[i].alleles[1] % variants[i].chr_copy );
   }
 
   // export variants to file
+  vector<int> vec_idx = { 0 };
   vector<string> labels = { "healthy" };
-  // create mutation matrix (contains info about which variants apply and to which chr copy)
-  vector<vector<short>> mutMatrix(1, vector<short>(variants.size(), 1));
-  for (auto i=0; i<variants.size(); ++i)
-    mutMatrix[0][i] += variants[i].chr_copy;
-
+  vector<vector<bool>> mm(1, vector<bool>(num_vars, true));
   auto fn_out = "ref_variants.vcf";
   ofstream fs_out;
   fs_out.open(fn_out);
-  vario::writeVcf(ref_genome.records, variants, labels, mutMatrix, fs_out);
+  vario::writeVcf(ref_genome.records, variants, vec_idx, labels, mm, fs_out);
   fs_out.close();
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 

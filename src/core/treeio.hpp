@@ -39,6 +39,7 @@ struct Tree
 {
   T *m_root;
   int m_numNodes;
+  int m_numVisibleNodes;
   std::vector<T *> m_vecNodes;
 
   Tree();
@@ -53,6 +54,8 @@ struct Tree
   std::vector<double> getRelativeBranchLengths();
   /** Return visible tree nodes. */
   std::vector<T *> getVisibleNodes();
+  /** Return visible tree nodes' indices. */
+  std::vector<int> getVisibleNodesIdx();
   /** Build random tree topology. */
   void generateRandomTopology(boost::function<double()>&);
   /** Arrange nodes randomly (internal nodes are visible) */
