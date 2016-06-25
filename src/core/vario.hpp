@@ -152,6 +152,10 @@ std::vector<Variant> generateVariantsRandomPos(
 /** Apply variants to a given reference sequence */
 void applyVariants(
   Genome&,
+  const std::vector<Variant>&);
+/** Apply variants to a given reference sequence */
+void applyVariants(
+  Genome&,
   const std::vector<Variant>&,
   const std::vector<Genotype>&);
 /** Apply variants to a given reference sequence. streaming modified genome to output. */

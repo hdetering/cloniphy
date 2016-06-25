@@ -48,7 +48,7 @@ struct SeqRecord
 struct Locus
 {
   unsigned idx_record; // index of genomic sequence
-  unsigned start;      // local start position in sequence
+  unsigned start;      // local start position in sequence (0-based)
   unsigned length;     // length of locus (e.g. =1 for single nucleotide)
 };
 

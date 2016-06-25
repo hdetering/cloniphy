@@ -23,6 +23,12 @@ struct FixtureVario {
 
     BOOST_TEST_MESSAGE( "generating random genome (" << ref_genome_len << " bp)... ");
     ref_genome.generate(ref_genome_len, 2, nuc_freqs, rng);
+    auto fn_ref = "ref.fa";
+    BOOST_TEST_MESSAGE( "writing reference genome to file '" << fn_ref << "'...\n" );
+    ofstream fs_ref;
+    fs_ref.open(fn_ref);
+    writeFasta(ref_genome.records, fs_ref);
+    fs_ref.close();
 
     BOOST_TEST_MESSAGE( "indexing genome... ");
     ref_genome.indexRecords();
@@ -120,13 +126,6 @@ BOOST_AUTO_TEST_CASE( generate_variants )
   BOOST_TEST_MESSAGE( "duplicating reference genome..." );
   ref_genome.duplicate();
 
-  auto fn_ref = "ref.fa";
-  BOOST_TEST_MESSAGE( "writing reference genome to file '" << fn_ref << "'...\n" );
-  ofstream fs_ref;
-  fs_ref.open(fn_ref);
-  writeFasta(ref_genome.records, fs_ref);
-  fs_ref.close();
-
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
   vector<Variant> variants = generateVariants(num_vars, ref_genome, model, rng);
   BOOST_TEST_MESSAGE( "done generating 1000 variants, here are the first 10: " );
@@ -147,9 +146,14 @@ BOOST_AUTO_TEST_CASE( generate_variants )
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 
 
-  BOOST_TEST_MESSAGE( "creating diploid reference genome:" );
-  BOOST_TEST_MESSAGE( "  applying variants to reference..." );
-
+  BOOST_TEST_MESSAGE( "\ngenerating personal genome..." );
+  BOOST_TEST_MESSAGE( "  applying variants" );
+  vario::applyVariants(ref_genome, variants);
+  BOOST_TEST_MESSAGE( "  writing personal genome to file 'pers.fa'" );
+  ofstream fs_pg;
+  fs_pg.open("pers.fa");
+  writeFasta(ref_genome.records, fs_pg);
+  fs_pg.close();
 }
 
 /* compare distributions for variants generated

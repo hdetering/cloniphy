@@ -84,10 +84,11 @@ BOOST_AUTO_TEST_CASE( random_sample_tree )
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
 
   // assign random weights
-  vector<double> w = rng.getRandomProbs(num_samples);
   double c = 0.1; // contamination with normal cells
+  vector<double> w = { c, 0.4, 0.3, 0.1, 0.075,	0.025 };
+  /*vector<double> w = rng.getRandomProbs(num_samples);
   w.insert(w.begin(), c);
-  for_each(w.begin()+1, w.end(), [&](double &p) { p*=(1-c); });
+  for_each(w.begin()+1, w.end(), [&](double &p) { p*=(1-c); });*/
   double sum_probs = 0.0;
   for (auto p : w) sum_probs += p;
   BOOST_CHECK( sum_probs == 1.0 );

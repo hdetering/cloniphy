@@ -372,7 +372,7 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.id = to_string(i);
     var.chr = id_ref;
     var.chr_copy = random_copy();
-    var.pos = nuc_pos;
+    var.pos = loc.start+1; // NOTE: variant positions must be 1-based 
     var.rel_pos = double(nuc_pos)/genome.length;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
@@ -427,6 +427,44 @@ fprintf(stderr, "locus %ld has beend mutated before, picking another one...\n", 
 
   return variants;
 }
+
+void applyVariants(
+  Genome &genome,
+  const vector<Variant> &variants)
+{
+  unsigned num_sequences = genome.num_records;
+  // generate lookup table for sequences
+  map<string,vector<unsigned>> chr2seq;
+  for (unsigned i=0; i<genome.records.size(); ++i) {
+    string id_ref = genome.records[i].id_ref;
+    if (chr2seq.find(id_ref) == chr2seq.end()) {
+      chr2seq[id_ref] = vector<unsigned>();
+    }
+    chr2seq[id_ref].push_back(i);
+  }
+fprintf(stderr, "applying %lu variants...\n", variants.size());
+  // modify genome according to variant genotypes
+  for (Variant var : variants) {
+    auto it_chr_idx = chr2seq.find(var.chr);
+    // make sure ref seq exists in genome
+    if (it_chr_idx == chr2seq.end()) {
+      fprintf(stderr, "[WARN] sequence '%s' not contained in reference genome\n", var.chr.c_str());
+    }
+    else {
+      vector<unsigned> chr_idx = it_chr_idx->second;
+      // make sure mutated chr copy exists in genome
+      if (chr_idx.size() < var.chr_copy+1) {
+        fprintf(stderr, "[WARN] genome does not contain %d copies of CHR '%s'\n", var.chr_copy+1, var.chr.c_str());
+      }
+      else {
+        // apply variant to sequence
+        unsigned cidx = chr_idx[var.chr_copy];
+        genome.records[cidx].seq[var.pos-1] = var.alleles[1][0]; // TODO: at the moment only SNVs are supported ("[0]" extracts the first character from the allel)
+      }
+    }
+  }
+}
+
 
 void applyVariants(
   Genome &genome,
