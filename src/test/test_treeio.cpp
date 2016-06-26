@@ -4,7 +4,6 @@
 #include <boost/format.hpp>
 using boost::format;
 using boost::str;
-#include <boost/function.hpp>
 #include <fstream>
 #include "../core/clone.cpp"
 #include "../core/random.hpp"
@@ -29,8 +28,8 @@ BOOST_FIXTURE_TEST_SUITE( treeio, FixtureTreeio )
 BOOST_AUTO_TEST_CASE( random_clone_tree )
 {
   boost::timer::auto_cpu_timer t;
-  boost::function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
-  boost::function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
+  function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
   int num_clones = 5;
   Tree<Clone> tree(num_clones);
   tree.generateRandomTopologyInternalNodes(random_dbl);
@@ -70,8 +69,8 @@ BOOST_AUTO_TEST_CASE( random_clone_tree )
 BOOST_AUTO_TEST_CASE( random_sample_tree )
 {
   boost::timer::auto_cpu_timer t;
-  boost::function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
-  boost::function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
+  function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> random_gamma = rng.getRandomGamma(2.0, 0.5);
   int num_samples = 5;
   Tree<Clone> tree(num_samples);
   tree.generateRandomTopologyLeafsOnly(random_dbl);

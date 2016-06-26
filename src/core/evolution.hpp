@@ -2,7 +2,7 @@
 #define EVOLUTION_H
 
 #include "matrix.hpp"
-#include <boost/function.hpp>
+#include <functional>
 
 /** Provides models of sequence evolution. */
 namespace evolution {
@@ -19,7 +19,7 @@ struct SubstitutionModel {
   // default model: HKY with titv=0.5
   SubstitutionModel(double p_i[4], double titv);
   /** Simulates the nucleotide substitution process for a site */
-  short MutateNucleotide(short nuc, boost::function<double()>&);
+  short MutateNucleotide(short nuc, std::function<double()>&);
 };
 
 // calculate per-site substitution rates

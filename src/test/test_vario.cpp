@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE( random )
 
   vector<int> counts(4, 0);
   vector<double> probs = { 0.1, 0.2, 0.3, 0.4 };
-  boost::function<int()> rand_idx = rng.getRandomIndexWeighted(probs);
+  function<int()> rand_idx = rng.getRandomIndexWeighted(probs);
 
   for (int i=0; i<100000; ++i) {
     counts[rand_idx()]++;

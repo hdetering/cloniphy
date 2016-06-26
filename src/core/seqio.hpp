@@ -3,7 +3,7 @@
 
 #include "random.hpp"
 #include "stringio.hpp"
-#include <boost/function.hpp>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <string>
@@ -95,9 +95,9 @@ unsigned long generateRandomDnaSeq(
   const std::vector<double> nuc_freqs,
   RandomNumberGenerator<> &rng);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
-void simulateADO_old(const std::string, const float, const int, boost::function<double()>&);
+void simulateADO_old(const std::string, const float, const int, std::function<double()>&);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
-void simulateADO(const std::string, const unsigned, const float, const int, boost::function<double()>&);
+void simulateADO(const std::string, const unsigned, const float, const int, std::function<double()>&);
 /** Convert a nucleotide char into Nuc */
 Nuc charToNuc(const char);
 /** Convert Nuc into a nucleotide char */

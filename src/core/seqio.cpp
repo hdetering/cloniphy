@@ -274,7 +274,7 @@ unsigned long generateRandomDnaSeq(
 void simulateADO_old(const string fn_input,
                  const float percentage,
                  const int frag_len,
-                 boost::function<double()>& random) {
+                 function<double()>& random) {
 fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   // read input genome
   Genome g = Genome(fn_input.c_str());
@@ -321,7 +321,7 @@ void simulateADO(const string fn_input,
                  const unsigned genome_len,
                  const float percentage,
                  const int frag_len,
-                 boost::function<double()>& random) {
+                 function<double()>& random) {
 fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   // TODO: might be worth doing this in streaming fashion
   // open genome input file

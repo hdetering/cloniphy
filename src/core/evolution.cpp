@@ -63,7 +63,7 @@ SubstitutionModel::SubstitutionModel(double p[4], double titv) {
 
 /** Simulates the nucleotide substitution process for a site
   * Assuming that mutation is certain -> use Qij to pick new nucleotide */
-short SubstitutionModel::MutateNucleotide(short ref_nuc, boost::function<double()>& random) {
+short SubstitutionModel::MutateNucleotide(short ref_nuc, std::function<double()>& random) {
 	double r, cumProb[4];
   short new_nuc = 0;
 

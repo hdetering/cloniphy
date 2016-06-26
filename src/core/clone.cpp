@@ -108,7 +108,7 @@ cerr << "\nGenerating genome for " << *this << ", " << this->m_vec_mutations.siz
 void Clone::applyMutations(const vector<Mutation> &my_mutations,
                           SubstitutionModel model,
                           Genome &my_genome,
-                          boost::function<double()>& rng)
+                          function<double()>& rng)
 {
   // sort mutations by position
   std::vector<Mutation> mut_sorted = Mutation::sortByPosition(my_mutations);

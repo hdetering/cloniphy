@@ -4,8 +4,8 @@
 #include "random.hpp"
 #include "seqio.hpp"
 #include "evolution.hpp"
-#include <boost/function.hpp>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -84,7 +84,7 @@ struct Mutation
   void apply(
     Genome& genome,
     SubstitutionModel model,
-    boost::function<double()>& random,
+    std::function<double()>& random,
     Variant &var,
     Genotype &gt);
 };
@@ -92,7 +92,7 @@ struct Mutation
 /** Generate random mutations out of thin air. */
 std::vector<Mutation> generateMutations(
   const int num_mutations,
-  boost::function<double()>&
+  std::function<double()>&
 );
 /** Apply set of mutation to a given genomic sequence,
     returning a set of Variant objects
@@ -101,7 +101,7 @@ void applyMutations(
   const std::vector<Mutation> &,
   const Genome& genome,
   SubstitutionModel model,
-  boost::function<double()>& random,
+  std::function<double()>& random,
   std::vector<Variant> &variants);
 
 /** Read VCF file and return list of variants. */

@@ -5,7 +5,7 @@
 #include "treeio.hpp"
 #include "vario.hpp"
 #include "evolution.hpp"
-#include <boost/function.hpp>
+#include <functional>
 #include <map>
 #include <ostream>
 #include <vector>
@@ -47,7 +47,7 @@ struct Clone: public Node
     const std::vector<Mutation>&,
     SubstitutionModel,
     Genome&,
-    boost::function<double()>&);
+    std::function<double()>&);
 };
 
 #endif /* CLONE_H */

@@ -82,7 +82,7 @@ int main (int argc, char* argv[])
   //seed = time(NULL) + clock();
   fprintf(stderr, "random seed: %ld\n", seed);
   RandomNumberGenerator<> rng(seed);
-  boost::function<double()> random = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> random = rng.getRandomFunctionDouble(0.0, 1.0);
 
 
   Tree<Clone> tree;

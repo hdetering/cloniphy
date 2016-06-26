@@ -88,7 +88,7 @@ vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
 void Mutation::apply(
        Genome &genome,
        SubstitutionModel model,
-       boost::function<double()> &rng,
+       function<double()> &rng,
        Variant &var,
        Genotype &gt)
 {
@@ -152,7 +152,7 @@ bool Variant::isSnv() {
 
 vector<Mutation> generateMutations(
   const int num_mutations,
-  boost::function<double()>& random)
+  function<double()>& random)
 {
   vector<Mutation> mutations(num_mutations);
   unsigned i=0;
@@ -176,7 +176,7 @@ void applyMutations(
   const std::vector<Mutation> & mutations,
   const Genome& genome,
   SubstitutionModel model,
-  boost::function<double()>& random,
+  function<double()>& random,
   vector<Variant> &variants)
 {
   for (vector<Mutation>::const_iterator m=mutations.begin(); m!=mutations.end(); ++m) {
@@ -338,8 +338,8 @@ vector<Variant> generateVariants(
 {
   vector<Variant> variants = vector<Variant>(num_variants);
   boost::container::flat_set<int> var_pos; // keep track of variant positions
-  boost::function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
-  boost::function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+  function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
   // determine base mutation probs from model (marginal sums)
@@ -349,7 +349,7 @@ vector<Variant> generateVariants(
       p_i[i] += model.Qij[i][j];
     }
   }
-  boost::function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
+  function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
 
   for (int i=0; i<num_variants; ++i) {
     // pick random nucleotide bucket
@@ -372,7 +372,7 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.id = to_string(i);
     var.chr = id_ref;
     var.chr_copy = random_copy();
-    var.pos = loc.start+1; // NOTE: variant positions must be 1-based 
+    var.pos = loc.start+1; // NOTE: variant positions must be 1-based
     var.rel_pos = double(nuc_pos)/genome.length;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
@@ -394,9 +394,9 @@ vector<Variant> generateVariantsRandomPos(
 {
   vector<Variant> variants = vector<Variant>(num_variants);
   boost::container::flat_set<int> var_pos; // keep track of variant positions
-  boost::function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
-  boost::function<long()> random_pos = rng.getRandomFunctionInt<long>(0, genome.length);
-  boost::function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+  function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<long()> random_pos = rng.getRandomFunctionInt<long>(0, genome.length);
+  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
   for (int i=0; i<num_variants; ++i) {

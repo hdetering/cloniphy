@@ -140,7 +140,7 @@ vector<int> Tree<T>::getVisibleNodesIdx() {
 
 
 template<typename T>
-void Tree<T>::generateRandomTopology(boost::function<double()>& rng) {
+void Tree<T>::generateRandomTopology(function<double()>& rng) {
   // TODO: call appropriate method based on user params
   if (true) {
     generateRandomTopologyInternalNodes(rng);
@@ -151,7 +151,7 @@ void Tree<T>::generateRandomTopology(boost::function<double()>& rng) {
 }
 
 template<typename T>
-void Tree<T>::generateRandomTopologyInternalNodes(boost::function<double()>& random) {
+void Tree<T>::generateRandomTopologyInternalNodes(function<double()>& random) {
   // create root node
   T *r = new T();
   r->label = "0";
@@ -180,7 +180,7 @@ std::cerr << *n << " gets parent " << *p << std::endl;
 }
 
 template<typename T>
-void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random) {
+void Tree<T>::generateRandomTopologyLeafsOnly(function<double()>& random) {
   // generate N-1 internal nodes (each representing a coalescence event)
   int numNodes = m_numVisibleNodes;
   int k = numNodes-1;
@@ -249,7 +249,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(boost::function<double()>& random)
 /** Shrink/expand branch length by a random factor */
 template <typename T>
 void Tree<T>::varyBranchLengths(
-  boost::function<double()>& random_double
+  function<double()>& random_double
 )
 {
   T* root = this->m_root;
@@ -259,7 +259,7 @@ void Tree<T>::varyBranchLengths(
 template <typename T>
 void Tree<T>::_varyBranchLengthsRec(
   T* node,
-  boost::function<double()>& random_double
+  function<double()>& random_double
 )
 {
   for (T* child : node->m_vecChildren) {

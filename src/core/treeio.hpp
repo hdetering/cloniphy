@@ -1,7 +1,7 @@
 #ifndef TREEIO_H
 #define TREEIO_H
 
-#include <boost/function.hpp>
+#include <functional>
 #include <iostream>
 #include <stdio.h>
 #include <string>
@@ -57,13 +57,13 @@ struct Tree
   /** Return visible tree nodes' indices. */
   std::vector<int> getVisibleNodesIdx();
   /** Build random tree topology. */
-  void generateRandomTopology(boost::function<double()>&);
+  void generateRandomTopology(std::function<double()>&);
   /** Arrange nodes randomly (internal nodes are visible) */
-  void generateRandomTopologyInternalNodes(boost::function<double()>&);
+  void generateRandomTopologyInternalNodes(std::function<double()>&);
   /** Arrange nodes randomly (internal nodes are invisible) */
-  void generateRandomTopologyLeafsOnly(boost::function<double()>&);
+  void generateRandomTopologyLeafsOnly(std::function<double()>&);
   /** Shrink/expand branch length by a random factor */
-  void varyBranchLengths(boost::function<double()>&);
+  void varyBranchLengths(std::function<double()>&);
   /** Assign random weights to visible nodes */
   void assignWeights(std::vector<double> w);
   /** Drop random mutations on clones. */
@@ -79,7 +79,7 @@ private:
   void dropMandatoryMutations(T*, int&);
   /** Drop free mutations on random clone nodes. */
   void dropRandomMutations(int, int&, RandomNumberGenerator<>&);
-  void _varyBranchLengthsRec(T*, boost::function<double()>&);
+  void _varyBranchLengthsRec(T*, std::function<double()>&);
   void _assignWeightsRec(T*, std::vector<double>::iterator&, std::vector<double>);
   void _printDotRec(T*, std::ostream&);
   void _printNodes();
