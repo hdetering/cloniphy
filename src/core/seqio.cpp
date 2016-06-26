@@ -143,8 +143,8 @@ void Genome::duplicate() {
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
     dupl->copy = orig.copy+1;
     records.push_back(*dupl);
-    records[i].id += "_m";
-    records[num_records+i].id += "_p";
+    records[i].id += "_0";
+    records[num_records+i].id += "_1";
   }
 }
 

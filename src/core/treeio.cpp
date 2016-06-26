@@ -254,6 +254,11 @@ void Tree<T>::varyBranchLengths(
 {
   T* root = this->m_root;
   _varyBranchLengthsRec(root, random_double);
+  // normalize branch lengths to MRCA's length
+  /*double len_mrca = this->m_root->m_vecChildren[0]->length;
+  for (T* node : this->m_vecNodes) {
+    node->length /= len_mrca;
+  }*/
 }
 
 template <typename T>
@@ -266,11 +271,6 @@ void Tree<T>::_varyBranchLengthsRec(
     double scale_factor = random_double();
     child->length *= scale_factor;
     _varyBranchLengthsRec(child, random_double);
-  }
-  // normalize branch lengths to MRCA's length
-  double len_mrca = this->m_root->m_vecChildren[0]->length;
-  for (T* node : this->m_vecNodes) {
-    node->length /= len_mrca;
   }
 }
 
