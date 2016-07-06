@@ -72,6 +72,13 @@ struct Genome
   Genome(const char*);
   void generate(const unsigned long, const std::vector<double>, RandomNumberGenerator<>&);
   void generate(const unsigned long, const unsigned short, const std::vector<double>, RandomNumberGenerator<>&);
+  /** generate random genome by given number of fragments, mean len, sd len, nuc freqs */
+  void generate(
+    const unsigned num_frags,
+    const unsigned long mean_len,
+    const unsigned long sd_len,
+    const std::vector<double> nuc_freqs,
+    RandomNumberGenerator<>& rng);
   void indexRecords();
   void duplicate(); // increase ploidy
   /** Get chromosome and local position for global position */

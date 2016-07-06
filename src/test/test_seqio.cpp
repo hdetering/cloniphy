@@ -24,17 +24,19 @@ BOOST_FIXTURE_TEST_SUITE( seqio, FixtureSeqio )
 BOOST_AUTO_TEST_CASE( generate )
 {
   boost::timer::auto_cpu_timer t;
-  unsigned long len = 1000000; // genome length
-  unsigned short num_chr = 3; // number of chromosomes
+  //unsigned long len = 1000000; // genome length
+  unsigned short num_chr = 10; // number of chromosomes
+  unsigned long frag_len_mean = 100000; // mean chromosome length
+  unsigned long frag_len_sd = 10000;
   vector<double> nuc_freqs = {0.3, 0.2, 0.2, 0.3};
   long seed = 123456789;
   RandomNumberGenerator<> rng(seed);
 
-  BOOST_TEST_MESSAGE( "generating genome of length " << len << "..." );
+  BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
   ref_genome = Genome();
-  ref_genome.generate(len, num_chr, nuc_freqs, rng);
+  ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
   BOOST_TEST_MESSAGE( "done." );
-  BOOST_CHECK( ref_genome.length == len );
+  //BOOST_CHECK( ref_genome.length == len );
   BOOST_CHECK( ref_genome.num_records == num_chr );
   BOOST_CHECK( ref_genome.records.size() == num_chr );
 

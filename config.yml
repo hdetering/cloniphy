@@ -37,8 +37,11 @@ init-muts: 50
 
 # parameters to generate reference genome
 # (overrides "reference"!)
-## reference genome length
-ref-len: 1000000
+## number of sequences (e.g. chromosomes) to generate
+seq-num: 10
+## sequence length
+seq-len-mean: 100000
+seq-len-sd: 10000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 

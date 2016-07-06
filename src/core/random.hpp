@@ -41,6 +41,16 @@ struct RandomNumberGenerator {
 		return boost::bind(dist, boost::ref(generator));
 	}
 
+	template <typename RealType = double>
+	std::function<RealType()> getRandomGammaMeanSd(RealType mean, RealType sd) {
+		//std::uniform_real_distribution<> dist(min, max);
+		//return boost::bind(dist, boost::ref(generator));
+		// calculate gamma parameters
+		double shape = (mean*mean) / (sd*sd);
+		double scale = (sd*sd) / mean;
+		return getRandomGamma(shape, scale);
+	}
+
   /** algorithm proposed in:
 	 *  Rubin, Donald B. The Bayesian Bootstrap.
 	 *  Ann. Statist. 9 (1981), no. 1, 130--134. doi:10.1214/aos/1176345338.

@@ -77,6 +77,37 @@ void Genome::generate(
   this->length = gen_len;
 }
 
+/** generate random genome by given number of fragments, mean len, sd len, nuc freqs */
+void Genome::generate(
+  const unsigned num_seqs,
+  const unsigned long mean_len,
+  const unsigned long sd_len,
+  const std::vector<double> nuc_freqs,
+  RandomNumberGenerator<>& rng)
+{
+  // set sequence lengths
+  vector<unsigned long> vec_seq_len(num_seqs);
+  if (sd_len > 0) { // sample from Gamma distribution
+    function<double()> rlen = rng.getRandomGammaMeanSd(mean_len, sd_len);
+    std::generate(vec_seq_len.begin(), vec_seq_len.end(), rlen);
+    std::sort(vec_seq_len.begin(), vec_seq_len.end(), std::greater<unsigned long>());
+  }
+  else { // fixed length for all sequences
+    std::fill(vec_seq_len.begin(), vec_seq_len.end(), mean_len);
+  }
+
+  // simulate sequences
+  unsigned idx_chr = 0;
+  for (auto l : vec_seq_len) {
+    string seq;
+    generateRandomDnaSeq(seq, l, nuc_freqs, rng);
+    string id_chr = (format("chr%d") % idx_chr++).str();
+    SeqRecord rec(id_chr, "random sequence", seq);
+    this->records.push_back(rec);
+  }
+  this->num_records = num_seqs;
+}
+
 /** Scan genome and store structural information.
   *  1) index chromosomes (start positions in genome)
   *  2) index unmasked regions (start positions in genome)
@@ -143,8 +174,8 @@ void Genome::duplicate() {
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
     dupl->copy = orig.copy+1;
     records.push_back(*dupl);
-    records[i].id += "_m";
-    records[num_records+i].id += "_p";
+    records[i].id += "_0";
+    records[num_records+i].id += "_1";
   }
 }
 
