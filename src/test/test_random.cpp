@@ -23,6 +23,24 @@ struct FixtureRandom {
 
 BOOST_FIXTURE_TEST_SUITE( rng, FixtureRandom )
 
+/* pick indices according to weights */
+BOOST_AUTO_TEST_CASE( indices )
+{
+  BOOST_TEST_MESSAGE( " Picking indices based on weights (0.1, 0.2, 0,3, 0.4)... " );
+
+  vector<int> counts(4, 0);
+  vector<double> probs = { 0.1, 0.2, 0.3, 0.4 };
+  function<int()> rand_idx = gen.getRandomIndexWeighted(probs);
+
+  for (int i=0; i<100000; ++i) {
+    counts[rand_idx()]++;
+  }
+
+  for (int i=0; i<4; ++i) {
+    BOOST_TEST_MESSAGE( format("%d: %d") % i % counts[i] );
+  }
+}
+
 /* generate random gamma-distributed values */
 BOOST_AUTO_TEST_CASE( gamma )
 {

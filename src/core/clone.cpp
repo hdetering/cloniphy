@@ -32,6 +32,22 @@ void Clone::populateMutationMatrixRec(std::vector<std::vector<bool>> &mm) {
     fprintf(stderr, "[ERROR] mutation matrix does not include index %d.\n", this->index);
     return;
   }
+  // inherit mutations from parent
+  if (this->parent)
+    for (auto i=0; i<mm[this->index].size(); ++i)
+      mm[this->index][i] = mm[this->parent->index][i];
+  for (auto m : this->m_vec_mutations)
+    mm[this->index][m] = true;
+  for (auto child : this->m_vecChildren)
+    child->populateMutationMatrixRec(mm);
+}
+
+void Clone::populateMutationOccRec(std::vector<std::vector<bool>> &mm) {
+  // make sure the mutations matrix includes this clone
+  if (mm.size() <= this->index ) {
+    fprintf(stderr, "[ERROR] mutation matrix does not include index %d.\n", this->index);
+    return;
+  }
   for (auto m : this->m_vec_mutations)
     mm[this->index][m] = true;
   for (auto child : this->m_vecChildren)

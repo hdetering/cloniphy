@@ -18,11 +18,14 @@ struct FixtureVario {
     fn_vcf = "data/germline.vcf";
 
     unsigned long ref_genome_len = 1000000;
+    int num_ref_seq = 10;
+    int seq_len_mean = 100000;
+    int seq_len_sd = 10000;
     vector<double> nuc_freqs = { 0.3, 0.2, 0.2, 0.3 };
     // initialize random number generator
 
     BOOST_TEST_MESSAGE( "generating random genome (" << ref_genome_len << " bp)... ");
-    ref_genome.generate(ref_genome_len, 2, nuc_freqs, rng);
+    ref_genome.generate(num_ref_seq, seq_len_mean, seq_len_sd, nuc_freqs, rng);
     auto fn_ref = "ref.fa";
     BOOST_TEST_MESSAGE( "writing reference genome to file '" << fn_ref << "'...\n" );
     ofstream fs_ref;
@@ -53,45 +56,6 @@ struct FixtureVario {
 };
 
 BOOST_FIXTURE_TEST_SUITE( vario, FixtureVario )
-
-/* test some random functions */
-BOOST_AUTO_TEST_CASE( random )
-{
-  BOOST_TEST_MESSAGE( " Picking indices based on weights (0.1, 0.2, 0,3, 0.4)... " );
-
-  vector<int> counts(4, 0);
-  vector<double> probs = { 0.1, 0.2, 0.3, 0.4 };
-  function<int()> rand_idx = rng.getRandomIndexWeighted(probs);
-
-  for (int i=0; i<100000; ++i) {
-    counts[rand_idx()]++;
-  }
-
-  for (int i=0; i<4; ++i) {
-    BOOST_TEST_MESSAGE( format("%d: %d") % i % counts[i] );
-  }
-
-  BOOST_TEST_MESSAGE( " Starting timer ... NOW! " );
-  boost::timer::auto_cpu_timer t;
-  BOOST_TEST_MESSAGE( " Generating random gamma-distributed numbers (shape=2.0, scale=0.5)... " );
-  auto fn_out = "gamma.k5_s1.csv";
-  ofstream fs_out;
-  fs_out.open(fn_out);
-
-  auto random_gamma = rng.getRandomGamma(5.0, 1.0);
-  for (int i=0; i<100000; ++i) {
-    fs_out << random_gamma() << endl;
-  }
-  fs_out.close();
-  BOOST_TEST_MESSAGE( " Output numbers are in 'gamma.k5_s1.csv' " );
-}
-
-/*
-BOOST_AUTO_TEST_CASE( vcf_sanity_check )
-{
-
-}
-*/
 
 /* read benchmark variant set and calculate sumstats */
 BOOST_AUTO_TEST_CASE( vcf_sumstats )

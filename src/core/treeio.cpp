@@ -121,7 +121,8 @@ vector<T *> Tree<T>::getVisibleNodes() {
   vector<T *> vis_nodes;
   for (unsigned i=0; i<m_vecNodes.size(); ++i) {
     T *node = m_vecNodes[i];
-    if (node->is_visible && (node!=m_root)) {
+    //if (node->is_visible && (node!=m_root)) { // root represents contaminant healthy cells
+    if (node->is_visible) {
       vis_nodes.push_back(node);
     }
   }
@@ -268,10 +269,10 @@ void Tree<T>::_varyBranchLengthsRec(
     _varyBranchLengthsRec(child, random_double);
   }
   // normalize branch lengths to MRCA's length
-  double len_mrca = this->m_root->m_vecChildren[0]->length;
-  for (T* node : this->m_vecNodes) {
-    node->length /= len_mrca;
-  }
+  //double len_mrca = this->m_root->m_vecChildren[0]->length;
+  //for (T* node : this->m_vecNodes) {
+  //  node->length /= len_mrca;
+  //}
 }
 
 /** Assign random weights to visible nodes */
@@ -352,8 +353,8 @@ void Tree<T>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<
   dropRandomMutations(n_random, ++next_mut_id, rng);
 
   // adjust MRCA branch length to match #mutations
-  T* mrca = this->m_root->m_vecChildren[0];
-  mrca->length = (double)n_transforming/n_mutations;
+  //T* mrca = this->m_root->m_vecChildren[0];
+  //mrca->length = (double)n_transforming/n_mutations;
 }
 
 /** Drop transforming mutations on immediate children of root node. */

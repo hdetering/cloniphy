@@ -34,6 +34,8 @@ struct Variant
   bool operator< (const Variant&) const; /** make variants sortable */
   /** Sort variants by absolute position in genome. */
   static std::vector<Variant> sortByPosition(const std::vector<Variant>&);
+  /** Sort variants by absolute position in genome, taking chomosome copies into account. */
+  static std::vector<Variant> sortByPositionPoly(const std::vector<Variant> &variants);
   /** Sort variants by position in reference genome. */
   static std::vector<Variant> sortByPositionRef(const std::vector<Variant>&);
   /** Returns true if this variant is a SNV, false otherwise. */

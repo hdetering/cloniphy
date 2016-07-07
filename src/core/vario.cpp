@@ -130,6 +130,15 @@ vector<Variant> Variant::sortByPosition(const vector<Variant> &variants) {
   return variantsCopy;
 }
 
+vector<Variant> Variant::sortByPositionPoly(const vector<Variant> &variants) {
+  vector<Variant> variantsCopy = variants;
+  sort(variantsCopy.begin(), variantsCopy.end(),
+      [](const Variant &a, const Variant &b) -> bool {
+        return (a.rel_pos + a.chr_copy) < (b.rel_pos + b.chr_copy);
+      });
+  return variantsCopy;
+}
+
 vector<Variant> Variant::sortByPositionRef(const vector<Variant> &variants) {
   vector<Variant> variantsCopy = variants;
   sort(variantsCopy.begin(), variantsCopy.end(),
@@ -306,7 +315,7 @@ void writeVcf(
   out << endl;
 
   // write variants
-  vector<Variant> sorted_vars = Variant::sortByPositionRef(vars);
+  vector<Variant> sorted_vars = Variant::sortByPositionPoly(vars);
   for (vector<Variant>::iterator var=sorted_vars.begin(); var!=sorted_vars.end(); ++var) {
     string ref = var->alleles[0];
     string alt = var->alleles[1];
