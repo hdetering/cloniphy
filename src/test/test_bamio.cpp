@@ -16,6 +16,7 @@ using boost::str;
 #include <seqan/bam_io.h>
 using seqan::BamAlignmentRecord;
 using seqan::BamFileIn;
+using seqan::BamFileOut;
 using seqan::BamHeader;
 using seqan::CharString;
 using seqan::FormattedFileContext;
@@ -136,6 +137,10 @@ BOOST_AUTO_TEST_CASE( bulk )
   fs_out.close();
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 
+  // postprocessing: change CHR field to match diploid identifiers (used in BAM file)
+  for (Variant &var : var_sorted)
+    var.chr += str(format("_%d") % var.chr_copy);
+
   /*------------------*
    * process BAM file *
    *------------------*/
@@ -147,16 +152,70 @@ BOOST_AUTO_TEST_CASE( bulk )
   BamFileIn bamFileIn;
   if (!open(bamFileIn, toCString(bamFileName))) {
     std::cerr << "ERROR: Could not open " << bamFileName << std::endl;
+    return;
   };
+
+  // the BAM file context gives access to reference names etc.
+  //typedef FormattedFileContext<BamFileIn, void>::Type TBamContext;
+  typedef seqan::StringSet<CharString> TNameStore;
+  typedef seqan::NameStoreCache<TNameStore> TNameStoreCache;
+  typedef seqan::BamIOContext<TNameStore, TNameStoreCache, seqan::Dependent<> > TBamContext;
+  TBamContext & bamContextIn = context(bamFileIn);
+
+  // create output SAM file for mutated reads
+  ofstream fs_bamout;
+  fs_bamout.open("bulk_reads.mutated.sam");
+  BamFileOut bamFileOut(context(bamFileIn), fs_bamout, seqan::Sam());
+  //BamFileOut bamFileOut(context(bamFileIn), cout, seqan::Sam());
   // NOTE: reading the header first is MANDATORY!
-  BamHeader header;
-  readHeader(header, bamFileIn);
-  // just for fun: look at the header content
-  typedef FormattedFileContext<BamFileIn, void>::Type TBamContext;
-  TBamContext const & bamContext = context(bamFileIn);
-  for (unsigned i = 0; i < length(contigNames(bamContext)); ++i)
-    std::cout << contigNames(bamContext)[i] << '\t'
-              << contigLengths(bamContext)[i] << '\n';
+  BamHeader headerIn, headerOut;
+  readHeader(headerIn, bamFileIn);
+  TNameStore refNames; // keep haploid references
+  TNameStore refNamesMap; // map diploid references to haploid names
+  typedef seqan::Member<TBamContext, seqan::LengthStoreMember>::Type TLengthStore;
+  TLengthStore refLengths;
+  seqan::BamHeaderRecord headRec;
+  for (auto headRec : headerIn) {
+    // include only haploid references (seq sim was done on diploid genome)
+    if (headRec.type == seqan::BAM_HEADER_REFERENCE) {
+      CharString seqName, seqLen;
+      getTagValue(seqName, "SN", headRec);
+      getTagValue(seqLen, "LN", headRec);
+      string seq_name(toCString(seqName));
+      int pos_delim = seq_name.rfind('_');
+      if (pos_delim == string::npos) {
+        fprintf(stderr, "[WARN] invalid sequence name: %s (missing copy info).\n", seq_name.c_str());
+        appendValue(refNames, seqName);
+        appendValue(refLengths, atoi(toCString(seqLen)));
+        appendValue(headerOut, headRec);
+      }
+      else {
+        CharString seqNameHap(seq_name.substr(0, pos_delim));
+        //appendValue(refNames, seqNameHap);
+        appendValue(refNamesMap, seqNameHap);
+        int copy = atoi(seq_name.substr(pos_delim+1).c_str());
+        if (copy == 0) {
+          appendValue(refNames, seqNameHap);
+          appendValue(refLengths, atoi(toCString(seqLen)));
+          setTagValue("SN", seqNameHap, headRec);
+          appendValue(headerOut, headRec);
+        }
+      }
+    }
+    else {
+      appendValue(headerOut, headRec);
+    }
+  }
+  // Context to map diploid reads to haploid references
+  TNameStoreCache refNamesMapCache(refNamesMap);
+  TBamContext bamContextMap(refNamesMap, refNamesMapCache);
+  // Context (haploid) for output BAM header
+  TNameStoreCache refNamesCache(refNames);
+  TBamContext bamContextOut(refNames, refNamesCache);
+  setContigLengths(bamContextOut, refLengths);
+
+  //writeHeader(bamFileOut, headerOut);
+  write(bamFileOut.iter, headerOut, bamContextOut, bamFileOut.format);
 
   ofstream fs_idx, fs_fq, fs_log;
   fs_idx.open("idx.csv");
@@ -172,8 +231,8 @@ BOOST_AUTO_TEST_CASE( bulk )
     int r2_begin = read2.beginPos;
     int r1_len = getAlignmentLengthInRef(read1);
     int r2_len = getAlignmentLengthInRef(read2);
-    CharString r1_ref = contigNames(bamContext)[read1.rID];
-    CharString r2_ref = contigNames(bamContext)[read2.rID];
+    CharString r1_ref = contigNames(bamContextIn)[read1.rID];
+    CharString r2_ref = contigNames(bamContextIn)[read2.rID];
     char r1_rc = seqan::hasFlagRC(read1) ? '+' : '-';
     char r2_rc = seqan::hasFlagRC(read2) ? '+' : '-';
     string r1_qual = toCString(read1.qual);
@@ -185,6 +244,8 @@ BOOST_AUTO_TEST_CASE( bulk )
     // modify read pair to match assigned clone
     read1.qName += str(format("-%d/1") % c_idx);
     read2.qName += str(format("-%d/2") % c_idx);
+
+    // mutate reads
 
     auto it_var = var_sorted.begin();
     // advance variant iterator to position in current chromosome
@@ -212,6 +273,15 @@ BOOST_AUTO_TEST_CASE( bulk )
       ++it_var;
     }
 
+    // BAM output
+
+    //CharString r1_ref_hap = refNames[read1.rID];
+    //CharString r2_ref_hap = refNames[read2.rID];
+    write(bamFileOut.iter, read1, bamContextMap, bamFileOut.format);
+    write(bamFileOut.iter, read2, bamContextMap, bamFileOut.format);
+
+    // FASTQ output
+
     // re-reverse complement reads on opposite strand (to avoid strand bias)
     if (seqan::hasFlagRC(read1)) {
       seqan::reverseComplement(read1.seq);
@@ -229,6 +299,7 @@ BOOST_AUTO_TEST_CASE( bulk )
     //fs_idx << r1_begin << " (" << r1_len << ")" <<  "  " << r2_begin << " (" << r2_len << ")" << endl;
     //fprintf(stderr, "%d\n", c_idx);
   }
+  fs_bamout.close();
   fs_idx.close();
   fs_fq.close();
   fs_log.close();
