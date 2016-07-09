@@ -46,8 +46,8 @@ struct RandomNumberGenerator {
 		//std::uniform_real_distribution<> dist(min, max);
 		//return boost::bind(dist, boost::ref(generator));
 		// calculate gamma parameters
-		double shape = (mean*mean) / (sd*sd);
-		double scale = (sd*sd) / mean;
+		double shape = float(mean*mean) / float(sd*sd);
+		double scale = float(sd*sd) / float(mean);
 		return getRandomGamma(shape, scale);
 	}
 
