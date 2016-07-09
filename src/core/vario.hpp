@@ -116,7 +116,7 @@ void readVcf(
   std::istream& vcf_filename,
   VariantSet& variants,
   std::vector<std::vector<Genotype> >& gtMatrix);
-/** Generate VCF output from a reference sequence and a set of mutations.
+/** Generate VCF output for a reference genome and a set of mutations.
     (multiple samples) */
 void writeVcf(
   const std::vector<SeqRecord>& seqs,
@@ -125,7 +125,7 @@ void writeVcf(
   const std::vector<std::string>& labels,
   const std::vector<std::vector<bool> >& mutMatrix,
   std::ostream&);
-/** Generate VCF output from a reference sequence and a set of mutations.
+/** Generate VCF output from a reference genome and a set of mutations.
     (single sample) */
 void writeVcf(
   const std::vector<SeqRecord>& seqs,

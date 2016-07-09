@@ -1,6 +1,8 @@
 #include "seqio.hpp"
 #include <algorithm>
 #include <boost/format.hpp>
+using boost::format;
+using boost::str;
 #include <cctype>
 #include <cmath>
 #include <fstream>
@@ -37,7 +39,8 @@ void Genome::generate(
   this->generate(total_len, 1, nuc_freqs, rng);
 }
 
-/** Generate random reference genome based on nucleotide frequencies. */
+/** DEPRECATED(?)
+  * Generate random reference genome based on nucleotide frequencies. */
 void Genome::generate(
   const unsigned long total_len,
   const unsigned short num_chr,
@@ -103,6 +106,7 @@ void Genome::generate(
     generateRandomDnaSeq(seq, l, nuc_freqs, rng);
     string id_chr = (format("chr%d") % idx_chr++).str();
     SeqRecord rec(id_chr, "random sequence", seq);
+    rec.id_ref = rec.id;
     this->records.push_back(rec);
   }
   this->num_records = num_seqs;
@@ -172,6 +176,7 @@ void Genome::duplicate() {
   for (unsigned i=0; i<num_records; ++i) {
     SeqRecord orig = records[i];
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
+    dupl->id_ref = orig.id_ref;
     dupl->copy = orig.copy+1;
     records.push_back(*dupl);
     records[i].id += "_0";
@@ -246,6 +251,14 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
       string seq_desc = header.substr(space_pos+1);
       //SeqRecord rec = {seq_id, seq_desc, seq};
       SeqRecord rec(seq_id, seq_desc, seq);
+      // get properties from description
+      vector<string> desc_parts = stringio::split(seq_desc, ';');
+      for (string part : desc_parts) {
+        vector<string> kv = stringio::split(part, '=');
+        if (kv.size() == 2)
+          if (kv[0] == "id_ref")
+            rec.id_ref = kv[1];
+      }
       records.push_back(rec);
       header = line;
       seq = "";
@@ -259,11 +272,11 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
 /** Write SeqRecords to FASTA file, using a defined line width. */
 int writeFasta(const vector<SeqRecord> &seqs, ostream &output, int line_width) {
   int recCount = 0;
-  for (vector<SeqRecord>::const_iterator rec=seqs.begin(); rec!=seqs.end(); ++rec) {
-    output << ">" << rec->id << endl;
-    string::const_iterator it_seq = rec->seq.begin();
-    while (it_seq != rec->seq.end()) {
-      for (int i=0; i<line_width && it_seq!=rec->seq.end(); ++i)
+  for (auto rec : seqs) {
+    output << str(format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
+    string::const_iterator it_seq = rec.seq.begin();
+    while (it_seq != rec.seq.end()) {
+      for (int i=0; i<line_width && it_seq!=rec.seq.end(); ++i)
         output << *it_seq++;
       output << endl;
     }

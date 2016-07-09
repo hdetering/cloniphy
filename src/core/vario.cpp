@@ -309,27 +309,25 @@ void writeVcf(
   out << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
   out << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
   out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
-  out << "\thealthy";
+  //out << "\thealthy";
   for (auto lbl : labels)
     out << '\t' << lbl;
   out << endl;
 
   // write variants
-  vector<Variant> sorted_vars = Variant::sortByPositionPoly(vars);
-  for (vector<Variant>::iterator var=sorted_vars.begin(); var!=sorted_vars.end(); ++var) {
-    string ref = var->alleles[0];
-    string alt = var->alleles[1];
+  vector<Variant> sorted_vars = Variant::sortByPosition(vars);
+  for (Variant var : sorted_vars) {
+    string ref = var.alleles[0];
+    string alt = var.alleles[1];
     out << format("%s\t%d\t%d\t%s\t%s\t%d\tPASS\t%d\t%s")
-                  % (var->chr) % (var->pos+1) % (var->idx_mutation)
+                  % (var.chr) % (var.pos+1) % (var.idx_mutation)
                   % ref % alt % var_qual % var_info % var_fmt;
     for (auto sid : id_samples) {
       string genotype = "";
-      if (mutMatrix[sid][var->idx_mutation] == true) {
-        short copy = var->chr_copy;
-        genotype = (copy==0 ? "1|0" : "0|1");
-      }
-      else {
-        genotype = "0|0"; }
+      if (mutMatrix[sid][var.idx_mutation] == true)
+        genotype = (var.chr_copy==0 ? "1|0" : "0|1");
+      else
+        genotype = "0|0";
       out << format("\t%s:%d") % genotype % gt_qual;
     }
     out << std::endl;
@@ -348,7 +346,7 @@ vector<Variant> generateVariants(
   vector<Variant> variants = vector<Variant>(num_variants);
   boost::container::flat_set<int> var_pos; // keep track of variant positions
   function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
-  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+  //function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
   // determine base mutation probs from model (marginal sums)
@@ -360,6 +358,7 @@ vector<Variant> generateVariants(
   }
   function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
 
+  unsigned long genome_len = genome.length/genome.ploidy;
   for (int i=0; i<num_variants; ++i) {
     // pick random nucleotide bucket
     int idx_bucket = random_nuc_idx();
@@ -380,9 +379,17 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     Variant var;
     var.id = to_string(i);
     var.chr = id_ref;
-    var.chr_copy = random_copy();
-    var.pos = loc.start+1; // NOTE: variant positions must be 1-based
-    var.rel_pos = double(nuc_pos)/genome.length;
+    if (genome.ploidy > 1) {
+      vector<string> parts = stringio::split(genome.records[loc.idx_record].id, '_');
+      int chr_copy = atoi(parts.back().c_str());
+      var.chr_copy = chr_copy;
+      var.rel_pos = double(nuc_pos-(chr_copy*genome_len))/genome_len;
+    }
+    else {
+      var.chr_copy = 0;
+      var.rel_pos = double(nuc_pos)/genome_len;
+    }
+    var.pos = loc.start;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
     var.idx_mutation = i;
