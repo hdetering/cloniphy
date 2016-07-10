@@ -17,19 +17,21 @@ using boost::str;
 
 using namespace std;
 
-Node::Node() {
+namespace treeio {
+
+TreeNode::TreeNode() {
   parent = 0;
 }
 
-Node::~Node() {}
+TreeNode::~TreeNode() {}
 
 // streaming operator for easy printing
-ostream& operator<<(std::ostream& stream, const Node& node) {
-  stream << "<Node(index=" << node.index << ", label='" << node.label << "', length=" << node.length << ")>";
+ostream& operator<<(std::ostream& stream, const TreeNode& node) {
+  stream << "<TreeNode(index=" << node.index << ", label='" << node.label << "', length=" << node.length << ")>";
   return stream;
 }
 
-bool Node::isRoot() {
+bool TreeNode::isRoot() {
   return (parent == 0);
 }
 
@@ -54,7 +56,7 @@ Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_numVisibleNodes(n_nodes), m_
 }
 
 template<typename T>
-Tree<T>::Tree(const treeio::node& root) {
+Tree<T>::Tree(const parse::node& root) {
   this->m_numNodes = 0;
   this->m_numVisibleNodes = 0;
   T *root_node = _adaptNode(root);
@@ -70,7 +72,7 @@ Tree<T>::~Tree() {
 }
 
 template<typename T>
-T* Tree<T>::_adaptNode(const treeio::node& node) {
+T* Tree<T>::_adaptNode(const parse::node& node) {
   T *n = new T();
   n->index = m_numNodes++;
   n->label = node.label;
@@ -485,18 +487,21 @@ void Tree<T>::_printNodes() {
   fprintf(stderr, "|\n");
 }
 
+} // namespace treeio
+
 /*--------------------------------------*/
 /*            parser logic              */
 /*--------------------------------------*/
 
 BOOST_FUSION_ADAPT_STRUCT(
-  treeio::node,
-  (treeio::children_vector, children)
+  treeio::parse::node,
+  (treeio::parse::children_vector, children)
   (string, label)
   (double, length)
 )
 
 namespace treeio {
+namespace parse {
 
   namespace qi = boost::spirit::qi;
   namespace ascii = boost::spirit::ascii;
@@ -584,8 +589,9 @@ namespace treeio {
       throw runtime_error("Could not parse file in Newick format.");
     }
   }
-}
+} // namespace parse
+} // namespace treeio
 
 
 // instantiate usable classes so they can be picked up by the linker
-template class Tree<Clone>;
+template class treeio::Tree<Clone>;

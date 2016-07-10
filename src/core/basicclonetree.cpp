@@ -6,7 +6,7 @@
 
 BasicCloneTree::BasicCloneTree() : CloneTree() {}
 BasicCloneTree::BasicCloneTree(int numClones) : CloneTree(numClones) {}
-BasicCloneTree::BasicCloneTree(const treeio::node& root) : CloneTree(root) {}
+BasicCloneTree::BasicCloneTree(const treeio::parse::node& root) : CloneTree(root) {}
 
 void BasicCloneTree::generateRandomTopology(boost::function<float()>& random) {
   // generate a "healthy" clone as root node

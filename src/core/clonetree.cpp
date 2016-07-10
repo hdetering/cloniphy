@@ -20,7 +20,7 @@ CloneTree::CloneTree(int numClones) : m_numClones(numClones), m_vecNodes(numClon
   printNodes();
 #endif
 }
-CloneTree::CloneTree(const treeio::node& root) {
+CloneTree::CloneTree(const treeio::parse::node& root) {
   this->m_numClones = 0;
   Clone *root_clone = adaptFromGeneric(root);
   this->m_root = root_clone;
@@ -31,7 +31,7 @@ CloneTree::~CloneTree() {
   }
 }
 
-Clone* CloneTree::adaptFromGeneric(const treeio::node node) {
+Clone* CloneTree::adaptFromGeneric(const treeio::parse::node node) {
   Clone *clone = new Clone();
   clone->index = m_numClones++;
   clone->label = node.label;

@@ -85,15 +85,15 @@ int main (int argc, char* argv[])
   function<double()> random = rng.getRandomFunctionDouble(0.0, 1.0);
 
 
-  Tree<Clone> tree;
+  treeio::Tree<Clone> tree;
   if (tree_fn.size()>0) {
-    std::cerr << "Reading tree from file '" << tree_fn << "'" << std::endl;
-    treeio::node root_node;
-    treeio::readNewick(tree_fn, root_node);
-    tree = *(new Tree<Clone>(root_node));
+    cerr << "Reading tree from file '" << tree_fn << "'" << endl;
+    treeio::parse::node root_node;
+    treeio::parse::readNewick(tree_fn, root_node);
+    tree = *(new treeio::Tree<Clone>(root_node));
     num_clones = tree.getVisibleNodes().size();
-    std::cerr << "num_nodes:\t" << tree.m_numVisibleNodes << std::endl;
-    std::cerr << "num_clones:\t" << num_clones << std::endl;
+    cerr << "num_nodes:\t" << tree.m_numVisibleNodes << endl;
+    cerr << "num_clones:\t" << num_clones << endl;
 
     // if number of mutations have not been supplied specifically,
     // branch lengths are interpreted as number of mutations
@@ -106,7 +106,7 @@ int main (int argc, char* argv[])
     }
   }
   else {
-    tree = Tree<Clone>(num_clones);
+    tree = treeio::Tree<Clone>(num_clones);
     fprintf(stderr, "\nGenerating random topology...\n");
     tree.generateRandomTopology(random);
     fprintf(stderr, "done.\n");

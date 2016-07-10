@@ -16,7 +16,7 @@ using vario::Mutation;
 using vario::Variant;
 using evolution::SubstitutionModel;
 
-struct Clone: public Node
+struct Clone: public treeio::TreeNode
 {
   float freq;
   bool is_healthy;

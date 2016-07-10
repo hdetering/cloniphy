@@ -18,7 +18,7 @@ class BasicCloneTree : public CloneTree {
   public:
     BasicCloneTree();
     BasicCloneTree(int);
-    BasicCloneTree(const treeio::node&);
+    BasicCloneTree(const treeio::parse::node&);
 
     /** Build random clone tree. */
     void generateRandomTopology(boost::function<float()>&);

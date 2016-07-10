@@ -7,28 +7,30 @@
 #include <string>
 #include <vector>
 
+namespace treeio {
+
 /** Generic tree node */
-struct Node
+struct TreeNode
 {
   int index;
   std::string label;
   double length;
   double weight;
   bool is_visible;
-  Node *parent;
-  std::vector<Node *> m_vecChildren;
+  TreeNode *parent;
+  std::vector<TreeNode *> m_vecChildren;
 
-  Node();
-  virtual ~Node();
+  TreeNode();
+  virtual ~TreeNode();
   virtual float distanceToParent() = 0;
   virtual bool isLeaf() = 0;
   bool isRoot();
 };
 
 // streaming operator for easy printing
-std::ostream& operator<<(std::ostream&, const Node&);
+std::ostream& operator<<(std::ostream&, const TreeNode&);
 
-namespace treeio {
+namespace parse {
   // forward declaration for later use
   struct node;
 }
@@ -44,7 +46,7 @@ struct Tree
 
   Tree();
   Tree(int);
-  Tree(const treeio::node&);
+  Tree(const parse::node&);
   ~Tree();
   /** Return sum of all branch lengths */
   double getTotalBranchLength();
@@ -83,24 +85,27 @@ private:
   void _assignWeightsRec(T*, std::vector<double>::iterator&, std::vector<double>);
   void _printDotRec(T*, std::ostream&);
   void _printNodes();
-  T* _adaptNode(const treeio::node&);
+  T* _adaptNode(const parse::node&);
 };
 
-
 /** Reads and writes tree files. */
-namespace treeio {
-  // typedef to ease the writing
-  typedef std::vector<node> children_vector;
+namespace parse {
 
-  struct node
-  {
-    std::string label;
-    double length = 0;
-    children_vector children;
-  };
+// typedef to ease the writing
+typedef std::vector<node> children_vector;
 
-  void readNewick(std::string, node&);
-  void readNewick(std::istream&, node&);
-}
+struct node
+{
+  std::string label;
+  double length = 0;
+  children_vector children;
+};
+
+void readNewick(std::string, node&);
+void readNewick(std::istream&, node&);
+
+} // namespace parse
+
+} // namespace treeio
 
 #endif /* TREEIO_H */

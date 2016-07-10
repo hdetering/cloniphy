@@ -22,7 +22,7 @@ class CloneTree {
   public:
     CloneTree();
     CloneTree(int);
-    CloneTree(const treeio::node&);
+    CloneTree(const treeio::parse::node&);
     ~CloneTree();
 
     /* --------------------------------------*
@@ -50,7 +50,7 @@ class CloneTree {
     /** Print vector containing clones to STDERR (for debugging). */
     void printNodes();
     /** Initialize CloneTree from generic tree */
-    Clone* adaptFromGeneric(const treeio::node);
+    Clone* adaptFromGeneric(const treeio::parse::node);
 };
 
 #endif /* CLONETREE_H */
