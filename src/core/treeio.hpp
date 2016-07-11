@@ -73,6 +73,8 @@ struct Tree
   void printNewick(std::ostream&);
   void printNewick(T*, std::ostream&, bool first=true);
   void printDot(T*, std::ostream&);
+  /** outputs boolean matrix of mutational states for visible nodes */
+  void writeMutationMatrix(std::ostream&, int);
 
 private:
   /** Assign initial mutations to founding clone. */

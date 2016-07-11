@@ -475,6 +475,24 @@ void Tree<T>::_printDotRec(T *node, std::ostream& os) {
   }
 }
 
+// TODO: find better way to store num_mutations
+/** outputs boolean matrix of mutational states for visible clones */
+template<>
+void Tree<Clone>::writeMutationMatrix(ostream& os, int num_mutations) {
+  // setup matrix
+  int num_nodes = this->m_numNodes;
+  vector<vector<bool>> mm(num_nodes, vector<bool>(num_mutations, false));
+  this->m_root->populateMutationMatrixRec(mm);
+  // write matrix
+  vector<Clone*> vec_vis_clones = this->getVisibleNodes();
+  for (Clone *clone : vec_vis_clones) {
+    os << clone->label;
+    for (auto cell : mm[clone->index])
+      os << "," << cell;
+    os << endl;
+  }
+}
+
 // use me for debugging :-)
 template<typename T>
 void Tree<T>::_printNodes() {
