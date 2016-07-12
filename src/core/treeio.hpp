@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -17,8 +18,8 @@ struct TreeNode
   double length;
   double weight;
   bool is_visible;
-  TreeNode *parent;
-  std::vector<TreeNode *> m_vecChildren;
+  std::shared_ptr<TreeNode> parent;
+  std::vector<std::shared_ptr<TreeNode>> m_vecChildren;
 
   TreeNode();
   virtual ~TreeNode();
@@ -36,13 +37,13 @@ namespace parse {
 }
 
 /** General tree representing a hierarchy of nodes. */
-template <typename T>
+template <typename TNodeType>
 struct Tree
 {
-  T *m_root;
+  std::shared_ptr<TNodeType> m_root;
   int m_numNodes;
   int m_numVisibleNodes;
-  std::vector<T *> m_vecNodes;
+  std::vector<std::shared_ptr<TNodeType>> m_vecNodes;
 
   Tree();
   Tree(int);
@@ -55,7 +56,7 @@ struct Tree
   /** Return vector of relative branch lengths */
   std::vector<double> getRelativeBranchLengths();
   /** Return visible tree nodes. */
-  std::vector<T *> getVisibleNodes();
+  std::vector<std::shared_ptr<TNodeType>> getVisibleNodes();
   /** Return visible tree nodes' indices. */
   std::vector<int> getVisibleNodesIdx();
   /** Build random tree topology. */
@@ -71,23 +72,28 @@ struct Tree
   /** Drop random mutations on clones. */
   virtual void evolve(int, int, RandomNumberGenerator<>&);
   void printNewick(std::ostream&);
-  void printNewick(T*, std::ostream&, bool first=true);
-  void printDot(T*, std::ostream&);
+  void printNewick(std::shared_ptr<TNodeType>, std::ostream&, bool first=true);
+  void printDot(std::shared_ptr<TNodeType>, std::ostream&);
   /** outputs boolean matrix of mutational states for visible nodes */
   void writeMutationMatrix(std::ostream&, int);
+
+protected:
+  void _printNodes();
 
 private:
   /** Assign initial mutations to founding clone. */
   void dropTransformingMutations(int);
   /** Make sure each clone has at least 1 mutation difference to every other clone. */
-  void dropMandatoryMutations(T*, int&);
+  void dropMandatoryMutations(std::shared_ptr<TNodeType>, int&);
   /** Drop free mutations on random clone nodes. */
   void dropRandomMutations(int, int&, RandomNumberGenerator<>&);
-  void _varyBranchLengthsRec(T*, std::function<double()>&);
-  void _assignWeightsRec(T*, std::vector<double>::iterator&, std::vector<double>);
-  void _printDotRec(T*, std::ostream&);
-  void _printNodes();
-  T* _adaptNode(const parse::node&);
+  void _varyBranchLengthsRec(std::shared_ptr<TNodeType>, std::function<double()>&);
+  void _assignWeightsRec(
+    std::shared_ptr<TNodeType>,
+    std::vector<double>::iterator&,
+    std::vector<double>);
+  void _printDotRec(std::shared_ptr<TNodeType>, std::ostream&);
+  std::shared_ptr<TNodeType> _adaptNode(const parse::node&);
 };
 
 /** Reads and writes tree files. */

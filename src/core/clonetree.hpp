@@ -5,19 +5,20 @@
 #include "treeio.hpp"
 #include <boost/function.hpp>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 /** General tree representing a hierarchy of clones. */
 class CloneTree {
   protected:
-    Clone *m_root;
+    std::shared_ptr<Clone> m_root;
     int m_numClones;
-    std::vector<Clone *> m_vecNodes;
+    std::vector<std::shared_ptr<Clone>> m_vecNodes;
 
     /** Recursive part of generating Newick representation. */
-    static void _printNewickRecursive(Clone *, bool, std::ostream&);
+    static void _printNewickRecursive(std::shared_ptr<Clone>, bool, std::ostream&);
     /** Recursive part of generating DOT representation. */
-    static void _printDotRecursive(Clone *, std::ostream&);
+    static void _printDotRecursive(std::shared_ptr<Clone>, std::ostream&);
 
   public:
     CloneTree();
@@ -40,17 +41,17 @@ class CloneTree {
      * ----------------------------------*/
 
     /** Returns the clone tree's root node. */
-    Clone* getRoot();
+    std::shared_ptr<Clone> getRoot();
     /** Returns all visible nodes of the clone tree. */
-    std::vector<Clone *> getVisibleNodes();
+    std::vector<std::shared_ptr<Clone>> getVisibleNodes();
     /** Generates the string representation of a (sub)tree in Newick notation. */
-    static void printNewick(Clone *, std::ostream& = std::cout);
+    static void printNewick(std::shared_ptr<Clone>, std::ostream& = std::cout);
     /** Generates the graph representation of a (sub)tree in DOT format. */
-    static void printDot(Clone *, std::ostream& = std::cout);
+    static void printDot(std::shared_ptr<Clone>, std::ostream& = std::cout);
     /** Print vector containing clones to STDERR (for debugging). */
     void printNodes();
     /** Initialize CloneTree from generic tree */
-    Clone* adaptFromGeneric(const treeio::parse::node);
+    std::shared_ptr<Clone> adaptFromGeneric(const treeio::parse::node);
 };
 
 #endif /* CLONETREE_H */

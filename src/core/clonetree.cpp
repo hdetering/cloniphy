@@ -9,7 +9,7 @@ CloneTree::CloneTree() {}
 CloneTree::CloneTree(int numClones) : m_numClones(numClones), m_vecNodes(numClones) {
   // initialize tips
   for (int i=0; i<numClones; i++) {
-    Clone *c = new Clone();
+    std::shared_ptr<Clone> c(new Clone());
     c->index = i+1;
     c->label = boost::lexical_cast<std::string>(i+1);
     //c->freq = freqs[i];
@@ -22,17 +22,17 @@ CloneTree::CloneTree(int numClones) : m_numClones(numClones), m_vecNodes(numClon
 }
 CloneTree::CloneTree(const treeio::parse::node& root) {
   this->m_numClones = 0;
-  Clone *root_clone = adaptFromGeneric(root);
+  std::shared_ptr<Clone> root_clone = adaptFromGeneric(root);
   this->m_root = root_clone;
 }
 CloneTree::~CloneTree() {
-  for (unsigned i=0; i<m_vecNodes.size(); ++i) {
-     delete(m_vecNodes[i]);
-  }
+  //for (unsigned i=0; i<m_vecNodes.size(); ++i) {
+  //   delete(m_vecNodes[i]);
+  //}
 }
 
-Clone* CloneTree::adaptFromGeneric(const treeio::parse::node node) {
-  Clone *clone = new Clone();
+std::shared_ptr<Clone> CloneTree::adaptFromGeneric(const treeio::parse::node node) {
+  std::shared_ptr<Clone> clone(new Clone());
   clone->index = m_numClones++;
   clone->label = node.label;
   clone->length = node.length;
@@ -40,7 +40,7 @@ Clone* CloneTree::adaptFromGeneric(const treeio::parse::node node) {
   this->m_vecNodes.push_back(clone);
 
   for (unsigned i=0; i<node.children.size(); ++i) {
-    Clone *child_clone = adaptFromGeneric(node.children[i]);
+    std::shared_ptr<Clone> child_clone = adaptFromGeneric(node.children[i]);
     clone->m_vecChildren.push_back(child_clone);
     child_clone->parent = clone;
   }
@@ -48,14 +48,14 @@ Clone* CloneTree::adaptFromGeneric(const treeio::parse::node node) {
   return clone;
 }
 
-Clone* CloneTree::getRoot() {
+std::shared_ptr<Clone> CloneTree::getRoot() {
   return m_root;
 }
 
-std::vector<Clone *> CloneTree::getVisibleNodes() {
-  std::vector<Clone *> vis_nodes;
+std::vector<std::shared_ptr<Clone>> CloneTree::getVisibleNodes() {
+  std::vector<std::shared_ptr<Clone>> vis_nodes;
   for (unsigned i=0; i<m_vecNodes.size(); ++i) {
-    Clone *c = m_vecNodes[i];
+    std::shared_ptr<Clone> c = m_vecNodes[i];
     if (c->is_visible && (c!=m_root)) {
       vis_nodes.push_back(c);
     }
@@ -64,13 +64,13 @@ std::vector<Clone *> CloneTree::getVisibleNodes() {
 }
 
 /** Generates the string representation of a (sub)tree in Newick notation. */
-void CloneTree::printNewick(Clone *node, std::ostream& os) {
+void CloneTree::printNewick(std::shared_ptr<Clone> node, std::ostream& os) {
   _printNewickRecursive(node, true, os);
   os << ";";
 }
 
 /** Prints the string representation of the tree in Newick notation. (internal) */
-void CloneTree::_printNewickRecursive(Clone *node, bool isFirstChild, std::ostream& os) {
+void CloneTree::_printNewickRecursive(std::shared_ptr<Clone> node, bool isFirstChild, std::ostream& os) {
   if (!isFirstChild) { os << ","; }
   if (node->getChildren().size() > 0) {
     os << "(";
@@ -86,20 +86,20 @@ void CloneTree::_printNewickRecursive(Clone *node, bool isFirstChild, std::ostre
   }
 }
 
-void CloneTree::printDot(Clone *node, std::ostream& os) {
+void CloneTree::printDot(std::shared_ptr<Clone> node, std::ostream& os) {
   os << "digraph G {\n";
   _printDotRecursive(node, os);
   os << "}\n";
 }
 
-void CloneTree::_printDotRecursive(Clone *node, std::ostream& os) {
+void CloneTree::_printDotRecursive(std::shared_ptr<Clone> node, std::ostream& os) {
   if (node->isRoot()) {
     os << "\t" << node->index << " [style=filled,color=limegreen];" << std::endl;
   } else if (node->is_visible) {
     os << "\t" << node->index << " [style=filled,color=tomato];" << std::endl;
   }
   for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
-    Clone *child = node->m_vecChildren[i];
+    std::shared_ptr<Clone> child = node->m_vecChildren[i];
     float edgeWeight = child->distanceToParent();
     os << "\t" << node->index << " -> " << child->index;
     if (edgeWeight > 0.0) {

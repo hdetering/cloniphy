@@ -13,19 +13,20 @@ using namespace std;
 namespace bamio {
 
 void mutateReads(
-  string fn_out,
-  string fn_in,
+  string fn_fq_out,
+  string fn_sam_out,
+  string fn_sam_in,
   int num_mutations,
-  vector<vario::Variant> variants,
-  treeio::Tree<Clone> tree,
-  RandomNumberGenerator<> rng)
+  vector<vario::Variant> &variants,
+  treeio::Tree<Clone> &tree,
+  RandomNumberGenerator<> &rng)
 {
   // extract info about visible clones
-  vector<Clone*> vec_vis_clones = tree.getVisibleNodes();
+  vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_clone_idx;
   vector<string> vec_clone_lbl;
   vector<double> vec_clone_weight;
-  for (Clone *c : vec_vis_clones) {
+  for (auto c : vec_vis_clones) {
     fprintf(stdout, "clone %d: \"%s\"\t(%.4f)\n", c->index, c->label.c_str(), c->weight);
     vec_clone_idx.push_back(c->index);
     vec_clone_lbl.push_back(c->label);
@@ -47,7 +48,7 @@ void mutateReads(
    *------------------*/
 
   function<int()> rand_idx = rng.getRandomIndexWeighted(vec_clone_weight);
-  CharString bamFileName = getAbsolutePath(fn_in.c_str());
+  CharString bamFileName = getAbsolutePath(fn_sam_in.c_str());
   BamFileIn bamFileIn;
   if (!open(bamFileIn, toCString(bamFileName))) {
     std::cerr << "ERROR: Could not open " << bamFileName << std::endl;
@@ -63,7 +64,7 @@ void mutateReads(
 
   // create output SAM file for mutated reads
   ofstream fs_bamout;
-  fs_bamout.open("bulk_reads.mutated.sam");
+  fs_bamout.open(fn_sam_out.c_str());
   BamFileOut bamFileOut(context(bamFileIn), fs_bamout, seqan::Sam());
   //BamFileOut bamFileOut(context(bamFileIn), cout, seqan::Sam());
   // NOTE: reading the header first is MANDATORY!
@@ -117,7 +118,7 @@ void mutateReads(
   write(bamFileOut.iter, headerOut, bamContextOut, bamFileOut.format);
 
   ofstream fs_fq, fs_log;
-  fs_fq.open(fn_out);
+  fs_fq.open(fn_fq_out);
   fs_log.open("bamio_bulk.log");
   BamAlignmentRecord read1, read2;
   while (!atEnd(bamFileIn)) {
@@ -150,7 +151,7 @@ void mutateReads(
     while (it_var!=var_sorted.end() && it_var->chr!=toCString(r1_ref))
       ++it_var;
     // advance variant iterator to first position past begin of first read
-    while (it_var!=var_sorted.end() && it_var->pos<r1_begin && (it_var+1)->chr==toCString(r1_ref))
+    while (it_var!=var_sorted.end() && it_var->pos<r1_begin && it_var->chr==toCString(r1_ref))
       ++it_var;
     // identify variables affecting read pair
     while (it_var!=var_sorted.end() && it_var->pos<r2_begin+r2_len && it_var->chr==toCString(r1_ref)) {

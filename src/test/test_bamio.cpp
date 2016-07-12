@@ -107,10 +107,10 @@ BOOST_AUTO_TEST_CASE( bulk )
   auto fn_out = "pers.bulk.vcf";
   ofstream fs_out;
   fs_out.open(fn_out);
-  vector<Clone*> vec_vis_clones = tree.getVisibleNodes();
+  vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_idx;
   vector<string> vec_lbl;
-  for (Clone *clone : vec_vis_clones) {
+  for (auto clone : vec_vis_clones) {
     vec_idx.push_back(clone->index);
     vec_lbl.push_back(clone->label);
   }
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 
   /* process BAM file */
-  bamio::mutateReads("bulk_reads.fq", "build/pers_reads.sam", num_mutations, variants, tree, rng);
+  bamio::mutateReads("bulk_reads.fq", "bulk_reads.sam", "build/pers_reads.sam", num_mutations, variants, tree, rng);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

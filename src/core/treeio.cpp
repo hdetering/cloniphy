@@ -8,12 +8,8 @@ using boost::str;
 #include <boost/spirit/include/qi.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <fstream>
-#include <functional>
-#include <iostream>
 #include <stdexcept>
 #include <streambuf>
-#include <string>
-#include <vector>
 
 using namespace std;
 
@@ -35,14 +31,18 @@ bool TreeNode::isRoot() {
   return (parent == 0);
 }
 
-template<typename T>
-Tree<T>::Tree() : m_numNodes(0), m_numVisibleNodes(0), m_vecNodes(0) {}
+template<typename TNodeType>
+Tree<TNodeType>::Tree() : m_numNodes(0), m_numVisibleNodes(0), m_vecNodes(0) {}
 
-template<typename T>
-Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_numVisibleNodes(n_nodes), m_vecNodes(n_nodes) {
+template<typename TNodeType>
+Tree<TNodeType>::Tree(int n_nodes) :
+  m_numNodes(n_nodes),
+  m_numVisibleNodes(n_nodes),
+  m_vecNodes(n_nodes)
+{
   // initialize nodes
   for (int i=0; i<n_nodes; i++) {
-    T *n = new T();
+    shared_ptr<TNodeType> n(new TNodeType());
     n->index = i;
     n->label = boost::lexical_cast<std::string>(i+1);
     n->is_visible = true;
@@ -55,25 +55,27 @@ Tree<T>::Tree(int n_nodes) : m_numNodes(n_nodes), m_numVisibleNodes(n_nodes), m_
 #endif
 }
 
-template<typename T>
-Tree<T>::Tree(const parse::node& root) {
+template<typename TNodeType>
+Tree<TNodeType>::Tree(const parse::node& root) {
   this->m_numNodes = 0;
   this->m_numVisibleNodes = 0;
-  T *root_node = _adaptNode(root);
+  std::shared_ptr<TNodeType> root_node = _adaptNode(root);
   root_node->parent = 0;
   this->m_root = root_node;
 }
 
 template<typename T>
 Tree<T>::~Tree() {
-  for (unsigned i=0; i<m_vecNodes.size(); ++i) {
+  // NOTE:this loop causes a segfault in test bamio/bulk
+  /*for (unsigned i=0; i<m_vecNodes.size(); ++i) {
     delete(m_vecNodes[i]);
-  }
+  }*/
 }
 
-template<typename T>
-T* Tree<T>::_adaptNode(const parse::node& node) {
-  T *n = new T();
+template<typename TNodeType>
+shared_ptr<TNodeType> Tree<TNodeType>::_adaptNode(const parse::node& node) {
+  //T *n = new T();
+  shared_ptr<TNodeType> n(new TNodeType());
   n->index = m_numNodes++;
   n->label = node.label;
   n->length = node.length;
@@ -82,7 +84,7 @@ T* Tree<T>::_adaptNode(const parse::node& node) {
   this->m_vecNodes.push_back(n);
 
   for (unsigned i=0; i<node.children.size(); ++i) {
-    T *child_node = _adaptNode(node.children[i]);
+    shared_ptr<TNodeType> child_node = _adaptNode(node.children[i]);
     n->m_vecChildren.push_back(child_node);
     child_node->parent = n;
   }
@@ -90,8 +92,8 @@ T* Tree<T>::_adaptNode(const parse::node& node) {
   return n;
 }
 
-template<typename T>
-double Tree<T>::getTotalBranchLength() {
+template<typename TNodeType>
+double Tree<TNodeType>::getTotalBranchLength() {
   double branch_len = 0;
   for (unsigned i=0; i<m_vecNodes.size(); ++i) {
     branch_len += m_vecNodes[i]->length;
@@ -99,8 +101,8 @@ double Tree<T>::getTotalBranchLength() {
   return branch_len;
 }
 
-template<typename T>
-vector<double> Tree<T>::getAbsoluteBranchLengths() {
+template<typename TNodeType>
+vector<double> Tree<TNodeType>::getAbsoluteBranchLengths() {
   vector<double> vec_len = vector<double>(m_vecNodes.size());
   for (unsigned i=0; i<this->m_vecNodes.size(); ++i) {
     vec_len[i] = this->m_vecNodes[i]->length;
@@ -108,8 +110,8 @@ vector<double> Tree<T>::getAbsoluteBranchLengths() {
   return vec_len;
 }
 
-template<typename T>
-vector<double> Tree<T>::getRelativeBranchLengths() {
+template<typename TNodeType>
+vector<double> Tree<TNodeType>::getRelativeBranchLengths() {
   double total_branch_len = this->getTotalBranchLength();
   vector<double> branch_lens = vector<double>(m_vecNodes.size());
   for (unsigned i=0; i<this->m_vecNodes.size(); ++i) {
@@ -118,11 +120,11 @@ vector<double> Tree<T>::getRelativeBranchLengths() {
   return branch_lens;
 }
 
-template<typename T>
-vector<T *> Tree<T>::getVisibleNodes() {
-  vector<T *> vis_nodes;
+template<typename TNodeType>
+vector<shared_ptr<TNodeType>> Tree<TNodeType>::getVisibleNodes() {
+  vector<shared_ptr<TNodeType>> vis_nodes;
   for (unsigned i=0; i<m_vecNodes.size(); ++i) {
-    T *node = m_vecNodes[i];
+    shared_ptr<TNodeType> node = m_vecNodes[i];
     //if (node->is_visible && (node!=m_root)) { // root represents contaminant healthy cells
     if (node->is_visible) {
       vis_nodes.push_back(node);
@@ -131,8 +133,8 @@ vector<T *> Tree<T>::getVisibleNodes() {
   return vis_nodes;
 }
 
-template<typename T>
-vector<int> Tree<T>::getVisibleNodesIdx() {
+template<typename TNodeType>
+vector<int> Tree<TNodeType>::getVisibleNodesIdx() {
   vector<int> vis_nodes_idx;
   for (auto node : m_vecNodes) {
     if (node->is_visible)
@@ -142,8 +144,8 @@ vector<int> Tree<T>::getVisibleNodesIdx() {
 }
 
 
-template<typename T>
-void Tree<T>::generateRandomTopology(function<double()>& rng) {
+template<typename TNodeType>
+void Tree<TNodeType>::generateRandomTopology(function<double()>& rng) {
   // TODO: call appropriate method based on user params
   if (true) {
     generateRandomTopologyInternalNodes(rng);
@@ -153,10 +155,10 @@ void Tree<T>::generateRandomTopology(function<double()>& rng) {
   }
 }
 
-template<typename T>
-void Tree<T>::generateRandomTopologyInternalNodes(function<double()>& random) {
+template<typename TNodeType>
+void Tree<TNodeType>::generateRandomTopologyInternalNodes(function<double()>& random) {
   // create root node
-  T *r = new T();
+  shared_ptr<TNodeType> r(new TNodeType());
   r->label = "0";
   //r->is_healthy = true;
   r->parent = 0;
@@ -167,23 +169,23 @@ void Tree<T>::generateRandomTopologyInternalNodes(function<double()>& random) {
   m_numVisibleNodes++;
   m_root = r;
   // first clone becomes child of root
-  m_vecNodes[0]->setParent(r);
+  Clone::setParent(m_vecNodes[0], r);
 
   // pick parent for each clone
-  std::vector<T*> parents;
+  vector<shared_ptr<TNodeType>> parents;
   parents.push_back(m_vecNodes[0]);
   for (int i=1; i<m_numNodes-1; ++i) {
-    T *n = m_vecNodes[i];
+    shared_ptr<TNodeType> n = m_vecNodes[i];
     int p_index = random()*i;
-    T *p = parents[p_index];
-std::cerr << *n << " gets parent " << *p << std::endl;
-    n->setParent(p);
+    shared_ptr<TNodeType> p = parents[p_index];
+// cerr << *n << " gets parent " << *p << std::endl;
+    Clone::setParent(n, p);
     parents.push_back(n);
   }
 }
 
-template<typename T>
-void Tree<T>::generateRandomTopologyLeafsOnly(function<double()>& random) {
+template<typename TNodeType>
+void Tree<TNodeType>::generateRandomTopologyLeafsOnly(function<double()>& random) {
   // generate N-1 internal nodes (each representing a coalescence event)
   int numNodes = m_numVisibleNodes;
   int k = numNodes-1;
@@ -191,7 +193,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(function<double()>& random) {
   for (int i=0; i<numNodes-1; i++) {
     // pick first random node (without replacement)
     int index1 = 2*i + random()*k--;
-    T *p = m_vecNodes[index1];
+    shared_ptr<TNodeType> p = m_vecNodes[index1];
     m_vecNodes[index1] = m_vecNodes[2*i];
     m_vecNodes[2*i] = p;
     p->index = 2*i;
@@ -203,7 +205,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(function<double()>& random) {
 #endif
     // pick second random node (without replacement)
     int index2 = 2*i+1 + random()*k;
-    T *q = m_vecNodes[index2];
+    shared_ptr<TNodeType> q = m_vecNodes[index2];
     m_vecNodes[index2] = m_vecNodes[2*i+1];
     m_vecNodes[2*i+1] = q;
     q->index = 2*i+1;
@@ -213,7 +215,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(function<double()>& random) {
     _printNodes();
 #endif
     // create new internal node
-    T *n = new T();
+    shared_ptr<TNodeType> n(new TNodeType());
     n->index = nextIndex++;
     n->label = boost::lexical_cast<string>(n->index+1);
     n->length = 1;
@@ -231,7 +233,7 @@ void Tree<T>::generateRandomTopologyLeafsOnly(function<double()>& random) {
   }
 
   // generate a "healthy" clone as root node
-  T *r = new T();
+  shared_ptr<TNodeType> r(new TNodeType());
   r->index = nextIndex;
   r->label = "0";
   //r->is_healthy = true;
@@ -250,22 +252,22 @@ void Tree<T>::generateRandomTopologyLeafsOnly(function<double()>& random) {
 }
 
 /** Shrink/expand branch length by a random factor */
-template <typename T>
-void Tree<T>::varyBranchLengths(
+template <typename TNodeType>
+void Tree<TNodeType>::varyBranchLengths(
   function<double()>& random_double
 )
 {
-  T* root = this->m_root;
+  shared_ptr<TNodeType> root = this->m_root;
   _varyBranchLengthsRec(root, random_double);
 }
 
-template <typename T>
-void Tree<T>::_varyBranchLengthsRec(
-  T* node,
+template <typename TNodeType>
+void Tree<TNodeType>::_varyBranchLengthsRec(
+  shared_ptr<TNodeType> node,
   function<double()>& random_double
 )
 {
-  for (T* child : node->m_vecChildren) {
+  for (auto child : node->m_vecChildren) {
     double scale_factor = random_double();
     child->length *= scale_factor;
     _varyBranchLengthsRec(child, random_double);
@@ -278,8 +280,8 @@ void Tree<T>::_varyBranchLengthsRec(
 }
 
 /** Assign random weights to visible nodes */
-template<typename T>
-void Tree<T>::assignWeights(vector<double> w) {
+template<typename TNodeType>
+void Tree<TNodeType>::assignWeights(vector<double> w) {
   string str_w = str(format("%.4f") % w[0]);
   for_each(w.begin()+1, w.end(), [&] (double p) {
     str_w += str(format(", %.4f") % p);
@@ -311,9 +313,9 @@ void Tree<T>::assignWeights(vector<double> w) {
 }
 
 /** Assign weights recursively (pre-order traversal) */
-template<typename T>
-void Tree<T>::_assignWeightsRec(
-  T* node,
+template<typename TNodeType>
+void Tree<TNodeType>::_assignWeightsRec(
+  shared_ptr<TNodeType> node,
   vector<double>::iterator &it_w,
   vector<double> w)
 {
@@ -335,8 +337,8 @@ void Tree<T>::_assignWeightsRec(
  * A set of mandatory mutations need to exist between clones,
  * otherwise they cannot be distinguished.
  */
-template<typename T>
-void Tree<T>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<> &rng) {
+template<typename TNodeType>
+void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<> &rng) {
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
 #endif
@@ -360,11 +362,11 @@ void Tree<T>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<
 }
 
 /** Drop transforming mutations on immediate children of root node. */
-template<typename T>
-void Tree<T>::dropTransformingMutations(int n_mutations) {
-  vector<T *> topNodes = m_root->m_vecChildren;
+template<typename TNodeType>
+void Tree<TNodeType>::dropTransformingMutations(int n_mutations) {
+  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
   for (unsigned i=0; i<topNodes.size(); ++i) {
-    T *node = topNodes[i];
+    shared_ptr<TNodeType> node = topNodes[i];
     for (int m=0; m<n_mutations; ++m) {
 cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
@@ -374,8 +376,8 @@ cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 }
 
 /** Drop one mutation on a given node and repeat for children. */
-template<typename T>
-void Tree<T>::dropMandatoryMutations(T *node, int &mutation_id) {
+template<typename TNodeType>
+void Tree<TNodeType>::dropMandatoryMutations(shared_ptr<TNodeType> node, int &mutation_id) {
   if (node!=m_root) {
 cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
@@ -390,8 +392,8 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 }
 
 /** Drop mutations randomly along tree. */
-template<typename T>
-void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, RandomNumberGenerator<>& rng) {
+template<typename TNodeType>
+void Tree<TNodeType>::dropRandomMutations(int n_mutations, int &mutation_id, RandomNumberGenerator<>& rng) {
   long n_nodes = this->m_vecNodes.size();
   function<int()> f_random_index;
   // are branch lengths specified?
@@ -401,36 +403,36 @@ void Tree<T>::dropRandomMutations(int n_mutations, int &mutation_id, RandomNumbe
     vec_branch_len = vector<double>(n_nodes, 1);
   }
   // avoid MRCA node receiving random mutations
-  T* mrca = this->m_root->m_vecChildren[0];
+  shared_ptr<TNodeType> mrca = this->m_root->m_vecChildren[0];
   vec_branch_len[mrca->index] = 0.0;
   f_random_index = rng.getRandomIndexWeighted(vec_branch_len);
   // drop mutations randomly, but in proportion to branch length
   for (int i=0; i<n_mutations; ++i) {
     // pick clone to mutate
     long idx_node = f_random_index();
-    T *node = m_vecNodes[idx_node];
+    shared_ptr<TNodeType> node = m_vecNodes[idx_node];
 //cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
     node->m_vec_mutations.push_back(mutation_id++);
   }
 }
 
-template<typename T>
-void Tree<T>::printNewick(ostream& os) {
+template<typename TNodeType>
+void Tree<TNodeType>::printNewick(ostream& os) {
   printNewick(this->m_root, os);
   os << ';' << endl;
 }
 
 /* TODO: maybe use Boost Spirit Karma to generate Newick? */
-template<typename T>
-void Tree<T>::printNewick(T *node, ostream& os, bool first) {
+template<typename TNodeType>
+void Tree<TNodeType>::printNewick(shared_ptr<TNodeType> node, ostream& os, bool first) {
   bool has_children = (node->m_vecChildren.size() > 0);
   if (!first) {
     os << ","; }
   if (has_children) {
     os << "(";
     bool first_child = true;
-    for (T *child : node->m_vecChildren) {
+    for (auto child : node->m_vecChildren) {
       printNewick(child, os, first_child);
       first_child = false;
     }
@@ -443,15 +445,15 @@ void Tree<T>::printNewick(T *node, ostream& os, bool first) {
 }
 
 /** Print tree a graph in DOT format. */
-template<typename T>
-void Tree<T>::printDot(T *node, std::ostream& os) {
+template<typename TNodeType>
+void Tree<TNodeType>::printDot(shared_ptr<TNodeType> node, std::ostream& os) {
   os << "digraph G {\n";
   _printDotRec(node, os);
   os << "}\n";
 }
 
-template<typename T>
-void Tree<T>::_printDotRec(T *node, std::ostream& os) {
+template<typename TNodeType>
+void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os) {
   auto node_lbl = boost::format("\"%s\\ni:%d\\nw:%.4f\"") % node->label % node->index % node->weight;
   os << "\t" << node->index << "[label=" << node_lbl;
   if (node==this->m_root) {
@@ -460,8 +462,7 @@ void Tree<T>::_printDotRec(T *node, std::ostream& os) {
     os << ",style=filled,color=tomato";
   }
   os << "];" << std::endl;
-  for (unsigned i=0; i<node->m_vecChildren.size(); ++i) {
-    T *child = node->m_vecChildren[i];
+  for (auto child : node->m_vecChildren) {
     float edgeMut = child->distanceToParent();
     float edgeLen = child->length;
     os << "\t" << node->index << " -> " << child->index;
@@ -484,8 +485,8 @@ void Tree<Clone>::writeMutationMatrix(ostream& os, int num_mutations) {
   vector<vector<bool>> mm(num_nodes, vector<bool>(num_mutations, false));
   this->m_root->populateMutationMatrixRec(mm);
   // write matrix
-  vector<Clone*> vec_vis_clones = this->getVisibleNodes();
-  for (Clone *clone : vec_vis_clones) {
+  vector<shared_ptr<Clone>> vec_vis_clones = this->getVisibleNodes();
+  for (auto clone : vec_vis_clones) {
     os << clone->label;
     for (auto cell : mm[clone->index])
       os << "," << cell;
