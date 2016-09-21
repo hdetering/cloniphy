@@ -30,14 +30,35 @@ struct RandomNumberGenerator {
 		return boost::bind(dist, boost::ref(generator));
 	}
 
-	template <typename IndexType = int>
-	std::function<IndexType()> getRandomIndexWeighted(std::vector<double> weights) {
+	template <typename IndexType = int, typename WeightType = double>
+	std::function<IndexType()> getRandomIndexWeighted(std::vector<WeightType> weights) {
 		std::discrete_distribution<IndexType> dist(weights.begin(), weights.end());
 		return boost::bind(dist, boost::ref(generator));
 	}
 
 	std::function<double()> getRandomGamma(double shape, double scale) {
 		std::gamma_distribution<> dist(shape, scale);
+		return boost::bind(dist, boost::ref(generator));
+	}
+
+	template <typename RealType = double>
+	std::function<RealType()> getRandomGammaMeanSd(RealType mean, RealType sd) {
+		//std::uniform_real_distribution<> dist(min, max);
+		//return boost::bind(dist, boost::ref(generator));
+		if (sd > 0) {
+			// calculate gamma parameters
+			double shape = float(mean*mean) / float(sd*sd);
+			double scale = float(sd*sd) / float(mean);
+			return getRandomGamma(shape, scale);
+		} else {
+			return [mean] () { return mean; };
+		}
+
+	}
+
+	template <typename RealType = double>
+	std::function<RealType()> getRandomExponential(double lambda) {
+		std::exponential_distribution<RealType> dist(lambda);
 		return boost::bind(dist, boost::ref(generator));
 	}
 

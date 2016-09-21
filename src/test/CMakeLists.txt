@@ -10,6 +10,10 @@ target_link_libraries (run_tests cloniphy)
 set_property(TARGET run_tests PROPERTY CXX_STANDARD 11)
 set_property(TARGET run_tests PROPERTY CXX_STANDARD_REQUIRED ON)
 
+# ----------------------------------------------------------------------------
+# Dependencies
+# ----------------------------------------------------------------------------
+
 # add Boost support
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED OFF)
@@ -20,6 +24,19 @@ if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
     target_link_libraries(run_tests ${Boost_LIBRARIES})
 endif()
+
+# Search for Threads (prerequisite for ZLIB)
+find_package (Threads)
+target_link_libraries (run_tests ${CMAKE_THREAD_LIBS_INIT})
+
+# add zlib supported
+find_package(ZLIB)
+if (ZLIB_FOUND)
+    include_directories(${ZLIB_INCLUDE_DIRS})
+    add_definitions(-DSEQAN_HAS_ZLIB)
+    target_link_libraries(run_tests ${ZLIB_LIBRARIES})
+endif()
+
 
 add_custom_command(
     TARGET run_tests POST_BUILD

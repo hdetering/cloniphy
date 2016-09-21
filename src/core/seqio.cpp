@@ -1,6 +1,7 @@
 #include "seqio.hpp"
 #include <algorithm>
 #include <boost/format.hpp>
+using boost::str;
 #include <cctype>
 #include <cmath>
 #include <fstream>
@@ -10,7 +11,6 @@
 #include <stdlib.h> // for system() calls
 
 using namespace std;
-using boost::format;
 
 namespace seqio {
 
@@ -37,7 +37,8 @@ void Genome::generate(
   this->generate(total_len, 1, nuc_freqs, rng);
 }
 
-/** Generate random reference genome based on nucleotide frequencies. */
+/** DEPRECATED(?)
+  * Generate random reference genome based on nucleotide frequencies. */
 void Genome::generate(
   const unsigned long total_len,
   const unsigned short num_chr,
@@ -69,12 +70,44 @@ void Genome::generate(
   for (auto i=0; i<num_chr; ++i) {
     it_start = it_end;
     advance(it_end, chr_ends[i+1]-chr_ends[i]);
-    string id_chr = (format("chr%d") % i).str();
+    string id_chr = (boost::format("chr%d") % i).str();
     SeqRecord rec(id_chr, "random sequence", string(it_start, it_end));
     this->records.push_back(rec);
   }
   this->num_records = num_chr;
   this->length = gen_len;
+}
+
+/** generate random genome by given number of fragments, mean len, sd len, nuc freqs */
+void Genome::generate(
+  const unsigned num_seqs,
+  const unsigned long mean_len,
+  const unsigned long sd_len,
+  const std::vector<double> nuc_freqs,
+  RandomNumberGenerator<>& rng)
+{
+  // set sequence lengths
+  vector<unsigned long> vec_seq_len(num_seqs);
+  if (sd_len > 0) { // sample from Gamma distribution
+    function<double()> rlen = rng.getRandomGammaMeanSd(mean_len, sd_len);
+    std::generate(vec_seq_len.begin(), vec_seq_len.end(), rlen);
+    std::sort(vec_seq_len.begin(), vec_seq_len.end(), std::greater<unsigned long>());
+  }
+  else { // fixed length for all sequences
+    std::fill(vec_seq_len.begin(), vec_seq_len.end(), mean_len);
+  }
+
+  // simulate sequences
+  unsigned idx_chr = 0;
+  for (auto l : vec_seq_len) {
+    string seq;
+    generateRandomDnaSeq(seq, l, nuc_freqs, rng);
+    string id_chr = (boost::format("chr%d") % idx_chr++).str();
+    SeqRecord rec(id_chr, "random sequence", seq);
+    rec.id_ref = rec.id;
+    this->records.push_back(rec);
+  }
+  this->num_records = num_seqs;
 }
 
 /** Scan genome and store structural information.
@@ -141,6 +174,7 @@ void Genome::duplicate() {
   for (unsigned i=0; i<num_records; ++i) {
     SeqRecord orig = records[i];
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
+    dupl->id_ref = orig.id_ref;
     dupl->copy = orig.copy+1;
     records.push_back(*dupl);
     records[i].id += "_0";
@@ -215,6 +249,14 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
       string seq_desc = header.substr(space_pos+1);
       //SeqRecord rec = {seq_id, seq_desc, seq};
       SeqRecord rec(seq_id, seq_desc, seq);
+      // get properties from description
+      vector<string> desc_parts = stringio::split(seq_desc, ';');
+      for (string part : desc_parts) {
+        vector<string> kv = stringio::split(part, '=');
+        if (kv.size() == 2)
+          if (kv[0] == "id_ref")
+            rec.id_ref = kv[1];
+      }
       records.push_back(rec);
       header = line;
       seq = "";
@@ -228,11 +270,11 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
 /** Write SeqRecords to FASTA file, using a defined line width. */
 int writeFasta(const vector<SeqRecord> &seqs, ostream &output, int line_width) {
   int recCount = 0;
-  for (vector<SeqRecord>::const_iterator rec=seqs.begin(); rec!=seqs.end(); ++rec) {
-    output << ">" << rec->id << endl;
-    string::const_iterator it_seq = rec->seq.begin();
-    while (it_seq != rec->seq.end()) {
-      for (int i=0; i<line_width && it_seq!=rec->seq.end(); ++i)
+  for (auto rec : seqs) {
+    output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
+    string::const_iterator it_seq = rec.seq.begin();
+    while (it_seq != rec.seq.end()) {
+      for (int i=0; i<line_width && it_seq!=rec.seq.end(); ++i)
         output << *it_seq++;
       output << endl;
     }

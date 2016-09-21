@@ -19,6 +19,7 @@
 #include <fstream>
 #include <map>
 #include <math.h>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -77,7 +78,7 @@ int main (int argc, char* argv[])
   int ado_frag_len = 10000; // TODO: make this a user parameter
 
   // internal vars
-  map<Clone*, string> clone2fn; // stores genome file names for each clone
+  map<shared_ptr<Clone>, string> clone2fn; // stores genome file names for each clone
 
   //seed = time(NULL) + clock();
   fprintf(stderr, "random seed: %ld\n", seed);
@@ -85,15 +86,15 @@ int main (int argc, char* argv[])
   function<double()> random = rng.getRandomFunctionDouble(0.0, 1.0);
 
 
-  Tree<Clone> tree;
+  treeio::Tree<Clone> tree;
   if (tree_fn.size()>0) {
-    std::cerr << "Reading tree from file '" << tree_fn << "'" << std::endl;
-    treeio::node root_node;
-    treeio::readNewick(tree_fn, root_node);
-    tree = *(new Tree<Clone>(root_node));
+    cerr << "Reading tree from file '" << tree_fn << "'" << endl;
+    treeio::parse::node root_node;
+    treeio::parse::readNewick(tree_fn, root_node);
+    tree = *(new treeio::Tree<Clone>(root_node));
     num_clones = tree.getVisibleNodes().size();
-    std::cerr << "num_nodes:\t" << tree.m_numVisibleNodes << std::endl;
-    std::cerr << "num_clones:\t" << num_clones << std::endl;
+    cerr << "num_nodes:\t" << tree.m_numVisibleNodes << endl;
+    cerr << "num_clones:\t" << num_clones << endl;
 
     // if number of mutations have not been supplied specifically,
     // branch lengths are interpreted as number of mutations
@@ -106,18 +107,18 @@ int main (int argc, char* argv[])
     }
   }
   else {
-    tree = Tree<Clone>(num_clones);
+    tree = treeio::Tree<Clone>(num_clones);
     fprintf(stderr, "\nGenerating random topology...\n");
     tree.generateRandomTopology(random);
     fprintf(stderr, "done.\n");
   }
   fprintf(stderr, "\nNewick representation of underlying tree:\n");
-  CloneTree::printNewick(tree.m_root, cerr);
+  tree.printNewick(cerr);
   fprintf(stderr, "\n");
 
   tree.evolve(num_mutations, num_transmuts, rng);
   fprintf(stderr, "\nNewick representation of mutated tree:\n");
-  CloneTree::printNewick(tree.m_root, cerr);
+  tree.printNewick(cerr);
   fprintf(stderr, "\n");
 
   fprintf(stderr, "Writing mutated tree to file 'clone_tree_mutated.dot'.\n");
@@ -190,10 +191,12 @@ int main (int argc, char* argv[])
 
   // generate clone sequences based on clonal tree and mutations
   fprintf(stderr, "---\nNow generating clone genomes...\n");
-  vector<Clone *> clones = tree.getVisibleNodes();
+  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
   //Clone root = *(tree.m_root);
-  for (unsigned i=0; i<clones.size(); ++i)
-    clones[i]->mutateGenome(ref_genome, mutations, variants, mutMatrix, clone2fn);
+  for (unsigned i=0; i<clones.size(); ++i) {
+    // TODO: this is not how we do things around here, anymore! (update)
+    //clones[i]->mutateGenome(ref_genome, mutations, variants, mutMatrix, clone2fn);
+  }
 
   // compile variants for output
   //vector<Clone *> clones = tree.getVisibleNodes();
@@ -215,8 +218,8 @@ int main (int argc, char* argv[])
 
   // perform ADO
   if (ado_pct > 0)
-    for (map<Clone*, string>::iterator it=clone2fn.begin(); it!=clone2fn.end(); ++it)
-      seqio::simulateADO(it->second, ref_genome.masked_length, ado_pct, ado_frag_len, random);
+    for (auto kv : clone2fn)
+      seqio::simulateADO(kv.second, ref_genome.masked_length, ado_pct, ado_frag_len, random);
 
   return EXIT_SUCCESS;
 }

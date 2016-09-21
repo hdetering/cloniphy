@@ -20,21 +20,23 @@ struct FixtureSeqio {
 
 BOOST_FIXTURE_TEST_SUITE( seqio, FixtureSeqio )
 
-/* generate */
-BOOST_AUTO_TEST_CASE( generate )
+/* generate reference genome */
+BOOST_AUTO_TEST_CASE( ref )
 {
   boost::timer::auto_cpu_timer t;
-  unsigned long len = 1000000; // genome length
-  unsigned short num_chr = 3; // number of chromosomes
+  //unsigned long len = 1000000; // genome length
+  unsigned short num_chr = 10; // number of chromosomes
+  unsigned long frag_len_mean = 100000; // mean chromosome length
+  unsigned long frag_len_sd = 10000;
   vector<double> nuc_freqs = {0.3, 0.2, 0.2, 0.3};
   long seed = 123456789;
   RandomNumberGenerator<> rng(seed);
 
-  BOOST_TEST_MESSAGE( "generating genome of length " << len << "..." );
+  BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
   ref_genome = Genome();
-  ref_genome.generate(len, num_chr, nuc_freqs, rng);
+  ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
   BOOST_TEST_MESSAGE( "done." );
-  BOOST_CHECK( ref_genome.length == len );
+  //BOOST_CHECK( ref_genome.length == len );
   BOOST_CHECK( ref_genome.num_records == num_chr );
   BOOST_CHECK( ref_genome.records.size() == num_chr );
 
@@ -49,6 +51,39 @@ BOOST_AUTO_TEST_CASE( generate )
   // display summary stats
   ref_genome.indexRecords();
 }
+
+/* generate reference exome */
+BOOST_AUTO_TEST_CASE( exome )
+{
+  boost::timer::auto_cpu_timer t;
+  //unsigned long len = 1000000; // genome length
+  unsigned int num_chr = 20000; // number of chromosomes
+  unsigned long frag_len_mean = 300; // mean chromosome length
+  unsigned long frag_len_sd = 200;
+  vector<double> nuc_freqs = {0.25, 0.25, 0.25, 0.25};
+  long seed = 123456789;
+  RandomNumberGenerator<> rng(seed);
+
+  BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
+  ref_genome = Genome();
+  ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
+  BOOST_TEST_MESSAGE( "done." );
+  //BOOST_CHECK( ref_genome.length == len );
+  BOOST_CHECK( ref_genome.num_records == num_chr );
+  BOOST_CHECK( ref_genome.records.size() == num_chr );
+
+  // write genome to file
+  BOOST_TEST_MESSAGE( "writing generated exome to file 'exome.fa'..." );
+  ofstream f_fasta;
+  f_fasta.open("exome.fa");
+  writeFasta(ref_genome.records, f_fasta);
+  f_fasta.close();
+  BOOST_TEST_MESSAGE( "done." );
+
+  // display summary stats
+  ref_genome.indexRecords();
+}
+
 
 /* check if benchmark genome has been indexed correctly */
 BOOST_AUTO_TEST_CASE( index )
