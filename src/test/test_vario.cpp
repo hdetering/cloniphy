@@ -5,6 +5,8 @@
 #include "../core/seqio.hpp"
 #include "../core/vario.hpp"
 #include <boost/format.hpp>
+#include <boost/icl/interval_map.hpp>
+using namespace boost::icl;
 #include <fstream>
 #include <vector>
 using boost::format;
@@ -99,13 +101,14 @@ BOOST_AUTO_TEST_CASE( generate_variants )
   }
 
   // export variants to file
+  vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   vector<int> vec_idx = { 0 };
   vector<string> labels = { "healthy" };
   vector<vector<bool>> mm(1, vector<bool>(num_vars, true));
   auto fn_out = "ref_variants.vcf";
   ofstream fs_out;
   fs_out.open(fn_out);
-  vario::writeVcf(ref_genome.records, variants, vec_idx, labels, mm, fs_out);
+  vario::writeVcf(ref_genome.records, var_sorted, vec_idx, labels, mm, fs_out);
   fs_out.close();
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 
@@ -152,6 +155,17 @@ BOOST_AUTO_TEST_CASE( var_dist )
   BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ") % g[1][0] % g[1][1] % g[1][2] % g[1][3] );
   BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ") % g[2][0] % g[2][1] % g[2][2] % g[2][3] );
   BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ") % g[3][0] % g[3][1] % g[3][2] % g[3][3] );
+}
+
+/* test data structures for CNVs */
+BOOST_AUTO_TEST_CASE( cnv )
+{
+  // NOTE: reference genome generated in FixtureVario()
+
+  // build interval map for chromosomes
+  // TODO: create method in seqio::Genome for this
+  interval_map imap_chrom;
+  for
 }
 
 BOOST_AUTO_TEST_SUITE_END()

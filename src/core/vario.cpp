@@ -475,7 +475,7 @@ fprintf(stderr, "applying %lu variants...\n", variants.size());
       else {
         // apply variant to sequence
         unsigned cidx = chr_idx[var.chr_copy];
-        genome.records[cidx].seq[var.pos-1] = var.alleles[1][0]; // TODO: at the moment only SNVs are supported ("[0]" extracts the first character from the allel)
+        genome.records[cidx].seq[var.pos] = var.alleles[1][0]; // TODO: at the moment only SNVs are supported ("[0]" extracts the first character from the allel)
       }
     }
   }

@@ -27,6 +27,7 @@ void HKY (double Pij[4][4], double branchLength, double kappa, double varRate, d
 void GTR (double Pij[4][4], double branchLength, double varRate, double p_i[4]);
 void GTnR (double Pij[4][4], double branchLength, double varRate, double p_i[4]);
 int EigenREV (double Root[], double Cijk[]);
-}
+
+} /* namespace evolution */
 
 #endif /* EVOLUTION_H */

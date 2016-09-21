@@ -20,6 +20,12 @@ void mutateReads(
   RandomNumberGenerator<> &rng
 );
 
+/** Add a read group to BAM file header for each clone. */
+void addCloneReadGroups(
+  seqan::BamHeader &header,
+  const std::vector<std::string> &vec_lbl
+);
+
 } // namespace bamio
 
 #endif /* BAMIO_H */

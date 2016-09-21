@@ -10,7 +10,6 @@ using namespace seqio;
 #include "../core/treeio.hpp"
 using namespace treeio;
 #include <boost/format.hpp>
-using boost::format;
 using boost::str;
 #include <fstream>
 
@@ -53,7 +52,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
   function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
   int num_clones = 5;
-  Tree<Clone> tree(num_clones);
+  treeio::Tree<Clone> tree(num_clones);
   tree.generateRandomTopologyLeafsOnly(random_dbl);
   tree.varyBranchLengths(random_gamma);
   int num_mutations = 1010;
@@ -74,7 +73,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   double sum_probs = 0.0;
   for (auto p : w) sum_probs += p;
   BOOST_CHECK( sum_probs == 1.0 );
-  BOOST_TEST_MESSAGE( str(format("sum_probs: %0.4f") % sum_probs) );
+  BOOST_TEST_MESSAGE( str(boost::format("sum_probs: %0.4f") % sum_probs) );
   tree.assignWeights(w);
 
   BOOST_TEST_MESSAGE( "Writing clone tree to file\n\tbulk_clone_tree.dot" );
@@ -82,6 +81,12 @@ BOOST_AUTO_TEST_CASE( bulk )
   fs_dot.open("bulk_clone_tree.dot");
   tree.printDot(tree.m_root, fs_dot);
   fs_dot.close();
+  BOOST_TEST_MESSAGE( "Writing clone tree to file\n\tbulk_clone_tree.nwk" );
+  ofstream fs_nwk;
+  fs_nwk.open("bulk_clone_tree.nwk");
+  tree.printNewick(fs_nwk);
+  fs_nwk.close();
+  return;
 
   // get mutation matrix
   BOOST_TEST_MESSAGE( "Building mutation matrix from tree..." );

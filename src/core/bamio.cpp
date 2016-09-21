@@ -1,14 +1,7 @@
 #include "bamio.hpp"
-using boost::format;
 using boost::str;
-using seqan::BamAlignmentRecord;
-using seqan::BamFileIn;
-using seqan::BamFileOut;
-using seqan::BamHeader;
-using seqan::CharString;
-using seqan::FormattedFileContext;
-using seqan::getAbsolutePath;
 using namespace std;
+using namespace seqan;
 
 namespace bamio {
 
@@ -41,7 +34,7 @@ void mutateReads(
   // postprocessing: change CHR field to match diploid identifiers (used in BAM file)
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   for (Variant &var : var_sorted)
-    var.chr += str(format("_%d") % var.chr_copy);
+    var.chr += str(boost::format("_%d") % var.chr_copy);
 
   /*------------------*
    * process BAM file *
@@ -106,6 +99,8 @@ void mutateReads(
       appendValue(headerOut, headRec);
     }
   }
+  // add read group for each clone
+  addCloneReadGroups(headerOut, vec_clone_lbl);
   // Context to map diploid reads to haploid references
   TNameStoreCache refNamesMapCache(refNamesMap);
   TBamContext bamContextMap(refNamesMap, refNamesMapCache);
@@ -125,7 +120,8 @@ void mutateReads(
     readRecord(read1, bamFileIn);
     readRecord(read2, bamFileIn);
     // pick random clone (weighted) to which next read pair belongs
-    int c_idx = vec_clone_idx[rand_idx()];
+    int r_idx = rand_idx();
+    int c_idx = vec_clone_idx[r_idx];
     int r1_begin = read1.beginPos;
     int r2_begin = read2.beginPos;
     int r1_len = getAlignmentLengthInRef(read1);
@@ -136,13 +132,16 @@ void mutateReads(
     char r2_rc = seqan::hasFlagRC(read2) ? '+' : '-';
     string r1_qual = toCString(read1.qual);
     string r2_qual = toCString(read2.qual);
-    fs_log << str(format("%s:%s(%d,%d) -- %s:%s(%d,%d)\n")
+    fs_log << str(boost::format("%s:%s(%d,%d) -- %s:%s(%d,%d)\n")
       % r1_ref % r1_rc % r1_begin % (r1_begin+r1_len)
       % r2_ref % r2_rc % r2_begin % (r2_begin+r2_len));
 
     // modify read pair to match assigned clone
-    read1.qName += str(format("-%d/1") % c_idx);
-    read2.qName += str(format("-%d/2") % c_idx);
+    read1.qName += str(boost::format("-%d/1") % c_idx);
+    read2.qName += str(boost::format("-%d/2") % c_idx);
+    CharString tagRG = str(boost::format("RG:Z:%s") % vec_clone_lbl[r_idx]);
+    appendTagsSamToBam(read1.tags, tagRG);
+    appendTagsSamToBam(read2.tags, tagRG);
 
     // mutate reads
 
@@ -161,12 +160,12 @@ void mutateReads(
       }
       int r1_var_pos = it_var->pos - r1_begin;
       if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // mutate read1
-        fs_log << str(format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
+        fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
         read1.seq[r1_var_pos] = it_var->alleles[1][0];
       }
       int r2_var_pos = it_var->pos - r2_begin;
       if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // mutate read2
-        fs_log << str(format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
+        fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
         read2.seq[r2_var_pos] = it_var->alleles[1][0];
       }
       ++it_var;
@@ -192,8 +191,8 @@ void mutateReads(
     }
 
     // write (potentially modified) reads to FASTQ file
-    fs_fq << str(format("@%s\n%s\n+\n%s\n") % read1.qName % read1.seq % r1_qual);
-    fs_fq << str(format("@%s\n%s\n+\n%s\n") % read2.qName % read2.seq % r2_qual);
+    fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read1.qName % read1.seq % r1_qual);
+    fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read2.qName % read2.seq % r2_qual);
 
     //fs_idx << r1_begin << " (" << r1_len << ")" <<  "  " << r2_begin << " (" << r2_len << ")" << endl;
     //fprintf(stderr, "%d\n", c_idx);
@@ -205,5 +204,29 @@ void mutateReads(
 
 }
 
+void addCloneReadGroups(BamHeader &header, const vector<string> &vec_lbl) {
+  BamHeaderRecord record;
+  for (auto lbl : vec_lbl) {
+    clear(record);
+    record.type = seqan::BAM_HEADER_READ_GROUP;
+    appendValue(record.tags, Pair<CharString>());
+    assign(back(record.tags).i1, "ID", Exact());
+    assign(back(record.tags).i2, lbl, Exact());
+    appendValue(record.tags, Pair<CharString>());
+    assign(back(record.tags).i1, "SM", Exact());
+    assign(back(record.tags).i2, "SIM01", Exact());
+    appendValue(record.tags, Pair<CharString>());
+    assign(back(record.tags).i1, "LB", Exact());
+    assign(back(record.tags).i2, "SIM01_LB01", Exact());
+    appendValue(record.tags, Pair<CharString>());
+    assign(back(record.tags).i1, "PL", Exact());
+    assign(back(record.tags).i2, "Illumina", Exact());
+    appendValue(record.tags, Pair<CharString>());
+    assign(back(record.tags).i1, "PU", Exact());
+    assign(back(record.tags).i2, "HighSeq2500", Exact());
+
+    appendValue(header, record);
+  }
+}
 
 } // namespace bamio

@@ -1,7 +1,6 @@
 #include "seqio.hpp"
 #include <algorithm>
 #include <boost/format.hpp>
-using boost::format;
 using boost::str;
 #include <cctype>
 #include <cmath>
@@ -12,7 +11,6 @@ using boost::str;
 #include <stdlib.h> // for system() calls
 
 using namespace std;
-using boost::format;
 
 namespace seqio {
 
@@ -72,7 +70,7 @@ void Genome::generate(
   for (auto i=0; i<num_chr; ++i) {
     it_start = it_end;
     advance(it_end, chr_ends[i+1]-chr_ends[i]);
-    string id_chr = (format("chr%d") % i).str();
+    string id_chr = (boost::format("chr%d") % i).str();
     SeqRecord rec(id_chr, "random sequence", string(it_start, it_end));
     this->records.push_back(rec);
   }
@@ -104,7 +102,7 @@ void Genome::generate(
   for (auto l : vec_seq_len) {
     string seq;
     generateRandomDnaSeq(seq, l, nuc_freqs, rng);
-    string id_chr = (format("chr%d") % idx_chr++).str();
+    string id_chr = (boost::format("chr%d") % idx_chr++).str();
     SeqRecord rec(id_chr, "random sequence", seq);
     rec.id_ref = rec.id;
     this->records.push_back(rec);
@@ -273,7 +271,7 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
 int writeFasta(const vector<SeqRecord> &seqs, ostream &output, int line_width) {
   int recCount = 0;
   for (auto rec : seqs) {
-    output << str(format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
+    output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
     string::const_iterator it_seq = rec.seq.begin();
     while (it_seq != rec.seq.end()) {
       for (int i=0; i<line_width && it_seq!=rec.seq.end(); ++i)
