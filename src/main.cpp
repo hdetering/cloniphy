@@ -65,7 +65,9 @@ int main (int argc, char* argv[])
   int num_mutations = config.getValue<int>("mutations");
   int num_transmuts = config.getValue<int>("init-muts");
   vector<float> freqs = config.getValue<vector<float>>("freqs");
-  unsigned long ref_len = config.getValue<unsigned long>("ref-len");
+  unsigned seq_num = config.getValue<int>(string("seq-num"));
+  unsigned long seq_len_mean = config.getValue<unsigned long>("seq-len-mean");
+  unsigned long seq_len_sd = config.getValue<unsigned long>("seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string reference = config.getValue<string>("reference");
   string ref_vcf = config.getValue<string>("reference-vcf");
@@ -84,7 +86,7 @@ int main (int argc, char* argv[])
   fprintf(stderr, "random seed: %ld\n", seed);
   RandomNumberGenerator<> rng(seed);
   function<double()> random = rng.getRandomFunctionDouble(0.0, 1.0);
-
+return 0;
 
   treeio::Tree<Clone> tree;
   if (tree_fn.size()>0) {
@@ -141,8 +143,8 @@ int main (int argc, char* argv[])
   // get reference genome
   Genome ref_genome = Genome();
   if (ref_nuc_freqs.size() > 0) {
-    fprintf(stderr, "\nGenerating random reference genome sequence (%lu bp)...", ref_len);
-    ref_genome.generate(ref_len, ref_nuc_freqs, rng);
+    fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", seq_num, seq_len_mean, seq_len_sd);
+    ref_genome.generate(seq_num, seq_len_mean, seq_len_sd, ref_nuc_freqs, rng);
   }
   else if (reference.length() > 0) {
     // read reference sequence
