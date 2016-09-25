@@ -19,10 +19,12 @@ public:
     T getValue(const char* key);
   template<typename T>
     T getValue(const std::string key);
+  template<typename T>
+    std::map<std::string, std::vector<T>> getMatrix(const char* key);
 
 private:
   YAML::Node _config;
-};
+}; /* class ConfigStore */
 
 bool fileExists(std::string filename);
 
@@ -38,6 +40,18 @@ T ConfigStore::getValue(const char* key) {
 template<typename T>
 T ConfigStore::getValue(const std::string key) {
   return getValue<T>(key.c_str());
+}
+
+template<typename T>
+std::map<std::string, std::vector<T>> ConfigStore::getMatrix(const char* key) {
+  std::map<std::string, std::vector<T>> mtx;
+  for (auto row : _config[key]) {
+    std::vector<T> v = std::vector<T>(row.size()-1);
+    for (std::size_t i=1; i<row.size(); i++)
+      v[i-1] = row[i].as<T>();
+    mtx[row[0].as<std::string>()] = v;
+  }
+  return mtx;
 }
 
 } /* namespace config */

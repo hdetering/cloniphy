@@ -49,18 +49,6 @@ int main (int argc, char* argv[])
   if (!args_ok) { return EXIT_FAILURE; }
 
   // params specified by user (in config file or command line)
-  /*int num_clones = config["clones"].as<int>();
-  int num_mutations = config["mutations"].as<int>();
-  int num_transmuts = config["init-muts"].as<int>();
-  vector<float> freqs = config["freqs"].as<vector<float> >();
-  unsigned long ref_len = config["ref-len"].as<unsigned long>();
-  vector<double> ref_nuc_freqs = config["ref-nuc-freqs"].as<vector<double> >();
-  string reference = config["reference"].as<string>();
-  string ref_vcf = config["reference-vcf"].as<string>();
-  string tree_fn = config["tree"].as<string>();
-  int verbosity = config["verbosity"].as<int>();
-  long seed = config["seed"].as<long>();*/
-
   int num_clones = config.getValue<int>(string("clones"));
   int num_mutations = config.getValue<int>("mutations");
   int num_transmuts = config.getValue<int>("init-muts");
@@ -72,6 +60,7 @@ int main (int argc, char* argv[])
   string reference = config.getValue<string>("reference");
   string ref_vcf = config.getValue<string>("reference-vcf");
   string tree_fn = config.getValue<string>("tree");
+  map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
 

@@ -72,4 +72,19 @@ titv: 1.0
 # nucleotide frequencies
 # (will be inferred from reference genome if not provided)
 #nucFreqs: [ 0.25, 0.25, 0.25, 0.25 ]
+
+
+#-------------------------------#
+#      sampling parameters      #
+#-------------------------------#
+
+# sampling matrix (samples x clones)
+# row sums must be <= 1.0
+# if < 1.0, the difference to 1.0 is interpreted as normal cell contamination
+# first column contains sample name (used to name output files)
+# NOTE: make sure number of columns correspond to "clones" parameter +1
+samples:
+  - [ sample1, 0.5, 0.3, 0.1 ]
+  - [ sample2, 0.1, 0.0, 0.7 ]
+  - [ sample3, 0.0, 0.7, 0.0 ]
 ...

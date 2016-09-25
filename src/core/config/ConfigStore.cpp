@@ -170,6 +170,27 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       return false;
     }
   }
+  // does sampling matrix have the expected number of rows (clones + 1)?
+  if (!_config["samples"] || _config["samples"].size() == 0) {
+    fprintf(stderr, "\nArgumentError: Missing sampling matrix - 'samples' param in config file needed.\n");
+    return false;
+  } else {
+    double row_sum;
+    for (auto row_sample : _config["samples"]) {
+      if (row_sample.size() != (n_clones + 1)) {
+        fprintf(stderr, "\nArgumentError: Columns in sampling matrix must be clones+1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
+        return false;
+      }
+      // check: row sum <= 1?
+      row_sum = 0.0;
+      for (size_t i=1; i<row_sample.size(); i++)
+        row_sum += row_sample[i].as<double>();
+      if (row_sum > 1) {
+        fprintf(stderr, "\nArgumentError: Row sums in sampling matrix must <=1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
+        return false;
+      }
+    }
+  }
 
   if(_config["verbosity"].as<int>() > 0) {
     fprintf(stderr, "---\n");
