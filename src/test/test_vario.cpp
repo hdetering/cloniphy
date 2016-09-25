@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE( cnv )
 
   // build interval map for chromosomes
   // TODO: create method in seqio::Genome for this
-  //interval_map imap_chrom;
+  // imap_chrom;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
