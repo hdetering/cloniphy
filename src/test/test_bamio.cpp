@@ -4,6 +4,7 @@
 #include "../core/bamio.cpp"
 using namespace vario;
 #include "../core/clone.hpp"
+#include "../core/config/ConfigStore.hpp"
 #include "../core/random.hpp"
 #include "../core/seqio.cpp"
 using namespace seqio;
@@ -12,6 +13,7 @@ using namespace treeio;
 #include <boost/format.hpp>
 using boost::str;
 #include <fstream>
+#include <sstream>
 
 using namespace std;
 
@@ -26,6 +28,8 @@ struct FixtureBamio {
       { 0.0331, 0.1662, 0.0405,    0.0 }
     };
     model = SubstitutionModel(Q);
+    char* argv[3] = {const_cast<char*>("test_bamio"), const_cast<char*>("-c"), const_cast<char*>("../config.yml")};
+    config.parseArgs(3, argv);
   }
   ~FixtureBamio() {
     BOOST_TEST_MESSAGE( "teardown fixture" );
@@ -34,6 +38,7 @@ struct FixtureBamio {
   long seed = 123456789;
   RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
   SubstitutionModel model;
+  config::ConfigStore config;
 };
 
 BOOST_FIXTURE_TEST_SUITE( bamio, FixtureBamio )
@@ -126,6 +131,30 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   /* process BAM file */
   bamio::mutateReads("bulk_reads.fq", "bulk_reads.sam", "build/pers_reads.sam", num_mutations, variants, tree, rng);
+}
+
+BOOST_AUTO_TEST_CASE( multisample )
+{
+  // get parameters from config file
+  int num_clones = config.getValue<int>("clones");
+  map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
+
+  string msg;
+  msg += "Sampling scheme:\n";
+  for (auto sample : sample_mtx) {
+    msg += sample.first + ":";
+    for (auto prev : sample.second)
+      msg += "\t" + to_string(prev);
+    msg += "\n";
+  }
+  BOOST_TEST_MESSAGE( msg );
+
+  treeio::Tree<Clone> tree("multisample.tre");
+
+  BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
+  BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
+
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()

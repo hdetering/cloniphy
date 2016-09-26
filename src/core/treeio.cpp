@@ -64,6 +64,21 @@ Tree<TNodeType>::Tree(const parse::node& root) {
   this->m_root = root_node;
 }
 
+template<typename TNodeType>
+Tree<TNodeType>::Tree(const string filename) {
+  this->m_numNodes = 0;
+  this->m_numVisibleNodes = 0;
+
+  fprintf(stderr, "\nReading tree from file '%s'...\n", filename.c_str());
+  parse::node root;
+  readNewick(filename, root);
+  std::shared_ptr<TNodeType> root_node = _adaptNode(root);
+  root_node->parent = 0;
+
+  this->m_root = root_node;
+  _printTreeInfo();
+}
+
 template<typename T>
 Tree<T>::~Tree() {
   // NOTE:this loop causes a segfault in test bamio/bulk
@@ -509,6 +524,14 @@ void Tree<T>::_printNodes() {
     else { fprintf(stderr, "| - "); }
   };
   fprintf(stderr, "|\n");
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::_printTreeInfo() {
+  fprintf(stderr, "\n");
+  fprintf(stderr, "m_numNodes: %d\n", this->m_numNodes);
+  fprintf(stderr, "m_numVisibleNodes: %d\n", this->m_numVisibleNodes);
+  fprintf(stderr, "\n");
 }
 
 } // namespace treeio

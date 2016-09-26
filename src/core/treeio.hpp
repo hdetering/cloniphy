@@ -48,6 +48,7 @@ struct Tree
   Tree();
   Tree(int);
   Tree(const parse::node&);
+  Tree(const std::string); // read tree from file
   ~Tree();
   /** Return sum of all branch lengths */
   double getTotalBranchLength();
@@ -79,6 +80,7 @@ struct Tree
 
 protected:
   void _printNodes();
+  void _printTreeInfo();
 
 private:
   /** Assign initial mutations to founding clone. */
