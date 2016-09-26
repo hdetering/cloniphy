@@ -12,15 +12,11 @@ ConfigStore::ConfigStore() {
  * @return true: program can run normally, false: indication to stop
  */
 bool ConfigStore::parseArgs (int ac, char* av[])
-  /*(int ac, char* av[], string& conf, int& num_clones, vector<float>& freqs,
-  int& num_mutations, int& num_transmuts, string& reference, string& ref_vcf,
-  string& tree, bool verbose)*/
 {
   // default values
   int n_clones = 0;
   int n_mut = 0;
   int n_mut_init = 0;
-  vector<float> freqs;
   string fn_ref = "";
   string fn_ref_vcf = "";
   string fn_tree = "";
@@ -40,7 +36,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("help,h", "print help message")
     ("config,c", po::value<string>(), "config file")
     ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
-    ("freqs,f", po::value<vector<float> >(&freqs)->multitoken(), "clone relative frequencies")
     ("mutations,m", po::value<int>(&n_mut), "total number of mutations")
     ("reference,r", po::value<string>(&fn_ref), "reference sequence")
     ("reference-vcf,v", po::value<string>(&fn_ref_vcf), "reference variants")
@@ -84,10 +79,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["clones"] = n_clones;
   }
   n_clones = _config["clones"].as<int>();
-  if (var_map.count("freqs") || !_config["freqs"]) {
-    _config["freqs"] = freqs;
-  }
-  freqs = _config["freqs"].as<vector<float> >();
   if (var_map.count("mutations") || !_config["mutations"]) {
     _config["mutations"] = n_mut;
   }
@@ -124,22 +115,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   if (n_clones == 0 && fn_tree.length() == 0) {
     fprintf(stderr, "\nArgumentError: Please specify clones ('-n') or input tree ('-t'). Aborting...bye.\n");
     return false;
-  }
-  // #freqs == num_clones?
-  else if ((int)freqs.size() != n_clones) {
-    fprintf(stderr, "\nArgumentError: Frequencies (%zu) need to match number of clones (%d).\n", freqs.size(), n_clones);
-    return false;
-  }
-  // sum(freqs) == 1?
-  else {
-    float sum_freqs = 0;
-    for (unsigned int i=0; i<freqs.size(); i++) {
-      sum_freqs += freqs[i];
-    }
-    if (sum_freqs != 1.0) {
-      fprintf(stderr, "\nArgumentError: Sum of frequencies (%.2f) needs to be 1.\n", sum_freqs);
-      return false;
-    }
   }
   // at least one mutation per clone?
   if (n_mut < n_clones) {
@@ -199,13 +174,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "clone tree:\t%s\n", fn_tree.c_str());
     } else {
       fprintf(stderr, "clones:\t\t%d\n", n_clones);
-    }
-    if (freqs.size()>0) {
-      fprintf(stderr, "frequencies:\t[ ");
-      for (unsigned int i=0; i<freqs.size(); i++) {
-        fprintf(stderr, "%.2f ", freqs[i]);
-      }
-      fprintf(stderr, "]\n");
     }
     fprintf(stderr, "mutations:\t%d\n", n_mut);
     fprintf(stderr, "transforming mutations:\t%d\n", n_mut_init);

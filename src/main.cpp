@@ -33,27 +33,18 @@ using vario::VariantSet;
 using evolution::SubstitutionModel;
 
 
-/*bool parseArgs (int ac, char* av[], YAML::Node&);
-bool parseArgs (
-  int ac, char* av[], string& conf, int& n_clones, std::vector<float>& freqs,
-  int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree,
-  bool verbose=true);*/
-
 int main (int argc, char* argv[])
 {
   // user params (defined in config file or command line)
-  //YAML::Node config = YAML::Node();
-  //bool args_ok = parseArgs(argc, argv, config);
   ConfigStore config;
   bool args_ok = config.parseArgs(argc, argv);
   if (!args_ok) { return EXIT_FAILURE; }
 
   // params specified by user (in config file or command line)
-  int num_clones = config.getValue<int>(string("clones"));
+  int num_clones = config.getValue<int>("clones");
   int num_mutations = config.getValue<int>("mutations");
   int num_transmuts = config.getValue<int>("init-muts");
-  vector<float> freqs = config.getValue<vector<float>>("freqs");
-  unsigned seq_num = config.getValue<int>(string("seq-num"));
+  unsigned seq_num = config.getValue<int>("seq-num");
   unsigned long seq_len_mean = config.getValue<unsigned long>("seq-len-mean");
   unsigned long seq_len_sd = config.getValue<unsigned long>("seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
