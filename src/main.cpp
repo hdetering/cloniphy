@@ -140,9 +140,9 @@ return 0;
   if (ref_vcf.size() > 0) {
     fprintf(stderr, "applying germline variants (from %s).\n", ref_vcf.c_str());
     VariantSet ref_variants;
-    vector<vector<Genotype >> ref_gt_matrix;
+    map<string, vector<Genotype >> ref_gt_matrix;
     vario::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
-    vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix[0]);
+    vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
   }
 
   // write "healthy" genome to file

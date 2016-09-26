@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 
   /* process BAM file */
-  bamio::mutateReads("bulk_reads.fq", "bulk_reads.sam", "build/pers_reads.sam", num_mutations, variants, tree, rng);
+  bamio::mutateReads("bulk_reads.fq", "bulk_reads.sam", "build/pers_reads.sam", variants, tree, w, rng);
 }
 
 BOOST_AUTO_TEST_CASE( multisample )
@@ -139,22 +139,32 @@ BOOST_AUTO_TEST_CASE( multisample )
   int num_clones = config.getValue<int>("clones");
   map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
 
-  string msg;
-  msg += "Sampling scheme:\n";
-  for (auto sample : sample_mtx) {
-    msg += sample.first + ":";
-    for (auto prev : sample.second)
-      msg += "\t" + to_string(prev);
-    msg += "\n";
-  }
-  BOOST_TEST_MESSAGE( msg );
-
+  // read clone tree from file
   treeio::Tree<Clone> tree("multisample.tre");
-
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
 
+  // read variants from file
+  VariantSet variants;
+  map<string, vector<Genotype>> genotypes;
+  BOOST_TEST_MESSAGE( "\nreading variants from file: " << "pers.bulk.vcf" );
+  readVcf("pers.bulk.vcf", variants, genotypes);
+  BOOST_TEST_MESSAGE( "read " << variants.num_variants << " variants." );
+  BOOST_CHECK( variants.num_variants == variants.vec_variants.size() );
+  BOOST_TEST_MESSAGE( "read genotypes for " << genotypes.size() << " clones." );
+  for (auto &rec : genotypes) {
+    BOOST_CHECK( rec.second.size() == variants.vec_variants.size() );
+  }
 
+  // create sequencing reads for samples by applying variants to "germline" reads
+  for (auto row_sample : sample_mtx) {
+    string lbl_sample = row_sample.first;
+    vector<double> w = row_sample.second;
+    string fn_fastq = str(boost::format("%s.fq") % lbl_sample);
+    string fn_sam = str(boost::format("%s.sam") % lbl_sample);
+    bamio::mutateReads(fn_fastq, fn_sam, "build/data/pers_reads.sam", variants.vec_variants, tree, w, rng);
+  }
+  BOOST_TEST_MESSAGE( "EOT" );
 }
 
 BOOST_AUTO_TEST_SUITE_END()

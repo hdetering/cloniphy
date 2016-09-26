@@ -170,6 +170,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   if(_config["verbosity"].as<int>() > 0) {
     fprintf(stderr, "---\n");
     fprintf(stderr, "Running with the following options:\n");
+    fprintf(stderr, "random seed:\t%ld\n", seed);
     if (fn_tree.length()>0) {
       fprintf(stderr, "clone tree:\t%s\n", fn_tree.c_str());
     } else {
@@ -181,7 +182,12 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     if (fn_ref_vcf.length() > 0) {
       fprintf(stderr, "reference VCF:\t%s\n", fn_ref_vcf.c_str());
     }
-    fprintf(stderr, "random seed:\t%ld\n", seed);
+    if (_config["samples"]) {
+      fprintf(stderr, "Sampling scheme:\n");
+      map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");
+      string s_sampling = stringio::printMatrix(sample_mtx);
+      fprintf(stderr, "%s", s_sampling.c_str());
+    }
     fprintf(stderr, "---\n\n");
   }
 
@@ -196,4 +202,4 @@ bool fileExists(string filename) {
   return true;
 }
 
-}
+} /* namespace config */

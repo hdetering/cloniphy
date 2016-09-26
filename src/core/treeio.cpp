@@ -28,7 +28,10 @@ ostream& operator<<(std::ostream& stream, const TreeNode& node) {
 }
 
 bool TreeNode::isRoot() {
-  return (parent == 0);
+  if (this->parent == 0)
+    return true;
+  else
+    return false;
 }
 
 template<typename TNodeType>

@@ -1,6 +1,10 @@
 #ifndef CONFIGSTORE_H
 #define CONFIGSTORE_H
 
+#include "../stringio.hpp"
+#include <boost/format.hpp>
+using boost::format;
+using boost::str;
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <sys/stat.h>

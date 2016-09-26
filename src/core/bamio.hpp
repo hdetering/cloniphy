@@ -11,12 +11,16 @@
 
 namespace bamio {
 
+/** Takes an existing SAM/BAM file and adds subclonal mutations to reads.
+ *  NOTE: weights are to be provided for clone nodes (root node receives 1-sum)
+ */
 void mutateReads(
   std::string fn_fq_out,
   std::string fn_sam_out,
   std::string fn_sam_in,
   std::vector<vario::Variant> &variants,
   treeio::Tree<Clone> &tree,
+  std::vector<double> weights,
   RandomNumberGenerator<> &rng
 );
 

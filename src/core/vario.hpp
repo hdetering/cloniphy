@@ -6,6 +6,7 @@
 #include "evolution.hpp"
 #include <fstream>
 #include <functional>
+#include <map>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -110,12 +111,12 @@ void applyMutations(
 void readVcf(
   std::string vcf_filename,
   VariantSet& variants,
-  std::vector<std::vector<Genotype> >& gtMatrix);
+  std::map<std::string, std::vector<Genotype> >& gtMatrix);
 /** Read input stream with variants in VCF format and return list of variants. */
 void readVcf(
   std::istream& vcf_filename,
   VariantSet& variants,
-  std::vector<std::vector<Genotype> >& gtMatrix);
+  std::map<std::string, std::vector<Genotype> >& gtMatrix);
 /** Generate VCF output for a reference genome and a set of mutations.
     (multiple samples) */
 void writeVcf(

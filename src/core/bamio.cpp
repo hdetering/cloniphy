@@ -9,26 +9,34 @@ void mutateReads(
   string fn_fq_out,
   string fn_sam_out,
   string fn_sam_in,
-  int num_mutations,
   vector<vario::Variant> &variants,
   treeio::Tree<Clone> &tree,
+  vector<double> weights,
   RandomNumberGenerator<> &rng)
 {
   // extract info about visible clones
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
+  size_t num_clones = vec_vis_clones.size();
   vector<int> vec_clone_idx;
   vector<string> vec_clone_lbl;
   vector<double> vec_clone_weight;
+
   for (auto c : vec_vis_clones) {
     fprintf(stdout, "clone %d: \"%s\"\t(%.4f)\n", c->index, c->label.c_str(), c->weight);
     vec_clone_idx.push_back(c->index);
     vec_clone_lbl.push_back(c->label);
-    vec_clone_weight.push_back(c->weight);
+    //vec_clone_weight.push_back(c->weight); // is a parameter now -> multiple samples
   }
+  // calculate cellular prevalence values (root: 1-sum)
+  double s = 0.0;
+  for (double w : weights)
+    s += w;
+  vec_clone_weight.push_back(1.0-s);
+  vec_clone_weight.insert(vec_clone_weight.end(), weights.begin(), weights.end());
 
   // get mutation matrix
   int num_nodes = tree.m_numNodes;
-  vector<vector<bool>> mm(num_nodes, vector<bool>(num_mutations, false));
+  vector<vector<bool>> mm(num_nodes, vector<bool>(variants.size(), false));
   tree.m_root->populateMutationMatrixRec(mm);
 
   // postprocessing: change CHR field to match diploid identifiers (used in BAM file)
