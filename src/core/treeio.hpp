@@ -43,6 +43,7 @@ struct Tree
   std::shared_ptr<TNodeType> m_root;
   int m_numNodes;
   int m_numVisibleNodes;
+  int m_numMutations;
   std::vector<std::shared_ptr<TNodeType>> m_vecNodes;
 
   Tree();
@@ -72,11 +73,15 @@ struct Tree
   void assignWeights(std::vector<double> w);
   /** Drop random mutations on clones. */
   virtual void evolve(int, int, RandomNumberGenerator<>&);
+  void printNewick(const std::string);
   void printNewick(std::ostream&);
   void printNewick(std::shared_ptr<TNodeType>, std::ostream&, bool first=true);
+  void printDot(const std::string filename);
   void printDot(std::shared_ptr<TNodeType>, std::ostream&);
   /** outputs boolean matrix of mutational states for visible nodes */
-  void writeMutationMatrix(std::ostream&, int);
+  void writeMutationMatrix(const std::string filename);
+  /** outputs boolean matrix of mutational states for visible nodes */
+  void writeMutationMatrix(std::ostream& outstream);
 
 protected:
   void _printNodes();

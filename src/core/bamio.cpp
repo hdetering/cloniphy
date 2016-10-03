@@ -12,6 +12,7 @@ void mutateReads(
   vector<vario::Variant> &variants,
   treeio::Tree<Clone> &tree,
   vector<double> weights,
+  string id_sample,
   RandomNumberGenerator<> &rng)
 {
   // extract info about visible clones
@@ -29,10 +30,11 @@ void mutateReads(
   }
   // calculate cellular prevalence values (root: 1-sum)
   double s = 0.0;
-  for (double w : weights)
+  for (double w : weights) {
+    vec_clone_weight.push_back(w);
     s += w;
+  }
   vec_clone_weight.push_back(1.0-s);
-  vec_clone_weight.insert(vec_clone_weight.end(), weights.begin(), weights.end());
 
   // get mutation matrix
   int num_nodes = tree.m_numNodes;
@@ -108,7 +110,7 @@ void mutateReads(
     }
   }
   // add read group for each clone
-  addCloneReadGroups(headerOut, vec_clone_lbl);
+  addCloneReadGroups(headerOut, id_sample, vec_clone_lbl);
   // Context to map diploid reads to haploid references
   TNameStoreCache refNamesMapCache(refNamesMap);
   TBamContext bamContextMap(refNamesMap, refNamesMapCache);
@@ -212,7 +214,7 @@ void mutateReads(
 
 }
 
-void addCloneReadGroups(BamHeader &header, const vector<string> &vec_lbl) {
+void addCloneReadGroups(BamHeader &header, string id_sample, const vector<string> &vec_lbl) {
   BamHeaderRecord record;
   for (auto lbl : vec_lbl) {
     clear(record);
@@ -222,10 +224,10 @@ void addCloneReadGroups(BamHeader &header, const vector<string> &vec_lbl) {
     assign(back(record.tags).i2, lbl, Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "SM", Exact());
-    assign(back(record.tags).i2, "SIM01", Exact());
+    assign(back(record.tags).i2, str(boost::format("%s_%s") % id_sample % lbl), Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "LB", Exact());
-    assign(back(record.tags).i2, "SIM01_LB01", Exact());
+    assign(back(record.tags).i2, id_sample, Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "PL", Exact());
     assign(back(record.tags).i2, "Illumina", Exact());
