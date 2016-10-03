@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -15,6 +16,26 @@ std::vector<std::string> &split(const std::string&, char, std::vector<std::strin
 std::vector<std::string> split(const std::string&, char);
 /** Reads a line from a stream, dealing with different styles of line endings. */
 std::istream& safeGetline(std::istream& is, std::string& t);
+/** takes a map and formats it as a table with keys in first column */
+template<typename T>
+std::string printMatrix(std::map<std::string, std::vector<T>> mtx);
+
+/*---------------------------------*
+ * function templates declarations *
+ *---------------------------------*/
+
+/** Prints map as a table with keys as first column */
+template<typename T>
+std::string printMatrix(std::map<std::string, std::vector<T>> mtx) {
+  std::string output;
+  for (auto record : mtx) {
+    output += "  " + record.first;
+    for (auto v : record.second)
+      output += " | " + std::to_string(v);
+    output += "\n";
+  }
+  return output;
+}
 
 } /* namespace stringio */
 

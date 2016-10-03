@@ -63,7 +63,7 @@ BOOST_FIXTURE_TEST_SUITE( vario, FixtureVario )
 BOOST_AUTO_TEST_CASE( vcf_sumstats )
 {
   VariantSet variant_set;
-  vector<vector<Genotype> > gtMatrix;
+  std::map<string, vector<Genotype> > gtMatrix;
   BOOST_TEST_MESSAGE( "loading benchmark VCF file '" << fn_vcf << "'..." );
   readVcf(fn_vcf, variant_set, gtMatrix);
   vector<Variant> variants = variant_set.vec_variants;
@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE( cnv )
 
   // build interval map for chromosomes
   // TODO: create method in seqio::Genome for this
-  //interval_map imap_chrom;
+  // imap_chrom;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

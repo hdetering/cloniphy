@@ -33,43 +33,25 @@ using vario::VariantSet;
 using evolution::SubstitutionModel;
 
 
-/*bool parseArgs (int ac, char* av[], YAML::Node&);
-bool parseArgs (
-  int ac, char* av[], string& conf, int& n_clones, std::vector<float>& freqs,
-  int& n_mut, int& n_transmut, string& ref, string& ref_vcf, string& tree,
-  bool verbose=true);*/
-
 int main (int argc, char* argv[])
 {
   // user params (defined in config file or command line)
-  //YAML::Node config = YAML::Node();
-  //bool args_ok = parseArgs(argc, argv, config);
   ConfigStore config;
   bool args_ok = config.parseArgs(argc, argv);
   if (!args_ok) { return EXIT_FAILURE; }
 
   // params specified by user (in config file or command line)
-  /*int num_clones = config["clones"].as<int>();
-  int num_mutations = config["mutations"].as<int>();
-  int num_transmuts = config["init-muts"].as<int>();
-  vector<float> freqs = config["freqs"].as<vector<float> >();
-  unsigned long ref_len = config["ref-len"].as<unsigned long>();
-  vector<double> ref_nuc_freqs = config["ref-nuc-freqs"].as<vector<double> >();
-  string reference = config["reference"].as<string>();
-  string ref_vcf = config["reference-vcf"].as<string>();
-  string tree_fn = config["tree"].as<string>();
-  int verbosity = config["verbosity"].as<int>();
-  long seed = config["seed"].as<long>();*/
-
-  int num_clones = config.getValue<int>(string("clones"));
+  int num_clones = config.getValue<int>("clones");
   int num_mutations = config.getValue<int>("mutations");
   int num_transmuts = config.getValue<int>("init-muts");
-  vector<float> freqs = config.getValue<vector<float>>("freqs");
-  unsigned long ref_len = config.getValue<unsigned long>("ref-len");
+  unsigned seq_num = config.getValue<int>("seq-num");
+  unsigned long seq_len_mean = config.getValue<unsigned long>("seq-len-mean");
+  unsigned long seq_len_sd = config.getValue<unsigned long>("seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string reference = config.getValue<string>("reference");
   string ref_vcf = config.getValue<string>("reference-vcf");
   string tree_fn = config.getValue<string>("tree");
+  map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
 
@@ -84,7 +66,7 @@ int main (int argc, char* argv[])
   fprintf(stderr, "random seed: %ld\n", seed);
   RandomNumberGenerator<> rng(seed);
   function<double()> random = rng.getRandomFunctionDouble(0.0, 1.0);
-
+return 0;
 
   treeio::Tree<Clone> tree;
   if (tree_fn.size()>0) {
@@ -141,8 +123,8 @@ int main (int argc, char* argv[])
   // get reference genome
   Genome ref_genome = Genome();
   if (ref_nuc_freqs.size() > 0) {
-    fprintf(stderr, "\nGenerating random reference genome sequence (%lu bp)...", ref_len);
-    ref_genome.generate(ref_len, ref_nuc_freqs, rng);
+    fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", seq_num, seq_len_mean, seq_len_sd);
+    ref_genome.generate(seq_num, seq_len_mean, seq_len_sd, ref_nuc_freqs, rng);
   }
   else if (reference.length() > 0) {
     // read reference sequence
@@ -158,9 +140,9 @@ int main (int argc, char* argv[])
   if (ref_vcf.size() > 0) {
     fprintf(stderr, "applying germline variants (from %s).\n", ref_vcf.c_str());
     VariantSet ref_variants;
-    vector<vector<Genotype >> ref_gt_matrix;
+    map<string, vector<Genotype >> ref_gt_matrix;
     vario::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
-    vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix[0]);
+    vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
   }
 
   // write "healthy" genome to file

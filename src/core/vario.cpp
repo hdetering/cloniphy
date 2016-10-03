@@ -4,7 +4,6 @@
 #include <boost/format.hpp>
 #include <ctime>
 #include <fstream>
-#include <map>
 #include <set>
 #include <stdio.h>
 
@@ -211,7 +210,7 @@ void applyMutations(
 void readVcf(
   string vcf_filename,
   VariantSet& variants,
-  vector<vector<Genotype> > &gtMatrix)
+  map<string, vector<Genotype> > &gtMatrix)
 {
   ifstream f_vcf;
   f_vcf.open(vcf_filename.c_str(), ios::in);
@@ -222,7 +221,7 @@ void readVcf(
 void readVcf(
   std::istream &input,
   VariantSet& variants,
-  vector<vector<Genotype> > &gtMatrix)
+  map<string, vector<Genotype> > &gtMatrix)
 {
   unsigned num_samples = 0;
   string line = "";
@@ -234,8 +233,12 @@ void readVcf(
 fprintf(stderr, "VCF header: %s\n", header_line.c_str());
   // parse header
   vector<string> hdr_cols = stringio::split(header_line, '\t');
-  num_samples = hdr_cols.size()-9; // samples start at column 10
-  gtMatrix = vector<vector<Genotype> >(num_samples);
+  vector<string> lbl_samples(hdr_cols.begin()+9, hdr_cols.end()); // samples start at column 10
+  num_samples = lbl_samples.size();
+  gtMatrix.clear();
+  for (auto lbl : lbl_samples) {
+    gtMatrix[lbl] = vector<Genotype>();
+  }
 
   // parse variants
   unsigned var_idx = 0;
@@ -268,10 +271,11 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
       short b_allele = atoi(&genotype[2]); // TODO: this will fail for >9 alleles.
 //fprintf(stderr, "Genotype for sample %u: %d, %d\n", i, a_allele, b_allele);
       Genotype gt = { var.id, a_allele, b_allele };
-      gtMatrix[i].push_back(gt);
+      gtMatrix[lbl_samples[i]].push_back(gt);
     }
     stringio::safeGetline(input, line);
   }
+  variants.num_variants = var_idx;
   // calculate substitution freqs etc.
   variants.calculateSumstats();
 }

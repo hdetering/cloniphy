@@ -9,26 +9,36 @@ void mutateReads(
   string fn_fq_out,
   string fn_sam_out,
   string fn_sam_in,
-  int num_mutations,
   vector<vario::Variant> &variants,
   treeio::Tree<Clone> &tree,
+  vector<double> weights,
+  string id_sample,
   RandomNumberGenerator<> &rng)
 {
   // extract info about visible clones
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
+  size_t num_clones = vec_vis_clones.size();
   vector<int> vec_clone_idx;
   vector<string> vec_clone_lbl;
   vector<double> vec_clone_weight;
+
   for (auto c : vec_vis_clones) {
     fprintf(stdout, "clone %d: \"%s\"\t(%.4f)\n", c->index, c->label.c_str(), c->weight);
     vec_clone_idx.push_back(c->index);
     vec_clone_lbl.push_back(c->label);
-    vec_clone_weight.push_back(c->weight);
+    //vec_clone_weight.push_back(c->weight); // is a parameter now -> multiple samples
   }
+  // calculate cellular prevalence values (root: 1-sum)
+  double s = 0.0;
+  for (double w : weights) {
+    vec_clone_weight.push_back(w);
+    s += w;
+  }
+  vec_clone_weight.push_back(1.0-s);
 
   // get mutation matrix
   int num_nodes = tree.m_numNodes;
-  vector<vector<bool>> mm(num_nodes, vector<bool>(num_mutations, false));
+  vector<vector<bool>> mm(num_nodes, vector<bool>(variants.size(), false));
   tree.m_root->populateMutationMatrixRec(mm);
 
   // postprocessing: change CHR field to match diploid identifiers (used in BAM file)
@@ -100,7 +110,7 @@ void mutateReads(
     }
   }
   // add read group for each clone
-  addCloneReadGroups(headerOut, vec_clone_lbl);
+  addCloneReadGroups(headerOut, id_sample, vec_clone_lbl);
   // Context to map diploid reads to haploid references
   TNameStoreCache refNamesMapCache(refNamesMap);
   TBamContext bamContextMap(refNamesMap, refNamesMapCache);
@@ -204,7 +214,7 @@ void mutateReads(
 
 }
 
-void addCloneReadGroups(BamHeader &header, const vector<string> &vec_lbl) {
+void addCloneReadGroups(BamHeader &header, string id_sample, const vector<string> &vec_lbl) {
   BamHeaderRecord record;
   for (auto lbl : vec_lbl) {
     clear(record);
@@ -214,10 +224,10 @@ void addCloneReadGroups(BamHeader &header, const vector<string> &vec_lbl) {
     assign(back(record.tags).i2, lbl, Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "SM", Exact());
-    assign(back(record.tags).i2, "SIM01", Exact());
+    assign(back(record.tags).i2, str(boost::format("%s_%s") % id_sample % lbl), Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "LB", Exact());
-    assign(back(record.tags).i2, "SIM01_LB01", Exact());
+    assign(back(record.tags).i2, id_sample, Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "PL", Exact());
     assign(back(record.tags).i2, "Illumina", Exact());

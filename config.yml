@@ -16,20 +16,13 @@ seed: 123456789
 #-----------------------#
 
 # number of clones to simulate
-clones: 3
-
-# each clone's cellular frequency (among the tumor cells)
-# note: number of frequencies needs to match "clones" parameter
-freqs: [ 0.5, 0.3, 0.2 ]
-
-# contamination with healthy cells within the sample
-contamination: 0.0
+clones: 5
 
 # number of total mutations to simulate
-mutations: 1000
+mutations: 1010
 # number of transforming mutations shared by all clones
 # (included in total mutations)
-init-muts: 50
+init-muts: 10
 
 #-------------------------#
 # reference genome params #
@@ -72,4 +65,19 @@ titv: 1.0
 # nucleotide frequencies
 # (will be inferred from reference genome if not provided)
 #nucFreqs: [ 0.25, 0.25, 0.25, 0.25 ]
+
+
+#-------------------------------#
+#      sampling parameters      #
+#-------------------------------#
+
+# sampling matrix (samples x clones)
+# row sums must be <= 1.0
+# if < 1.0, the difference to 1.0 is interpreted as normal cell contamination
+# first column contains sample name (used to name output files)
+# NOTE: make sure number of columns correspond to "clones" parameter +1
+samples:
+  - [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
+  - [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
+  - [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
 ...

@@ -21,7 +21,6 @@ struct Clone: public treeio::TreeNode
 {
   float freq;
   bool is_healthy;
-  std::shared_ptr<Clone> parent;
   std::vector<std::shared_ptr<Clone>> m_vecChildren;
   std::vector<int> m_vec_mutations;
   std::vector<Genotype> m_vec_genotypes;

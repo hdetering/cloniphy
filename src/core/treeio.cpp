@@ -28,7 +28,10 @@ ostream& operator<<(std::ostream& stream, const TreeNode& node) {
 }
 
 bool TreeNode::isRoot() {
-  return (parent == 0);
+  if (this->parent == 0)
+    return true;
+  else
+    return false;
 }
 
 template<typename TNodeType>
@@ -38,7 +41,8 @@ template<typename TNodeType>
 Tree<TNodeType>::Tree(int n_nodes) :
   m_numNodes(n_nodes),
   m_numVisibleNodes(n_nodes),
-  m_vecNodes(n_nodes)
+  m_vecNodes(n_nodes),
+  m_numMutations(0)
 {
   // initialize nodes
   for (int i=0; i<n_nodes; i++) {
@@ -56,12 +60,30 @@ Tree<TNodeType>::Tree(int n_nodes) :
 }
 
 template<typename TNodeType>
-Tree<TNodeType>::Tree(const parse::node& root) {
-  this->m_numNodes = 0;
-  this->m_numVisibleNodes = 0;
+Tree<TNodeType>::Tree(const parse::node& root) :
+  m_numNodes(0),
+  m_numVisibleNodes(0),
+  m_numMutations(0)
+{
   std::shared_ptr<TNodeType> root_node = _adaptNode(root);
   root_node->parent = 0;
   this->m_root = root_node;
+}
+
+template<typename TNodeType>
+Tree<TNodeType>::Tree(const string filename) :
+  m_numNodes(0),
+  m_numVisibleNodes(0),
+  m_numMutations(0)
+{
+  fprintf(stderr, "\nReading tree from file '%s'...\n", filename.c_str());
+  parse::node root;
+  readNewick(filename, root);
+  std::shared_ptr<TNodeType> root_node = _adaptNode(root);
+  root_node->parent = 0;
+
+  this->m_root = root_node;
+  _printTreeInfo();
 }
 
 template<typename T>
@@ -344,6 +366,7 @@ void Tree<TNodeType>::_assignWeightsRec(
  */
 template<typename TNodeType>
 void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<> &rng) {
+  this->m_numMutations = n_mutations;
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
 #endif
@@ -423,6 +446,14 @@ void Tree<TNodeType>::dropRandomMutations(int n_mutations, int &mutation_id, Ran
 }
 
 template<typename TNodeType>
+void Tree<TNodeType>::printNewick(const string filename) {
+  ofstream fs;
+  fs.open(filename);
+  printNewick(this->m_root, fs);
+  fs.close();
+}
+
+template<typename TNodeType>
 void Tree<TNodeType>::printNewick(ostream& os) {
   printNewick(this->m_root, os);
   os << ';' << endl;
@@ -447,6 +478,15 @@ void Tree<TNodeType>::printNewick(shared_ptr<TNodeType> node, ostream& os, bool 
 
   if (node == this->m_root) {
      }
+}
+
+/** Print tree a graph in DOT format. */
+template<typename TNodeType>
+void Tree<TNodeType>::printDot(const string filename) {
+  ofstream fs;
+  fs.open(filename);
+  printDot(this->m_root, fs);
+  fs.close();
 }
 
 /** Print tree a graph in DOT format. */
@@ -481,12 +521,12 @@ void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os)
   }
 }
 
-// TODO: find better way to store num_mutations
 /** outputs boolean matrix of mutational states for visible clones */
 template<>
-void Tree<Clone>::writeMutationMatrix(ostream& os, int num_mutations) {
+void Tree<Clone>::writeMutationMatrix(ostream& os) {
   // setup matrix
   int num_nodes = this->m_numNodes;
+  int num_mutations = this->m_numMutations;
   vector<vector<bool>> mm(num_nodes, vector<bool>(num_mutations, false));
   this->m_root->populateMutationMatrixRec(mm);
   // write matrix
@@ -499,6 +539,15 @@ void Tree<Clone>::writeMutationMatrix(ostream& os, int num_mutations) {
   }
 }
 
+/** outputs boolean matrix of mutational states for visible clones */
+template<>
+void Tree<Clone>::writeMutationMatrix(const string filename) {
+  ofstream fs;
+  fs.open(filename);
+  writeMutationMatrix(fs);
+  fs.close();
+}
+
 // use me for debugging :-)
 template<typename T>
 void Tree<T>::_printNodes() {
@@ -509,6 +558,14 @@ void Tree<T>::_printNodes() {
     else { fprintf(stderr, "| - "); }
   };
   fprintf(stderr, "|\n");
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::_printTreeInfo() {
+  fprintf(stderr, "\n");
+  fprintf(stderr, "m_numNodes: %d\n", this->m_numNodes);
+  fprintf(stderr, "m_numVisibleNodes: %d\n", this->m_numVisibleNodes);
+  fprintf(stderr, "\n");
 }
 
 } // namespace treeio

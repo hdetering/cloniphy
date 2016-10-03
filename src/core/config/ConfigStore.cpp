@@ -12,15 +12,11 @@ ConfigStore::ConfigStore() {
  * @return true: program can run normally, false: indication to stop
  */
 bool ConfigStore::parseArgs (int ac, char* av[])
-  /*(int ac, char* av[], string& conf, int& num_clones, vector<float>& freqs,
-  int& num_mutations, int& num_transmuts, string& reference, string& ref_vcf,
-  string& tree, bool verbose)*/
 {
   // default values
   int n_clones = 0;
   int n_mut = 0;
   int n_mut_init = 0;
-  vector<float> freqs;
   string fn_ref = "";
   string fn_ref_vcf = "";
   string fn_tree = "";
@@ -40,11 +36,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("help,h", "print help message")
     ("config,c", po::value<string>(), "config file")
     ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
-    ("freqs,f", po::value<vector<float> >(&freqs)->multitoken(), "clone relative frequencies")
     ("mutations,m", po::value<int>(&n_mut), "total number of mutations")
     ("reference,r", po::value<string>(&fn_ref), "reference sequence")
     ("reference-vcf,v", po::value<string>(&fn_ref_vcf), "reference variants")
-    ("init-muts,i", po::value<int>(&n_mut_init)->default_value(1), "number of transforming mutations (separating healthy genome from first cancer genome)")
+    ("init-muts,i", po::value<int>(&n_mut_init), "number of transforming mutations (separating healthy genome from first cancer genome)")
     ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
     ("verbosity,v", po::value<int>(&verb), "detail level of console output")
     ("seed,s", po::value<long>(&seed), "random seed")
@@ -84,10 +79,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["clones"] = n_clones;
   }
   n_clones = _config["clones"].as<int>();
-  if (var_map.count("freqs") || !_config["freqs"]) {
-    _config["freqs"] = freqs;
-  }
-  freqs = _config["freqs"].as<vector<float> >();
   if (var_map.count("mutations") || !_config["mutations"]) {
     _config["mutations"] = n_mut;
   }
@@ -125,22 +116,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "\nArgumentError: Please specify clones ('-n') or input tree ('-t'). Aborting...bye.\n");
     return false;
   }
-  // #freqs == num_clones?
-  else if ((int)freqs.size() != n_clones) {
-    fprintf(stderr, "\nArgumentError: Frequencies (%zu) need to match number of clones (%d).\n", freqs.size(), n_clones);
-    return false;
-  }
-  // sum(freqs) == 1?
-  else {
-    float sum_freqs = 0;
-    for (unsigned int i=0; i<freqs.size(); i++) {
-      sum_freqs += freqs[i];
-    }
-    if (sum_freqs != 1.0) {
-      fprintf(stderr, "\nArgumentError: Sum of frequencies (%.2f) needs to be 1.\n", sum_freqs);
-      return false;
-    }
-  }
   // at least one mutation per clone?
   if (n_mut < n_clones) {
     fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut, n_clones);
@@ -170,21 +145,36 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       return false;
     }
   }
+  // does sampling matrix have the expected number of rows (clones + 1)?
+  if (!_config["samples"] || _config["samples"].size() == 0) {
+    fprintf(stderr, "\nArgumentError: Missing sampling matrix - 'samples' param in config file needed.\n");
+    return false;
+  } else {
+    double row_sum;
+    for (auto row_sample : _config["samples"]) {
+      if (row_sample.size() != (n_clones + 1)) {
+        fprintf(stderr, "\nArgumentError: Columns in sampling matrix must be clones+1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
+        return false;
+      }
+      // check: row sum <= 1?
+      row_sum = 0.0;
+      for (size_t i=1; i<row_sample.size(); i++)
+        row_sum += row_sample[i].as<double>();
+      if (row_sum > 1) {
+        fprintf(stderr, "\nArgumentError: Row sums in sampling matrix must <=1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
+        return false;
+      }
+    }
+  }
 
   if(_config["verbosity"].as<int>() > 0) {
     fprintf(stderr, "---\n");
     fprintf(stderr, "Running with the following options:\n");
+    fprintf(stderr, "random seed:\t%ld\n", seed);
     if (fn_tree.length()>0) {
       fprintf(stderr, "clone tree:\t%s\n", fn_tree.c_str());
     } else {
       fprintf(stderr, "clones:\t\t%d\n", n_clones);
-    }
-    if (freqs.size()>0) {
-      fprintf(stderr, "frequencies:\t[ ");
-      for (unsigned int i=0; i<freqs.size(); i++) {
-        fprintf(stderr, "%.2f ", freqs[i]);
-      }
-      fprintf(stderr, "]\n");
     }
     fprintf(stderr, "mutations:\t%d\n", n_mut);
     fprintf(stderr, "transforming mutations:\t%d\n", n_mut_init);
@@ -192,7 +182,12 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     if (fn_ref_vcf.length() > 0) {
       fprintf(stderr, "reference VCF:\t%s\n", fn_ref_vcf.c_str());
     }
-    fprintf(stderr, "random seed:\t%ld\n", seed);
+    if (_config["samples"]) {
+      fprintf(stderr, "Sampling scheme:\n");
+      map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");
+      string s_sampling = stringio::printMatrix(sample_mtx);
+      fprintf(stderr, "%s", s_sampling.c_str());
+    }
     fprintf(stderr, "---\n\n");
   }
 
@@ -207,4 +202,4 @@ bool fileExists(string filename) {
   return true;
 }
 
-}
+} /* namespace config */
