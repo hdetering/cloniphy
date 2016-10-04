@@ -17,11 +17,13 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_clones = 0;
   int n_mut = 0;
   int n_mut_init = 0;
+  string model = "JC";
   string fn_ref = "";
   string fn_ref_vcf = "";
   string fn_tree = "";
+  string pfx_out = "clonesim";
   int verb = 1;
-  long seed = time(0);
+  long seed = time(NULL) + clock();
 
   stringstream ss;
   ss << endl << PROGRAM_NAME << endl << endl << "Available options";
@@ -41,6 +43,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("reference-vcf,v", po::value<string>(&fn_ref_vcf), "reference variants")
     ("init-muts,i", po::value<int>(&n_mut_init), "number of transforming mutations (separating healthy genome from first cancer genome)")
     ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
+    ("out,o", po::value<string>(&pfx_out), "prefix for output files")
     ("verbosity,v", po::value<int>(&verb), "detail level of console output")
     ("seed,s", po::value<long>(&seed), "random seed")
   ;
@@ -99,6 +102,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["tree"] = fn_tree;
   }
   fn_tree = _config["tree"].as<string>();
+  if (var_map.count("out") || !_config["out"]) {
+    _config["out"] = pfx_out;
+  }
+  fn_tree = _config["tree"].as<string>();
   if (var_map.count("verbosity") || !_config["verbosity"]) {
     _config["verbosity"] = verb;
   }
@@ -145,6 +152,49 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       return false;
     }
   }
+
+  // check evolutionary model params
+  if (!_config["model"]) {
+    //fprintf(stderr, "\n[INFO] Missing evolutionary model - assuming '%s'.\n", model.c_str());
+    YAML::Node node = YAML::Load(model);
+    _config["model"] = node;
+  } else {
+    model = _config["model"].as<string>();
+  }
+  if (model != "JC" && !_config["model-params"]) {
+    fprintf(stderr, "\nArgumentError: Evolutionary models other than 'JC' require parameters (set param 'model-params' in config file.)\n");
+    return false;
+  }
+  if (model == "F81" || model == "HKY") {
+    if (!_config["model-params"]["nucFreq"]) {
+      fprintf(stderr, "\nArgumentError: Model '%s' requires nucleotide frequencies (set param 'model-params':'nucFreq' in config file.)\n", model.c_str());
+      return false;
+    } else if (_config["model-params"]["nucFreq"].size() != 4) {
+      fprintf(stderr, "\nArgumentError: Parameter 'model-params':'nucFreq' must contain exactly 4 values.\n");
+      return false;
+    }
+  }
+  if (model == "K80" || model == "HKY") {
+    if (!_config["model-params"]["kappa"]) {
+      fprintf(stderr, "\nArgumentError: Model '%s' requires transition-transversion ratio (set param 'model-params':'kappa' in config file.)\n", model.c_str());
+      return false;
+    }
+  }
+  if (model == "matrix") {
+    vector<string> names = { "Qa", "Qc", "Qg", "Qt" };
+    for (string n : names) {
+      if (!_config["model-params"][n] ) {
+        fprintf(stderr, "\nArgumentError: Model 'matrix' requires substitution frequencies (set param 'model-params':'Qa','Qc','Qg','Qt' in config file.)");
+        fprintf(stderr, "\n               Missing parameter: '%s'.)\n", n.c_str());
+        return false;
+      } else if (_config["model-params"][n].as<vector<double>>().size() != 4 ) {
+        fprintf(stderr, "\nArgumentError: Substitution frequencies vectors must contain exactly 4 real values.");
+        fprintf(stderr, "\n               Violating parameter: 'model-params':'%s'.)\n", n.c_str());
+        return false;
+      }
+    }
+  }
+
   // does sampling matrix have the expected number of rows (clones + 1)?
   if (!_config["samples"] || _config["samples"].size() == 0) {
     fprintf(stderr, "\nArgumentError: Missing sampling matrix - 'samples' param in config file needed.\n");
@@ -178,6 +228,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     }
     fprintf(stderr, "mutations:\t%d\n", n_mut);
     fprintf(stderr, "transforming mutations:\t%d\n", n_mut_init);
+    fprintf(stderr, "evolutionary model:\t%s\n", model.c_str());
     fprintf(stderr, "reference:\t%s\n", fn_ref.c_str());
     if (fn_ref_vcf.length() > 0) {
       fprintf(stderr, "reference VCF:\t%s\n", fn_ref_vcf.c_str());

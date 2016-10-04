@@ -4,6 +4,9 @@
 # general parameters #
 #--------------------#
 
+# prefix for output files
+out: "clonesim"
+
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
 
@@ -50,21 +53,18 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 #-------------------------------#
 
 # evolutionary model
-# choices: 'HKY', 'matrix', 'matrixFromVcf'
-model: matrixFromVcf
-
-# custom nucleotide substitution matrix (ACGT)
-pA: [    0.0, 0.0406, 0.1661, 0.0331 ]
-pC: [ 0.0417,    0.0, 0.0438, 0.1746 ]
-pG: [ 0.1744, 0.0440,    0.0, 0.0418 ]
-pT: [ 0.0331, 0.1662, 0.0405,    0.0 ]
-
-# HKY params:
-# transition/transversion ratio
-titv: 1.0
-# nucleotide frequencies
-# (will be inferred from reference genome if not provided)
-#nucFreqs: [ 0.25, 0.25, 0.25, 0.25 ]
+# choices: 'JC', 'F81', 'K80', 'HKY', 'matrix', 'matrixFromVcf'
+model: matrix
+model-params:
+  # nucleotide frequencies:
+  nucFreq : [ 0.25, 0.25, 0.25, 0.25 ]
+  # transition-transversion ratio:
+  kappa   : 1
+  # custom nucleotide substitution matrix (ACGT):
+  Qa      : [    0.0, 0.0406, 0.1661, 0.0331 ]
+  Qc      : [ 0.0417,    0.0, 0.0438, 0.1746 ]
+  Qg      : [ 0.1744, 0.0440,    0.0, 0.0418 ]
+  Qt      : [ 0.0331, 0.1662, 0.0405,    0.0 ]
 
 
 #-------------------------------#
