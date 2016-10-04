@@ -38,7 +38,11 @@ bool fileExists(std::string filename);
 
 template<typename T>
 T ConfigStore::getValue(const char* key) {
-  return _config[key].as<T>();
+  std::vector<std::string> keys = stringio::split(std::string(key), ':');
+  YAML::Node node = _config[keys[0]];
+  for (auto i=1; i<keys.size(); i++)
+    node = node[keys[i]];
+  return node.as<T>();
 }
 
 template<typename T>

@@ -111,6 +111,36 @@ void init() {
   for (int i = 0; i < 12; i++) NRmat[i] = -1;
 }
 
+/* Nucleotide substition matrix - Jukes-Cantor 1961 */
+void SubstitutionModel::init_JC() {
+  double p[4] = { 0.25, 0.25, 0.25, 0.25 };
+  double k = 1.0;
+  init_HKY(p, k);
+}
+
+/* Nucleotide substition matrix - Felseinstein 1981 */
+void SubstitutionModel::init_F81(double p[4]) {
+  double k = 1.0;
+  init_HKY(p, k);
+}
+
+/* Nucleotide substition matrix - Kimura 1980 */
+void SubstitutionModel::init_K80(double k) {
+  double p[4] = { 1.0, 1.0, 1.0, 1.0 };
+  init_HKY(p, k);
+}
+
+/* Nucleotide substition matrix - Hasegawa, Kishino and Yano 1985 */
+void SubstitutionModel::init_HKY(double p[4], double k) {
+  for (short i; i<4; i++)
+    for (short j; j<4; i++)
+      if (i==j) /* force mutation */
+        Qij[i][j] = 0.0;
+      else if ((i==0 && j==2) || (i==1 && j==3) || (i==2 && j==0) || (i==3 && j==1)) /* transition */
+        Qij[i][j] = k*p[j];
+      else /* transversion */
+        Qij[i][j] = p[j];
+}
 
 /*---------------------------------- HKY -------------------------------------*/
 /**	HKY performs Hasegawa-Kishino-Yano 85 correction */

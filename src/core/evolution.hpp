@@ -20,6 +20,11 @@ struct SubstitutionModel {
   SubstitutionModel(double p_i[4], double titv);
   /** Simulates the nucleotide substitution process for a site */
   short MutateNucleotide(short nuc, std::function<double()>&);
+  // calculate nucleotide substitution matrix (Q/mu)
+  void init_JC();
+  void init_F81(double p[4]);
+  void init_K80(double k);
+  void init_HKY(double p[4], double k);
 };
 
 // calculate per-site substitution rates
