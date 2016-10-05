@@ -24,6 +24,8 @@
 #include <string>
 
 using namespace std;
+using boost::format;
+using boost::str;
 using config::ConfigStore;
 using seqio::SeqRecord;
 using seqio::Genome;
@@ -42,19 +44,21 @@ int main (int argc, char* argv[])
 
   // params specified by user (in config file or command line)
   int num_clones = config.getValue<int>("clones");
-  int num_mutations = config.getValue<int>("mutations");
-  int num_transmuts = config.getValue<int>("init-muts");
+  int n_mut_clonal = config.getValue<int>("mutations");
+  int n_mut_transforming = config.getValue<int>("init-muts");
+  int n_mut_germline = config.getValue<int>("mut-germline");
   unsigned seq_num = config.getValue<int>("seq-num");
   unsigned long seq_len_mean = config.getValue<unsigned long>("seq-len-mean");
   unsigned long seq_len_sd = config.getValue<unsigned long>("seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref = config.getValue<string>("reference");
-  string ref_vcf = config.getValue<string>("reference-vcf");
+  string fn_ref_vcf = config.getValue<string>("reference-vcf");
   string str_model = config.getValue<string>("model");
   string fn_tree = config.getValue<string>("tree");
   map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
+  string pfx_out = config.getValue<string>("out");
 
   float ado_pct = 0.1; // TODO: make this a user parameter
   int ado_frag_len = 10000; // TODO: make this a user parameter
@@ -62,6 +66,9 @@ int main (int argc, char* argv[])
   // internal vars
   map<shared_ptr<Clone>, string> clone2fn; // stores genome file names for each clone
   treeio::Tree<Clone> tree; // contains clone genealogy
+  SubstitutionModel model; // model of sequence evolution
+  vector<Mutation> vec_mut_gl; // germline mutations
+  vector<Variant> vec_var_gl; // germline variants
 
   // initialize random functions
   //seed = time(NULL) + clock();
@@ -82,12 +89,12 @@ int main (int argc, char* argv[])
 
       // if number of mutations have not been supplied specifically,
       // branch lengths are interpreted as number of mutations
-      if (num_mutations == 0) {
+      if (n_mut_clonal == 0) {
         fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths (expected number of mutations).\n");
         // TODO: should absolute number of mutations be encodable in branch lengths?
         double dbl_branch_length = tree.getTotalBranchLength();
-        num_mutations = floor(dbl_branch_length);
-        fprintf(stderr, "Simulating a total of %d mutations.\n", num_mutations);
+        n_mut_clonal = floor(dbl_branch_length);
+        fprintf(stderr, "Simulating a total of %d mutations.\n", n_mut_clonal);
       }
     }
     else {
@@ -101,7 +108,7 @@ int main (int argc, char* argv[])
     tree.printNewick(cerr);
     fprintf(stderr, "\n");
 
-    tree.evolve(num_mutations, num_transmuts, rng);
+    tree.evolve(n_mut_clonal, n_mut_transforming, rng);
     fprintf(stderr, "\nNewick representation of mutated tree:\n");
     tree.printNewick(cerr);
     fprintf(stderr, "\n");
@@ -127,48 +134,21 @@ int main (int argc, char* argv[])
   // get reference genome
   Genome ref_genome;
   if (fn_ref.length() > 0) {
-    fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", seq_num, seq_len_mean, seq_len_sd);
-    ref_genome.generate(seq_num, seq_len_mean, seq_len_sd, ref_nuc_freqs, rng);
+    fprintf(stderr, "\nReading reference from file '%s'...\n", fn_ref.c_str());
+    ref_genome = Genome(fn_ref.c_str());
   }
   else if (ref_nuc_freqs.size() > 0) {
-    // read reference sequence
-    fprintf(stderr, "\nReading reference from file '%s'...", fn_ref.c_str());
-    ref_genome = Genome(fn_ref.c_str());
+    fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", seq_num, seq_len_mean, seq_len_sd);
+    ref_genome.generate(seq_num, seq_len_mean, seq_len_sd, ref_nuc_freqs, rng);
   }
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
   // duplicate genome (all loci homozygous reference)
+  fprintf(stderr, "duplicating reference sequence (haploid -> diploid).\n");
   ref_genome.duplicate();
+  ref_genome.indexRecords();
 
-  // if a VCF file was provided, apply germline variants
-  if (ref_vcf.size() > 0) {
-    fprintf(stderr, "applying germline variants (from %s).\n", ref_vcf.c_str());
-    VariantSet ref_variants;
-    map<string, vector<Genotype >> ref_gt_matrix;
-    vario::readVcf(ref_vcf, ref_variants, ref_gt_matrix);
-    vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
-  }
-
-  // write "healthy" genome to file
-  ofstream f_fasta;
-  f_fasta.open("healthy_genome.fa");
-  seqio::writeFasta(ref_genome.records, f_fasta);
-  f_fasta.close();
-  clone2fn[tree.m_root] = "healthy_genome.fa";
-
-  //fprintf(stderr, "generating FASTA index.\n");
-  //SeqIO::indexFasta(reference.c_str());
-
-  vector<Mutation> mutations;
-  if (num_mutations > 0) {
-    // generate point mutations (relative position + chr copy)
-    mutations = vario::generateMutations(num_mutations, random_dbl);
-    fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
-    for (int i=0; i<num_mutations; i++)
-      fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
-  }
   // inititalize model of sequence evolution
-  SubstitutionModel model;
   if (str_model == "JC") {
     model.init_JC();
   } else if (str_model == "F81") {
@@ -182,12 +162,51 @@ int main (int argc, char* argv[])
     double kappa = config.getValue<double>("model-params:kappa");
     model.init_HKY(&vec_freqs[0], kappa);
   }
+
+  // if a VCF file was provided, apply germline variants
+  if (fn_ref_vcf.size() > 0) {
+    fprintf(stderr, "applying germline variants (from %s).\n", fn_ref_vcf.c_str());
+    VariantSet ref_variants;
+    map<string, vector<Genotype >> ref_gt_matrix;
+    vario::readVcf(fn_ref_vcf, ref_variants, ref_gt_matrix);
+    vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
+  } else if (n_mut_germline > 0) {
+    fprintf(stderr, "simulating %d germline variants (model: %s).\n", n_mut_germline, str_model.c_str());
+    vec_mut_gl = vario::generateMutations(n_mut_germline, random_dbl);
+    vec_var_gl = vario::generateVariants(n_mut_germline, ref_genome, model, rng);
+    vario::applyVariants(ref_genome, vec_var_gl);
+
+    string fn_var_gl = str(format("%s.germline.vcf") % pfx_out.c_str());
+    fprintf(stderr, "writing generated variants to file: %s\n", fn_var_gl.c_str());
+    vario::writeVcf(ref_genome.records, vec_var_gl, "germline", fn_var_gl);
+  }
+
+  // write "personalized" genome to file
+  string fn_genome = str(format("%s.genome.fa") % pfx_out.c_str());
+  fprintf(stderr, "writing diploid genome to file: %s\n", fn_genome.c_str());
+  ofstream f_genome;
+  f_genome.open(fn_genome);
+  seqio::writeFasta(ref_genome.records, f_genome);
+  f_genome.close();
+  clone2fn[tree.m_root] = fn_genome;
+return 0;
+  //fprintf(stderr, "generating FASTA index.\n");
+  //SeqIO::indexFasta(reference.c_str());
+
+  vector<Mutation> mutations;
+  if (n_mut_clonal > 0) {
+    // generate point mutations (relative position + chr copy)
+    mutations = vario::generateMutations(n_mut_clonal, random_dbl);
+    fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
+    for (int i=0; i<n_mut_clonal; i++)
+      fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
+  }
   // apply mutations, creating variants in the process
   vector<Variant> variants = vector<Variant>();
   vario::applyMutations(mutations, ref_genome, model, random_dbl, variants);
 
   // initialize mutation matrix
-  vector<vector<short> > mutMatrix(tree.m_numVisibleNodes, std::vector<short>(num_mutations,0));
+  vector<vector<short> > mutMatrix(tree.m_numVisibleNodes, std::vector<short>(n_mut_clonal,0));
 
   // generate clone sequences based on clonal tree and mutations
   //fprintf(stderr, "---\nNow generating clone genomes...\n");
@@ -201,7 +220,7 @@ int main (int argc, char* argv[])
   // compile variants for output
   //vector<Clone *> clones = tree.getVisibleNodes();
   int num_nodes = tree.m_numNodes;
-  vector<vector<bool> > mat_mut(num_nodes, vector<bool>(num_mutations, false));
+  vector<vector<bool> > mat_mut(num_nodes, vector<bool>(n_mut_clonal, false));
   tree.m_root->populateMutationMatrixRec(mat_mut);
   vector<int> vec_vis_nodes_idx = tree.getVisibleNodesIdx();
   vector<string> vec_labels;

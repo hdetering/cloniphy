@@ -6,7 +6,6 @@
 #include "evolution.hpp"
 #include <fstream>
 #include <functional>
-#include <map>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -97,7 +96,7 @@ std::vector<Mutation> generateMutations(
   const int num_mutations,
   std::function<double()>&
 );
-/** Apply set of mutation to a given genomic sequence,
+/** Apply set of mutations to a given genomic sequence,
     returning a set of Variant objects
     (reference sequence is not changed) */
 void applyMutations(
@@ -109,12 +108,12 @@ void applyMutations(
 
 /** Read VCF file and return list of variants. */
 void readVcf(
-  std::string vcf_filename,
+  std::string fn_vcf,
   VariantSet& variants,
   std::map<std::string, std::vector<Genotype> >& gtMatrix);
 /** Read input stream with variants in VCF format and return list of variants. */
 void readVcf(
-  std::istream& vcf_filename,
+  std::istream& fs_vcf,
   VariantSet& variants,
   std::map<std::string, std::vector<Genotype> >& gtMatrix);
 /** Generate VCF output for a reference genome and a set of mutations.
@@ -126,13 +125,13 @@ void writeVcf(
   const std::vector<std::string>& labels,
   const std::vector<std::vector<bool> >& mutMatrix,
   std::ostream&);
-/** Generate VCF output from a reference genome and a set of mutations.
+/** Generate VCF output from a reference genome and a set of variants.
     (single sample) */
 void writeVcf(
   const std::vector<SeqRecord>& seqs,
   const std::vector<Variant>& vars,
   const std::string label,
-  std::ostream&);
+  const std::string filename);
 
 /** Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */

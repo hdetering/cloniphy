@@ -117,12 +117,12 @@ void Genome::generate(
   *  4) index bp positions into buckets by nucleotide
   */
 void Genome::indexRecords() {
-  // initialize nucleotide counter
-  vector<unsigned> nuc_count(4, 0);
-  // initialize nucleotide buckets
-  nuc_pos = vector<vector<long> >(4);
-  // initialize global start position
-  unsigned cum_start = 0;
+  // initialize data structures
+  vector<unsigned> nuc_count(4, 0); // nucleotide counter
+  nuc_pos = vector<vector<long> >(4); // nucleotide buckets
+  unsigned cum_start = 0; // global start position
+  vec_start_chr.clear(); // start positions of sequences
+  
   vec_start_chr.push_back(cum_start);
   for (vector<SeqRecord>::const_iterator rec=records.begin(); rec!=records.end(); ++rec) {
     unsigned seq_len = rec->seq.length();
@@ -180,6 +180,7 @@ void Genome::duplicate() {
     records[i].id += "_0";
     records[num_records+i].id += "_1";
   }
+  num_records *= 2;
 }
 
 Locus Genome::getLocusByGlobalPos(long global_pos) const {
