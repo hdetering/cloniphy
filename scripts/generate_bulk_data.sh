@@ -21,7 +21,7 @@ date
 
 # set up read simulator
 ART="/home/harry/src/art_bin_ChocolateCherryCake/art_illumina"
-ART_PARAMS="-sam -p -l $READ_LEN -ss HS25 -m 500 -s 10"
+ART_PARAMS="-sam -na -p -l $READ_LEN -ss HS25 -m 500 -s 10"
 # simulate sequencing reads (in proportion to clone frequency)
 echo "Simulating sequencing reads..."
 $ART $ART_PARAMS -i "healthy_genome.fa" -f $(bc -l <<< "(1-$PURITY)*$COVERAGE / 2") -o healthy_reads > art.log

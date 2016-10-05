@@ -14,9 +14,18 @@ using boost::str;
 
 namespace config {
 
+class SampleConfig
+{
+public:
+  std::string m_label;
+  std::vector<double> m_vec_prevalence;
+  SampleConfig(YAML::Node);
+};
+
 class ConfigStore
 {
 public:
+  std::vector<SampleConfig> m_vec_samples;
   ConfigStore();
   bool parseArgs(int ac, char* av[]);
   template<typename T>

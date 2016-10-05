@@ -4,6 +4,14 @@ using namespace std;
 
 namespace config {
 
+SampleConfig::SampleConfig(YAML::Node row) {
+  this->m_label = row[0].as<string>();
+  this->m_vec_prevalence.clear();
+  for (int i=1; i<row.size(); i++) {
+    this->m_vec_prevalence.push_back(row[i].as<double>());
+  }
+}
+
 ConfigStore::ConfigStore() {
   _config = YAML::Node();
 }
@@ -209,6 +217,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
         fprintf(stderr, "\nArgumentError: Row sums in sampling matrix must <=1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
         return false;
       }
+      this->m_vec_samples.push_back(SampleConfig(row_sample));
     }
   }
 

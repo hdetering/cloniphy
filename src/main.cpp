@@ -21,6 +21,7 @@
 #include <math.h>
 #include <memory>
 #include <sstream>
+#include <stdlib.h> // system()
 #include <string>
 
 using namespace std;
@@ -47,15 +48,20 @@ int main (int argc, char* argv[])
   int n_mut_clonal = config.getValue<int>("mutations");
   int n_mut_transforming = config.getValue<int>("init-muts");
   int n_mut_germline = config.getValue<int>("mut-germline");
-  unsigned seq_num = config.getValue<int>("seq-num");
-  unsigned long seq_len_mean = config.getValue<unsigned long>("seq-len-mean");
-  unsigned long seq_len_sd = config.getValue<unsigned long>("seq-len-sd");
+  unsigned ref_seq_num = config.getValue<int>("ref-seq-num");
+  unsigned long ref_seq_len_mean = config.getValue<unsigned long>("ref-seq-len-mean");
+  unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref = config.getValue<string>("reference");
   string fn_ref_vcf = config.getValue<string>("reference-vcf");
   string str_model = config.getValue<string>("model");
   string fn_tree = config.getValue<string>("tree");
-  map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
+  map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
+  double seq_coverage = config.getValue<double>("seq-coverage");
+  unsigned seq_read_len = config.getValue<unsigned>("seq-read-len");
+  unsigned seq_frag_len_mean = config.getValue<unsigned>("seq-frag-len-mean");
+  unsigned seq_frag_len_sd = config.getValue<unsigned>("seq-frag-len-sd");
+  string seq_art_path = config.getValue<string>("seq-art-path");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
   string pfx_out = config.getValue<string>("out");
@@ -109,26 +115,13 @@ int main (int argc, char* argv[])
     fprintf(stderr, "\n");
 
     tree.evolve(n_mut_clonal, n_mut_transforming, rng);
-    fprintf(stderr, "\nNewick representation of mutated tree:\n");
-    tree.printNewick(cerr);
-    fprintf(stderr, "\n");
+    string fn_newick = str(format("%s.tree") % pfx_out);
+    fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
+    tree.printNewick(fn_newick);
 
-    fprintf(stderr, "Writing mutated tree to file 'clone_tree_mutated.dot'.\n");
-    ofstream dotFileMut;
-    dotFileMut.open("clone_tree_mutated.dot");
-    tree.printDot(tree.m_root, dotFileMut);
-    dotFileMut.close();
-
-    /*tree.collapseZeroBranches(tree.getRoot());
-    fprintf(stderr, "\nNewick representation of collapsed tree:\n");
-    CoalescentCloneTree::printNewick(tree.getRoot(), cerr);
-    fprintf(stderr, "\n");
-
-    fprintf(stderr, "Writing collapsed tree to file 'clone_tree_collapsed.dot'.\n");
-    ofstream dotFileCol;
-    dotFileCol.open("clone_tree_collapsed.dot");
-    tree.printDot(tree.getRoot(), dotFileCol);
-    dotFileCol.close();*/
+    string fn_dot = str(format("%s.tree.dot") % pfx_out);
+    fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
+    tree.printDot(fn_dot);
   }
 
   // get reference genome
@@ -138,8 +131,8 @@ int main (int argc, char* argv[])
     ref_genome = Genome(fn_ref.c_str());
   }
   else if (ref_nuc_freqs.size() > 0) {
-    fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", seq_num, seq_len_mean, seq_len_sd);
-    ref_genome.generate(seq_num, seq_len_mean, seq_len_sd, ref_nuc_freqs, rng);
+    fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", ref_seq_num, ref_seq_len_mean, ref_seq_len_sd);
+    ref_genome.generate(ref_seq_num, ref_seq_len_mean, ref_seq_len_sd, ref_nuc_freqs, rng);
   }
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
@@ -189,9 +182,6 @@ int main (int argc, char* argv[])
   seqio::writeFasta(ref_genome.records, f_genome);
   f_genome.close();
   clone2fn[tree.m_root] = fn_genome;
-return 0;
-  //fprintf(stderr, "generating FASTA index.\n");
-  //SeqIO::indexFasta(reference.c_str());
 
   vector<Mutation> mutations;
   if (n_mut_clonal > 0) {
@@ -206,24 +196,14 @@ return 0;
   vario::applyMutations(mutations, ref_genome, model, random_dbl, variants);
 
   // initialize mutation matrix
-  vector<vector<short> > mutMatrix(tree.m_numVisibleNodes, std::vector<short>(n_mut_clonal,0));
+  //vector<vector<short> > mutMatrix(tree.m_numVisibleNodes, std::vector<short>(n_mut_clonal,0));
 
-  // generate clone sequences based on clonal tree and mutations
-  //fprintf(stderr, "---\nNow generating clone genomes...\n");
-  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
-  //Clone root = *(tree.m_root);
-  for (unsigned i=0; i<clones.size(); ++i) {
-    // TODO: this is not how we do things around here, anymore! (update)
-    //clones[i]->mutateGenome(ref_genome, mutations, variants, mutMatrix, clone2fn);
-  }
-
-  // compile variants for output
-  //vector<Clone *> clones = tree.getVisibleNodes();
+  // write mutation state of clones to file
   int num_nodes = tree.m_numNodes;
   vector<vector<bool> > mat_mut(num_nodes, vector<bool>(n_mut_clonal, false));
   tree.m_root->populateMutationMatrixRec(mat_mut);
   string fn_mm = str(format("%s.mut_matrix.csv") % pfx_out);
-  fprintf(stderr, "Writing matrix for visible clones to file '%s'.", fn_mm.c_str());
+  fprintf(stderr, "\nWriting matrix for visible clones to file '%s'.\n", fn_mm.c_str());
   tree.writeMutationMatrix(fn_mm);
 
   vector<int> vec_vis_nodes_idx = tree.getVisibleNodesIdx();
@@ -235,16 +215,44 @@ return 0;
 
   // write clonal variants to file
   string fn_vcf = str(format("%s.somatic.vcf") % pfx_out);
-  fprintf(stderr, "Writing (sub)clonal mutations to file '%s'.", fn_vcf.c_str());
+  fprintf(stderr, "\nWriting (sub)clonal mutations to file '%s'.\n", fn_vcf.c_str());
   ofstream f_vcf;
   f_vcf.open(fn_vcf);
   vario::writeVcf(ref_genome.records, variants, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
   f_vcf.close();
 
-  // perform ADO
-  if (ado_pct > 0)
+  // generate baseline sequencing reads for each sample
+  fprintf(stderr, "---\nNow generating sequencing reads for samples...\n");
+  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
+  for (auto sample : mtx_sample) {
+    // generate reads using ART
+    // TODO: will need to be updated to support CNVs (non-uniform coverage)
+    string art_cmd = str(format("%s -sam -na") % seq_art_path);
+    art_cmd += str(format(" -l %d") % seq_read_len);
+    art_cmd += str(format(" -p -m %d -s %d") % seq_frag_len_mean % seq_frag_len_sd);
+    art_cmd += str(format(" -f %.2f") % seq_coverage);
+    art_cmd += " -ss HS25";
+    art_cmd += str(format(" -i %s") % fn_genome);
+    art_cmd += str(format(" -o %s.%s_reads") % pfx_out % sample.first);
+    fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
+    int res_art = system(art_cmd.c_str());
+    if (res_art != 0) {
+      fprintf(stderr, "[ERROR] ART call had non-zero return value:\n        %s\n", art_cmd.c_str());
+      return EXIT_FAILURE;
+    }
+  }
+
+  // introduce somatic mutations in
+  for (unsigned i=0; i<clones.size(); ++i) {
+    // TODO: this is not how we do things around here, anymore! (update)
+    //clones[i]->mutateGenome(ref_genome, mutations, variants, mutMatrix, clone2fn);
+  }
+
+  // perform ADO -> on hold (better: generate coverage distribution for read sim)
+  /*if (ado_pct > 0)
     for (auto kv : clone2fn)
       seqio::simulateADO(kv.second, ref_genome.masked_length, ado_pct, ado_frag_len, random_dbl);
+  */
 
   return EXIT_SUCCESS;
 }

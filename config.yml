@@ -19,7 +19,7 @@ seed: 123456789
 #-----------------------#
 
 # number of clones to simulate
-clones: 0
+clones: 5
 
 # number of total mutations to simulate
 mutations: 1010
@@ -33,16 +33,16 @@ init-muts: 10
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
-seq-num: 10
+ref-seq-num: 10
 ## sequence length
-seq-len-mean: 100000
-seq-len-sd: 10000
+ref-seq-len-mean: 100000
+ref-seq-len-sd: 10000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # file containing reference genome sequence
 # NOTE: overrides simulation of reference!
-reference: data/ref/txome.chr22.fa
+#reference: data/ref/Hg18.chr20-22.fa
 
 # germline variants (to generate personal genome from reference)
 #reference-vcf: data/input/1000G_phase1.indels.b37.vcf
@@ -77,8 +77,23 @@ model-params:
 # first column contains sample name (used to name output files)
 # NOTE: make sure number of columns correspond to "clones" parameter +1
 samples:
-  - [ sample1 ]
-  #- [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
-  #- [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
-  #- [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
+  #- [ sample1 ]
+  - [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
+  - [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
+  - [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
+
+#-------------------------------#
+#     sequencing parameters     #
+#-------------------------------#
+
+# average depth of coverage (applied to diploid genome, i.e. haploid coverage is 2x this value)
+seq-coverage      : 50
+# read length
+seq-read-len      : 100
+# mean fragment length (only for paired-end reads)
+seq-frag-len-mean : 500
+# standard deviation of fragment length (only for paired-end reads)
+seq-frag-len-sd   : 20
+# path to ART executable
+seq-art-path          : /home/harry/src/art_src_MountRainier_Linux/art_illumina
 ...
