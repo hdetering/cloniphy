@@ -60,7 +60,7 @@ int main (int argc, char* argv[])
   long seed = config.getValue<long>("seed");
   string pfx_out = config.getValue<string>("out");
 
-  float ado_pct = 0.1; // TODO: make this a user parameter
+  float ado_pct = 0.0; // TODO: make this a user parameter
   int ado_frag_len = 10000; // TODO: make this a user parameter
 
   // internal vars
@@ -222,6 +222,10 @@ return 0;
   int num_nodes = tree.m_numNodes;
   vector<vector<bool> > mat_mut(num_nodes, vector<bool>(n_mut_clonal, false));
   tree.m_root->populateMutationMatrixRec(mat_mut);
+  string fn_mm = str(format("%s.mut_matrix.csv") % pfx_out);
+  fprintf(stderr, "Writing matrix for visible clones to file '%s'.", fn_mm.c_str());
+  tree.writeMutationMatrix(fn_mm);
+
   vector<int> vec_vis_nodes_idx = tree.getVisibleNodesIdx();
   vector<string> vec_labels;
   // add node labels
@@ -230,8 +234,10 @@ return 0;
   }
 
   // write clonal variants to file
+  string fn_vcf = str(format("%s.somatic.vcf") % pfx_out);
+  fprintf(stderr, "Writing (sub)clonal mutations to file '%s'.", fn_vcf.c_str());
   ofstream f_vcf;
-  f_vcf.open("mutations.vcf");
+  f_vcf.open(fn_vcf);
   vario::writeVcf(ref_genome.records, variants, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
   f_vcf.close();
 
