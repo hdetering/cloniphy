@@ -208,18 +208,18 @@ void applyMutations(
 }
 
 void readVcf(
-  string vcf_filename,
+  string fn_vcf,
   VariantSet& variants,
   map<string, vector<Genotype> > &gtMatrix)
 {
   ifstream f_vcf;
-  f_vcf.open(vcf_filename.c_str(), ios::in);
+  f_vcf.open(fn_vcf.c_str(), ios::in);
   readVcf(f_vcf, variants, gtMatrix);
   f_vcf.close();
 }
 
 void readVcf(
-  std::istream &input,
+  istream &input,
   VariantSet& variants,
   map<string, vector<Genotype> > &gtMatrix)
 {
@@ -338,6 +338,24 @@ void writeVcf(
   }
 }
 
+/** Generate VCF output from a reference genome and a set of variants.
+    (single sample) */
+void writeVcf(
+  const std::vector<SeqRecord>& seqs,
+  const std::vector<Variant>& vars,
+  const std::string label,
+  const std::string filename)
+{
+  vector<int> vec_ids(1, 0);
+  vector<string> vec_labels(1, label);
+  vector<vector<bool>> mtx_mut(1, vector<bool>(vars.size(), true));
+
+  ofstream f_out;
+  f_out.open(filename);
+  writeVcf(seqs, vars, vec_ids, vec_labels, mtx_mut, f_out);
+  f_out.close();
+}
+
 /** Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */
 vector<Variant> generateVariants(
@@ -362,7 +380,7 @@ vector<Variant> generateVariants(
   }
   function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
 
-  unsigned long genome_len = genome.length/genome.ploidy;
+  unsigned long genome_len = genome.length/genome.ploidy; // haploid genome length
   for (int i=0; i<num_variants; ++i) {
     // pick random nucleotide bucket
     int idx_bucket = random_nuc_idx();

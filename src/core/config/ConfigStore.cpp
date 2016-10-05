@@ -118,11 +118,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   // perform sanity checks
 
-  // check: numClones > 0?
-  if (n_clones == 0 && fn_tree.length() == 0) {
-    fprintf(stderr, "\nArgumentError: Please specify clones ('-n') or input tree ('-t'). Aborting...bye.\n");
-    return false;
-  }
   // at least one mutation per clone?
   if (n_mut < n_clones) {
     fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut, n_clones);

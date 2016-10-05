@@ -19,7 +19,7 @@ seed: 123456789
 #-----------------------#
 
 # number of clones to simulate
-clones: 5
+clones: 0
 
 # number of total mutations to simulate
 mutations: 1010
@@ -32,7 +32,6 @@ init-muts: 10
 #-------------------------#
 
 # parameters to generate reference genome
-# (overrides "reference"!)
 ## number of sequences (e.g. chromosomes) to generate
 seq-num: 10
 ## sequence length
@@ -42,11 +41,12 @@ seq-len-sd: 10000
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # file containing reference genome sequence
-#reference: data/input/hs37d5_chr20.fa
+# NOTE: overrides simulation of reference!
+reference: data/ref/txome.chr22.fa
 
-# somatic variants (to generate personal genome from reference)
+# germline variants (to generate personal genome from reference)
 #reference-vcf: data/input/1000G_phase1.indels.b37.vcf
-
+mut-germline : 100000
 
 #-------------------------------#
 # sequence evolution parameters #
@@ -77,7 +77,8 @@ model-params:
 # first column contains sample name (used to name output files)
 # NOTE: make sure number of columns correspond to "clones" parameter +1
 samples:
-  - [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
-  - [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
-  - [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
+  - [ sample1 ]
+  #- [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
+  #- [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
+  #- [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
 ...
