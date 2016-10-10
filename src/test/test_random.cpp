@@ -21,7 +21,7 @@ struct FixtureRandom {
   RandomNumberGenerator<> gen = RandomNumberGenerator<>(seed);
 };
 
-BOOST_FIXTURE_TEST_SUITE( rng, FixtureRandom )
+BOOST_FIXTURE_TEST_SUITE( rng , FixtureRandom )
 
 /* pick indices according to weights */
 BOOST_AUTO_TEST_CASE( indices )
@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE( gamma )
   unsigned num_values = 100000;
   vector<double> vec_values(num_values);
 
-  BOOST_TEST_MESSAGE( "Simulating gamma-ditributed values." );
+  BOOST_TEST_MESSAGE( "Simulating gamma-distributed values." );
   BOOST_TEST_MESSAGE( str(format("  shape: %f") % shape) );
   BOOST_TEST_MESSAGE( str(format("  scale: %f") % scale) );
   for (auto i=0; i<num_values; ++i) {
@@ -66,6 +66,41 @@ BOOST_AUTO_TEST_CASE( gamma )
     fs << format("%f") % v << endl;
   }
   fs.close();
+}
+
+/* genetate random Dirichlet-distributed values */
+BOOST_AUTO_TEST_CASE( dirichlet )
+{
+  vector<double> a, q;
+  BOOST_TEST_MESSAGE( "Simulating Dirichlet-distributed values..." );
+
+  a = {0.1, 0.1, 0.1};
+  BOOST_TEST_MESSAGE( str(format("\n  alpha: [ %.4f, %.4f, %.4f ]") % a[0] % a[1] % a[2]) );
+  for (int i=0; i<10; i++) {
+    q = gen.getRandomDirichlet(a);
+    BOOST_TEST_MESSAGE( str(format("  %d: [ %.4g, %.4g, %.4g ]") % i % q[0] % q[1] % q[2]) );
+  }
+
+  a = {1, 1, 1};
+  BOOST_TEST_MESSAGE( str(format("\n  alpha: [ %.4f, %.4f, %.4f ]") % a[0] % a[1] % a[2]) );
+  for (int i=0; i<10; i++) {
+    q = gen.getRandomDirichlet(a);
+    BOOST_TEST_MESSAGE( str(format("  %d: [ %.4g, %.4g, %.4g ]") % i % q[0] % q[1] % q[2]) );
+  }
+
+  a = {10, 10, 10};
+  BOOST_TEST_MESSAGE( str(format("\n  alpha: [ %.4f, %.4f, %.4f ]") % a[0] % a[1] % a[2]) );
+  for (int i=0; i<10; i++) {
+    q = gen.getRandomDirichlet(a);
+    BOOST_TEST_MESSAGE( str(format("  %d: [ %.4g, %.4g, %.4g ]") % i % q[0] % q[1] % q[2]) );
+  }
+
+  a = {100, 100, 100};
+  BOOST_TEST_MESSAGE( str(format("\n  alpha: [ %.4f, %.4f, %.4f ]") % a[0] % a[1] % a[2]) );
+  for (int i=0; i<10; i++) {
+    q = gen.getRandomDirichlet(a);
+    BOOST_TEST_MESSAGE( str(format("  %d: [ %.4g, %.4g, %.4g ]") % i % q[0] % q[1] % q[2]) );
+  }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

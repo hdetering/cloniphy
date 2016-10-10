@@ -82,6 +82,26 @@ struct RandomNumberGenerator {
 
 		return p;
 	}
+
+	/** algorithm proposed in:
+	 *  Introduction to the Dirichlet distribution and related processes
+   *  BA Frigyik, A Kapila, MR Gupta
+   *  Dept. Elect. Eng., Univ. Washington, Seattle, WA, USA, UWEETR-2010-0006, 2010
+	 */
+	std::vector<double> getRandomDirichlet(std::vector<double> alpha) {
+		std::vector<double> res;
+		double cumsum = 0.0;
+		for (double a : alpha) {
+			auto rgamma = getRandomGamma(a, 1);
+			double x = rgamma();
+			res.push_back(x);
+			cumsum += x;
+		}
+		for (double& q : res)
+			q /= cumsum;
+
+		return res;
+	}
 };
 
 /** Selects random element from container */
