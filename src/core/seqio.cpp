@@ -122,7 +122,7 @@ void Genome::indexRecords() {
   nuc_pos = vector<vector<long> >(4); // nucleotide buckets
   unsigned cum_start = 0; // global start position
   vec_start_chr.clear(); // start positions of sequences
-  
+
   vec_start_chr.push_back(cum_start);
   for (vector<SeqRecord>::const_iterator rec=records.begin(); rec!=records.end(); ++rec) {
     unsigned seq_len = rec->seq.length();
@@ -272,7 +272,9 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
 int writeFasta(const vector<SeqRecord> &seqs, ostream &output, int line_width) {
   int recCount = 0;
   for (auto rec : seqs) {
-    output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
+    // seq description confuses ART (mismatch of SAM header with REF field)
+    //output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
+    output << str(boost::format(">%s\n") % rec.id);
     string::const_iterator it_seq = rec.seq.begin();
     while (it_seq != rec.seq.end()) {
       for (int i=0; i<line_width && it_seq!=rec.seq.end(); ++i)

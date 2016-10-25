@@ -13,7 +13,8 @@ void mutateReads(
   treeio::Tree<Clone> &tree,
   vector<double> weights,
   string id_sample,
-  RandomNumberGenerator<> &rng)
+  RandomNumberGenerator<> &rng,
+  bool do_write_fastq)
 {
   // extract info about visible clones
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
@@ -45,6 +46,9 @@ void mutateReads(
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   for (Variant &var : var_sorted)
     var.chr += str(boost::format("_%d") % var.chr_copy);
+  // store coverage depth and variant allele frequency for each variant
+  vector<unsigned> vec_var_cvg(var_sorted.size());
+  vector<unsigned> vec_var_vaf(var_sorted.size());
 
   /*------------------*
    * process BAM file *
@@ -123,12 +127,18 @@ void mutateReads(
   write(bamFileOut.iter, headerOut, bamContextOut, bamFileOut.format);
 
   ofstream fs_fq, fs_log;
-  fs_fq.open(fn_fq_out);
+  if (do_write_fastq) {
+    fs_fq.open(fn_fq_out);
+  }
   fs_log.open("bamio_bulk.log");
   BamAlignmentRecord read1, read2;
   while (!atEnd(bamFileIn)) {
     readRecord(read1, bamFileIn);
     readRecord(read2, bamFileIn);
+    // extract phase from read id
+    vector<string> r1_id_parts = stringio::split(toCString(read1.qName), '_');
+    string phase = r1_id_parts.size()>0 ? r1_id_parts[1] : "0"; // default phase is 0 (maternal)
+    int copy = r1_id_parts.size()>1 ? stoi(r1_id_parts[2]) : 0; // default copy is 0 (base chrom.)
     // pick random clone (weighted) to which next read pair belongs
     int r_idx = rand_idx();
     int c_idx = vec_clone_idx[r_idx];
@@ -146,14 +156,17 @@ void mutateReads(
       % r1_ref % r1_rc % r1_begin % (r1_begin+r1_len)
       % r2_ref % r2_rc % r2_begin % (r2_begin+r2_len));
 
-    // modify read pair to match assigned clone
+    // modify read pair to match assigned clone, phase and copy
     read1.qName += str(boost::format("-%d/1") % c_idx);
     read2.qName += str(boost::format("-%d/2") % c_idx);
     CharString tagRG = str(boost::format("RG:Z:%s") % vec_clone_lbl[r_idx]);
+    CharString tagXP = str(boost::format("XP:Z:%s") % phase);
+    CharString tagXC = str(boost::format("XC:Z:%d") % copy);
     appendTagsSamToBam(read1.tags, tagRG);
     appendTagsSamToBam(read2.tags, tagRG);
 
     // mutate reads
+    // TODO: this could be faster if variant positions were stored in a BST
 
     auto it_var = var_sorted.begin();
     // advance variant iterator to position in current chromosome
@@ -162,21 +175,28 @@ void mutateReads(
     // advance variant iterator to first position past begin of first read
     while (it_var!=var_sorted.end() && it_var->pos<r1_begin && it_var->chr==toCString(r1_ref))
       ++it_var;
+    bool is_mutated = false;
     // identify variables affecting read pair
     while (it_var!=var_sorted.end() && it_var->pos<r2_begin+r2_len && it_var->chr==toCString(r1_ref)) {
-      if (!mm[c_idx][it_var->idx_mutation]) { // does read pair's clone carry mutation?
-        ++it_var;
-        continue;
-      }
+      is_mutated = mm[c_idx][it_var->idx_mutation]; // does read pair's clone carry mutation?
+
       int r1_var_pos = it_var->pos - r1_begin;
-      if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // mutate read1
-        fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
-        read1.seq[r1_var_pos] = it_var->alleles[1][0];
+      if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
+        vec_var_cvg[it_var->idx_mutation]++;
+        if (is_mutated) { // mutate read1
+          fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
+          read1.seq[r1_var_pos] = it_var->alleles[1][0];
+          vec_var_vaf[it_var->idx_mutation]++;
+        }
       }
       int r2_var_pos = it_var->pos - r2_begin;
-      if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // mutate read2
-        fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
-        read2.seq[r2_var_pos] = it_var->alleles[1][0];
+      if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
+        vec_var_cvg[it_var->idx_mutation]++;
+        if (is_mutated) { // mutate read2
+          fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % it_var->alleles[0].c_str() % it_var->alleles[1].c_str());
+          read2.seq[r2_var_pos] = it_var->alleles[1][0];
+          vec_var_vaf[it_var->idx_mutation]++;
+        }
       }
       ++it_var;
     }
@@ -189,29 +209,41 @@ void mutateReads(
     write(bamFileOut.iter, read2, bamContextMap, bamFileOut.format);
 
     // FASTQ output
+    if (do_write_fastq) {
+      // re-reverse complement reads on opposite strand (to avoid strand bias)
+      if (seqan::hasFlagRC(read1)) {
+        seqan::reverseComplement(read1.seq);
+        reverse(r1_qual.begin(), r1_qual.end());
+      }
+      if (seqan::hasFlagRC(read2)) {
+        seqan::reverseComplement(read2.seq);
+        reverse(r2_qual.begin(), r2_qual.end());
+      }
 
-    // re-reverse complement reads on opposite strand (to avoid strand bias)
-    if (seqan::hasFlagRC(read1)) {
-      seqan::reverseComplement(read1.seq);
-      reverse(r1_qual.begin(), r1_qual.end());
+      // write (potentially modified) reads to FASTQ file
+      fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read1.qName % read1.seq % r1_qual);
+      fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read2.qName % read2.seq % r2_qual);
     }
-    if (seqan::hasFlagRC(read2)) {
-      seqan::reverseComplement(read2.seq);
-      reverse(r2_qual.begin(), r2_qual.end());
-    }
-
-    // write (potentially modified) reads to FASTQ file
-    fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read1.qName % read1.seq % r1_qual);
-    fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read2.qName % read2.seq % r2_qual);
-
-    //fs_idx << r1_begin << " (" << r1_len << ")" <<  "  " << r2_begin << " (" << r2_len << ")" << endl;
-    //fprintf(stderr, "%d\n", c_idx);
   }
 
   fs_bamout.close();
-  fs_fq.close();
+  if (do_write_fastq) {
+    fs_fq.close();
+  }
   fs_log.close();
 
+  // write coverage and variant read counts for all variants to file
+  string fn_varout = str(boost::format("%s.vars.csv") % fn_sam_out.c_str());
+  ofstream fs_varout;
+  fs_varout.open(fn_varout.c_str());
+  for (Variant v : var_sorted) {
+    string id = str(boost::format("%s_%d:%ld") % v.chr % v.chr_copy % v.pos);
+    unsigned alt = vec_var_vaf[v.idx_mutation];
+    unsigned ref = vec_var_cvg[v.idx_mutation] - alt;
+    string line = str(boost::format("%d\t%s\t%s\t%s\n") % v.idx_mutation % id % ref % alt);
+    fs_varout << line;
+  }
+  fs_varout.close();
 }
 
 void addCloneReadGroups(BamHeader &header, string id_sample, const vector<string> &vec_lbl) {

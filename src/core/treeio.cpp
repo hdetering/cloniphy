@@ -384,9 +384,10 @@ void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGe
 #endif
   dropRandomMutations(n_random, ++next_mut_id, rng);
 
-  // adjust MRCA branch length to match #mutations
-  //T* mrca = this->m_root->m_vecChildren[0];
-  //mrca->length = (double)n_transforming/n_mutations;
+  // reset branch lengths to #mutations
+  for (auto node : m_vecNodes) {
+    node->length = node->m_vec_mutations.size();
+  }
 }
 
 /** Drop transforming mutations on immediate children of root node. */
@@ -449,7 +450,7 @@ template<typename TNodeType>
 void Tree<TNodeType>::printNewick(const string filename) {
   ofstream fs;
   fs.open(filename);
-  printNewick(this->m_root, fs);
+  printNewick(fs);
   fs.close();
 }
 

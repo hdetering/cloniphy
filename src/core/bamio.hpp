@@ -3,7 +3,8 @@
 
 #include "clone.hpp"
 #include "random.hpp"
-#include "vario.cpp"
+//#include "vario.cpp"
+#include "stringio.hpp"
 #include <boost/format.hpp>
 #include <memory>
 #include <seqan/bam_io.h>
@@ -22,7 +23,8 @@ void mutateReads(
   treeio::Tree<Clone> &tree,
   std::vector<double> weights,
   std::string id_sample,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator<> &rng,
+  bool do_write_fastq = false
 );
 
 /** Add a read group to BAM file header for each clone. */

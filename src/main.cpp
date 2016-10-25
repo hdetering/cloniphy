@@ -4,6 +4,7 @@
  * @author: Harald Detering (harald.detering@gmail.com)
  *
  */
+#include "core/bamio.hpp"
 #include "core/clone.hpp"
 #include "core/config/ConfigStore.hpp"
 #include "core/random.hpp"
@@ -65,6 +66,7 @@ int main (int argc, char* argv[])
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
   string pfx_out = config.getValue<string>("out");
+  bool do_cnv_sim = false; // indicates if CNVs will be considered
 
   float ado_pct = 0.0; // TODO: make this a user parameter
   int ado_frag_len = 10000; // TODO: make this a user parameter
@@ -222,18 +224,27 @@ int main (int argc, char* argv[])
   f_vcf.close();
 
   // generate baseline sequencing reads for each sample
-  fprintf(stderr, "---\nNow generating sequencing reads for samples...\n");
-  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
-  for (auto sample : mtx_sample) {
-    // generate reads using ART
-    // TODO: will need to be updated to support CNVs (non-uniform coverage)
-    string art_cmd = str(format("%s -sam -na") % seq_art_path);
-    art_cmd += str(format(" -l %d") % seq_read_len);
-    art_cmd += str(format(" -p -m %d -s %d") % seq_frag_len_mean % seq_frag_len_sd);
-    art_cmd += str(format(" -f %.2f") % seq_coverage);
-    art_cmd += " -ss HS25";
-    art_cmd += str(format(" -i %s") % fn_genome);
-    art_cmd += str(format(" -o %s.%s_reads") % pfx_out % sample.first);
+  fprintf(stderr, "---\nGenerating baseline sequencing reads from personal genome...\n");
+  // generate reads using ART
+  string art_cmd = str(format("%s -sam -na") % seq_art_path);
+  art_cmd += str(format(" -l %d") % seq_read_len);
+  art_cmd += str(format(" -p -m %d -s %d") % seq_frag_len_mean % seq_frag_len_sd);
+  art_cmd += str(format(" -f %.2f") % seq_coverage);
+  art_cmd += " -ss HS25";
+  art_cmd += str(format(" -i %s") % fn_genome);
+  if (do_cnv_sim) { // need to generate baseline reads respecting copy number states
+    for (auto sample : mtx_sample) {
+      // TODO: will need to be updated to support CNVs (non-uniform coverage)
+      art_cmd += str(format(" -o %s.%s_reads") % pfx_out % sample.first);
+      fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
+      int res_art = system(art_cmd.c_str());
+      if (res_art != 0) {
+        fprintf(stderr, "[ERROR] ART call had non-zero return value:\n        %s\n", art_cmd.c_str());
+        return EXIT_FAILURE;
+      }
+    }
+  } else { // no CNVs: joint baseline read set for all samples
+    art_cmd += str(format(" -o %s_reads") % pfx_out);
     fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
     int res_art = system(art_cmd.c_str());
     if (res_art != 0) {
@@ -242,10 +253,18 @@ int main (int argc, char* argv[])
     }
   }
 
-  // introduce somatic mutations in
-  for (unsigned i=0; i<clones.size(); ++i) {
-    // TODO: this is not how we do things around here, anymore! (update)
-    //clones[i]->mutateGenome(ref_genome, mutations, variants, mutMatrix, clone2fn);
+  // introduce somatic mutations in baseline reads
+  fprintf(stderr, "---\nNow generating sequencing reads for samples...\n");
+  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
+  for (auto sample : mtx_sample) {
+    string fn_baseline = str(format("build/%s") % pfx_out.c_str());
+    if (do_cnv_sim) // choose sample-specific or joint baseline file
+      fn_baseline += str(format(".%s") % sample.first);
+    fn_baseline += "_reads.sam";
+    string fn_fqout = str(format("%s.%s_reads.bulk.fq") % pfx_out % sample.first);;
+    string fn_samout = str(format("%s.%s_reads.bulk.sam") % pfx_out % sample.first);;
+
+    bamio::mutateReads(fn_fqout, fn_samout, fn_baseline, variants, tree, sample.second, sample.first, rng);
   }
 
   // perform ADO -> on hold (better: generate coverage distribution for read sim)
