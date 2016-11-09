@@ -20,6 +20,28 @@ Variant::Variant(std::string id, std::string chr, unsigned long pos)
 VariantSet::VariantSet() {}
 VariantSet::~VariantSet() {}
 
+VariantSet::VariantSet(vector<Variant> variants) {
+  this->vec_variants = variants;
+  this->indexVariants();
+  this->calculateSumstats();
+}
+
+/** Index variants by chromosome and position. */
+long VariantSet::indexVariants() {
+  long num_variants;
+  this->map_chr2pos2var.clear();
+
+  for (Variant var : this->vec_variants) {
+    if (this->map_chr2pos2var.find(var.chr) == this->map_chr2pos2var.end())
+      this->map_chr2pos2var[var.chr] = map<unsigned long, Variant>();
+    this->map_chr2pos2var[var.chr][var.pos] = var;
+    num_variants++;
+  }
+
+  this->num_variants = num_variants;
+  return num_variants;
+}
+
 long VariantSet::calculateSumstats() {
   string nucs = "ACGTacgt";
   long num_variants = 0;
@@ -58,6 +80,7 @@ long VariantSet::calculateSumstats() {
     }
   }
 
+  this->num_variants = num_variants;
   return num_substitutions;
 }
 
@@ -126,6 +149,17 @@ bool Variant::operator< (const Variant &other) const {
 vector<Variant> Variant::sortByPosition(const vector<Variant> &variants) {
   vector<Variant> variantsCopy = variants;
   sort(variantsCopy.begin(), variantsCopy.end());
+  return variantsCopy;
+}
+
+vector<Variant> Variant::sortByPositionLex(const vector<Variant> &variants) {
+  vector<Variant> variantsCopy = variants;
+  sort(variantsCopy.begin(), variantsCopy.end(),
+      [](const Variant &a, const Variant &b) -> bool {
+        if (a.chr < b.chr) return true;
+        if (a.chr == b.chr) return a.pos < b.pos;
+        return false;
+      });
   return variantsCopy;
 }
 
@@ -201,6 +235,7 @@ void applyMutations(
     var.alleles.push_back(seqio::nucToString(nuc_alt));
     var.idx_mutation = m->id;
     var.rel_pos = m->relPos;
+    var.chr_copy = m->copy;
 
     // append variant to output
     variants.push_back(var);
@@ -262,7 +297,19 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
       continue;
     }
 
+    // for single-sample VCFs, set variant phase
+    if (num_samples == 1) {
+      if (atoi(&var_cols[9][0]) > 0) {
+        var.chr_copy = 0;
+      } else if (atoi(&var_cols[9][2]) > 0) {
+        var.chr_copy = 1;
+      }
+    }
+
     variants.vec_variants.push_back(var);
+    if (variants.map_chr2pos2var.find(var.chr) == variants.map_chr2pos2var.end())
+      variants.map_chr2pos2var[var.chr] = map<unsigned long, Variant>();
+    variants.map_chr2pos2var[var.chr][var.pos] = var;
     var_idx++;
 //fprintf(stderr, "read from VCF: <Variant(idx=%u,id=%s,pos=%lu,num_alleles=%lu)> ", var_idx, var->id.c_str(), var->pos, var->alt.size()+1);
     for (unsigned i=0; i<num_samples; ++i) {
@@ -319,7 +366,7 @@ void writeVcf(
   out << endl;
 
   // write variants
-  vector<Variant> sorted_vars = Variant::sortByPosition(vars);
+  vector<Variant> sorted_vars = Variant::sortByPositionLex(vars);
   for (Variant var : sorted_vars) {
     string ref = var.alleles[0];
     string alt = var.alleles[1];
@@ -358,7 +405,7 @@ void writeVcf(
 
 /** Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */
-vector<Variant> generateVariants(
+vector<Variant> generateGermlineVariants(
   const int num_variants,
   const Genome& genome,
   SubstitutionModel& model,
@@ -368,7 +415,7 @@ vector<Variant> generateVariants(
   vector<Variant> variants = vector<Variant>(num_variants);
   boost::container::flat_set<int> var_pos; // keep track of variant positions
   function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
-  //function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
   // determine base mutation probs from model (marginal sums)
@@ -380,7 +427,7 @@ vector<Variant> generateVariants(
   }
   function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
 
-  unsigned long genome_len = genome.length/genome.ploidy; // haploid genome length
+  unsigned long genome_len = genome.length; // haploid genome length
   for (int i=0; i<num_variants; ++i) {
     // pick random nucleotide bucket
     int idx_bucket = random_nuc_idx();
@@ -401,7 +448,10 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     Variant var;
     var.id = to_string(i);
     var.chr = id_ref;
-    if (genome.ploidy > 1) {
+    //short chr_copy = genome.records[loc.idx_record].chr_copy;
+    var.chr_copy = random_copy();
+    var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+    /*if (genome.ploidy > 1) {
       vector<string> parts = stringio::split(genome.records[loc.idx_record].id, '_');
       int chr_copy = atoi(parts.back().c_str());
       var.chr_copy = chr_copy;
@@ -410,7 +460,8 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     else {
       var.chr_copy = 0;
       var.rel_pos = double(nuc_pos)/genome_len;
-    }
+    }*/
+    var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
     var.pos = loc.start;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
@@ -456,6 +507,7 @@ fprintf(stderr, "locus %ld has beend mutated before, picking another one...\n", 
     var.id = to_string(i);
     var.chr = id_chr;
     var.chr_copy = random_copy();
+    var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
     var.pos = nuc_pos;
     var.rel_pos = double(nuc_pos)/genome.length;
     var.alleles.push_back(string(1, seqio::idx2nuc(ref_nuc)));
@@ -559,7 +611,7 @@ void applyVariantsStream(
   Variant next_var = variants[vec_mut_sorted[idx_mut].id];
   for (idx_chr=0; idx_chr<g.records.size(); ++idx_chr) {
     chr_mutated = (g.records[idx_chr].id_ref == next_var.chr); // is this chromosome mutated?
-    chr_mutated = chr_mutated && (g.records[idx_chr].copy == vec_mut_sorted[idx_mut].copy); // is this sequence the right copy?
+    chr_mutated = chr_mutated && (g.records[idx_chr].chr_copy == vec_mut_sorted[idx_mut].copy); // is this sequence the right copy?
     // print header
     outstream << ">" << g.records[idx_chr].id << endl;
     idx_nuc = 0;

@@ -375,10 +375,13 @@ void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGe
 #ifdef DEBUG
   fprintf(stderr, "Now dropping mandatory mutations...\n");
 #endif
+  /* TODO: this makes it difficult to have internal clones
+    (represented by zero-branch from "dummy" internal node) */
   // each clone needs at least one private mutation
-  dropMandatoryMutations(m_root, next_mut_id);
+  //dropMandatoryMutations(m_root, next_mut_id);
   // remaining mutations are dropped randomly, proportional to branch_length
-  int n_random = n_mutations - n_transforming - m_numVisibleNodes;
+  //int n_random = n_mutations - n_transforming - m_numVisibleNodes;
+  int n_random = n_mutations - n_transforming;
 #ifdef DEBUG
   fprintf(stderr, "Now dropping %d random mutations...\n", n_random);
 #endif
@@ -500,7 +503,8 @@ void Tree<TNodeType>::printDot(shared_ptr<TNodeType> node, std::ostream& os) {
 
 template<typename TNodeType>
 void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os) {
-  auto node_lbl = boost::format("\"%s\\ni:%d\\nw:%.4f\"") % node->label % node->index % node->weight;
+  //auto node_lbl = boost::format("\"%s\\ni:%d\\nw:%.4f\"") % node->label % node->index % node->weight;
+  auto node_lbl = boost::format("\"%s\\ni:%d\"") % node->label % node->index;
   os << "\t" << node->index << "[label=" << node_lbl;
   if (node==this->m_root) {
     os << ",style=filled,color=limegreen";

@@ -83,7 +83,7 @@ struct Tree
   /** outputs boolean matrix of mutational states for visible nodes */
   void writeMutationMatrix(std::ostream& outstream);
 
-protected:
+  // useful for debugging purposes:
   void _printNodes();
   void _printTreeInfo();
 

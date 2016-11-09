@@ -104,7 +104,7 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateVariants(num_mutations, genome, model, rng);
+  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model, rng);
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   auto fn_out = "pers.bulk.vcf";
   ofstream fs_out;
@@ -122,7 +122,8 @@ BOOST_AUTO_TEST_CASE( bulk )
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 
   /* process BAM file */
-  bamio::mutateReads("bulk_reads.fq", "bulk_reads.sam", "build/pers_reads.sam", variants, tree, w, "BULKSIM", rng);
+  VariantSet varset(variants);
+  bamio::mutateReads("bulk_reads.fq", "bulk_reads.sam", "build/pers_reads.sam", varset, tree, w, "BULKSIM", 2, rng);
 }
 
 BOOST_AUTO_TEST_CASE( multisample )
@@ -167,7 +168,7 @@ BOOST_AUTO_TEST_CASE( multisample )
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateVariants(num_mutations, genome, model, rng);
+  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model, rng);
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_idx;
@@ -185,12 +186,13 @@ BOOST_AUTO_TEST_CASE( multisample )
   BOOST_TEST_MESSAGE( " variants are in file '" << fn_out << "'." );
 
   // create sequencing reads for samples by applying variants to "germline" reads
+  VariantSet varset(variants);
   for (auto row_sample : sample_mtx) {
     string lbl_sample = row_sample.first;
     vector<double> w = row_sample.second;
     string fn_fastq = str(boost::format("%s.fq") % lbl_sample);
     string fn_sam = str(boost::format("%s.sam") % lbl_sample);
-    bamio::mutateReads(fn_fastq, fn_sam, "build/data/pers_reads.sam", variants, tree, w, lbl_sample, rng);
+    bamio::mutateReads(fn_fastq, fn_sam, "build/data/pers_reads.sam", varset, tree, w, lbl_sample, genome.ploidy, rng);
   }
   BOOST_TEST_MESSAGE( "EOT" );
 }

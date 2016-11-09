@@ -40,7 +40,7 @@ struct SeqRecord
   std::string description; /** sequence description (everything after first space in ID line) */
   std::string seq;         /** actual sequence */
   std::string id_ref;      /** identifier in reference genome (ploidy) */
-  short copy;              /** chromosome copy (1 for haploid) */
+  short chr_copy;          /** chromosome copy (0 for haploid) */
   SeqRecord(const std::string, const std::string, const std::string&);
 };
 
@@ -91,8 +91,10 @@ struct Genome
 void readFasta(const char*, std::vector<SeqRecord>&);
 /** Reads sequences from istream. */
 void readFasta(std::istream&, std::vector<SeqRecord>&);
+/** Writes sequences to file. */
+int writeFasta(const std::vector<SeqRecord>&, const std::string fn, int len_line = 60);
 /** Writes sequences to ostream. */
-int writeFasta(const std::vector<SeqRecord>&, std::ostream&, int = 60);
+int writeFasta(const std::vector<SeqRecord>&, std::ostream& os, int len_line = 60);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
 /** Generate random DNA sequence */

@@ -15,7 +15,7 @@ using namespace std;
 namespace seqio {
 
 SeqRecord::SeqRecord(const string id, const string desc, const string& seq)
-  : id(id), description(desc), seq(seq), id_ref(id), copy(0) {}
+  : id(id), description(desc), seq(seq), id_ref(id), chr_copy(0) {}
 
 Genome::Genome() : length(0), masked_length(0), ploidy(1) {}
 
@@ -171,16 +171,16 @@ fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n
 void Genome::duplicate() {
   ploidy *= 2;
   /* better to work with a haploid genome and store copy number in variants? */
-  for (unsigned i=0; i<num_records; ++i) {
+  /*for (unsigned i=0; i<num_records; ++i) {
     SeqRecord orig = records[i];
     SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
     dupl->id_ref = orig.id_ref;
-    dupl->copy = orig.copy+1;
+    dupl->chr_copy = orig.chr_copy+1;
     records.push_back(*dupl);
     records[i].id += "_0";
     records[num_records+i].id += "_1";
   }
-  num_records *= 2;
+  num_records *= 2;*/
 }
 
 Locus Genome::getLocusByGlobalPos(long global_pos) const {
@@ -266,6 +266,21 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
     cerr << e.what() << endl;
     cerr << "Possibly premature end of FASTA file?" << endl;
   }
+}
+
+/** Write SeqRecords to FASTA file, using a defined line width. */
+int writeFasta(
+  const std::vector<SeqRecord>& sequences,
+  const std::string filename,
+  int line_width)
+{
+  int num_records = 0;
+  ofstream ofs;
+  ofs.open(filename);
+  num_records = writeFasta(sequences, ofs, line_width);
+  ofs.close();
+
+  return num_records;
 }
 
 /** Write SeqRecords to FASTA file, using a defined line width. */

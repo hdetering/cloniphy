@@ -21,7 +21,8 @@ struct Variant
 {
   std::string id;     /** unique identifier */
   std::string chr;    /** reference chromosome id */
-  short chr_copy;     /** affected copy of chromosome (0: mat, 1: pat, ...) */
+  short chr_copy;     /** chromosome phase (0: maternal, 1: paternal, ...[hyperdiploid]) */
+  short reg_copy;     /** affected copy of chr region (0: original, 1: first copy, ...) */
   unsigned long pos;  /** reference basepair position */
   std::vector<std::string> alleles; /** observed alleles */
   unsigned idx_mutation; /** reference to mutation that gave rise to this variant */
@@ -34,8 +35,10 @@ struct Variant
   bool operator< (const Variant&) const; /** make variants sortable */
   /** Sort variants by absolute position in genome. */
   static std::vector<Variant> sortByPosition(const std::vector<Variant>&);
+  /** Sort variants, first lexicographically by CHR, then by position in CHR. */
+  static std::vector<Variant> sortByPositionLex(const std::vector<Variant>&);
   /** Sort variants by absolute position in genome, taking chomosome copies into account. */
-  static std::vector<Variant> sortByPositionPoly(const std::vector<Variant> &variants);
+  static std::vector<Variant> sortByPositionPoly(const std::vector<Variant>&);
   /** Sort variants by position in reference genome. */
   static std::vector<Variant> sortByPositionRef(const std::vector<Variant>&);
   /** Returns true if this variant is a SNV, false otherwise. */
@@ -46,7 +49,10 @@ struct Variant
 struct VariantSet
 {
   unsigned long num_variants = 0;
-  std::vector<Variant> vec_variants; /** variants that belong to the set */
+  std::vector<Variant> vec_variants; /** all variants that belong to the set */
+  // TODO: a position must be able to store more than one variable! (-> CNVs, homoplasy)
+  std::map<std::string, std::map<unsigned long, Variant>> map_chr2pos2var; /** variants stored by chromosome id */
+
   /** summary statistics */
   double mat_freqs[4][4] = {
     { 0.0, 0.0, 0.0, 0.0 },
@@ -56,7 +62,11 @@ struct VariantSet
   }; /** nucleotide substitution frequencies */
 
   VariantSet();
+  VariantSet(std::vector<Variant> variants);
   ~VariantSet();
+
+  /** Index variants by chromosome and position. */
+  long indexVariants();
   long calculateSumstats();
 };
 
@@ -135,7 +145,7 @@ void writeVcf(
 
 /** Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */
-std::vector<Variant> generateVariants(
+std::vector<Variant> generateGermlineVariants(
   const int num_variants,
   const Genome& genome,
   SubstitutionModel& model,

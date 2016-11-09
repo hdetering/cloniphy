@@ -128,14 +128,19 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   // at least one mutation per clone?
   if (n_mut < n_clones) {
-    fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut, n_clones);
-    return false;
+    if (n_mut > 0) {
+      fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut, n_clones);
+      return false;
+    } else if (n_mut == 0 && fn_tree.length()==0) {
+      fprintf(stderr, "\nArgumentError: When setting number of mutations = 0, a tree file needs to be specified. (Branch lengths -> #mutations)\n");
+      return false;
+    }
   }
   // initial mutations do not exceed total mutations?
-  if (n_mut_init > (n_mut-n_clones)) {
-    fprintf(stderr, "\nArgumentError: Too many initial mutations (%d)\n -> can't be more than total mutations minus #clones (%d).\n", n_mut_init, n_mut-n_clones);
-    return false;
-  }
+  //if (n_mut_init > (n_mut-n_clones)) {
+  //  fprintf(stderr, "\nArgumentError: Too many initial mutations (%d)\n -> can't be more than total mutations minus #clones (%d).\n", n_mut_init, n_mut-n_clones);
+  //  return false;
+  //}
   // reference file exists?
   if (fn_ref.length()>0 && !fileExists(fn_ref)) {
     fprintf(stderr, "\nArgumentError: Reference genome file '%s' does not exist.\n", fn_ref.c_str());
@@ -202,7 +207,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   if (!_config["samples"] || _config["samples"].size() == 0) {
     fprintf(stderr, "\nArgumentError: Missing sampling matrix - 'samples' param in config file needed.\n");
     return false;
-  } else {
+  } else if (fn_tree.empty()) {
     double row_sum;
     for (auto row_sample : _config["samples"]) {
       if (row_sample.size() != (n_clones + 1)) {

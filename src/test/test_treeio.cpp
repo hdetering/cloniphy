@@ -111,5 +111,24 @@ BOOST_AUTO_TEST_CASE( random_sample_tree )
   tree.m_root->populateMutationMatrixRec(mm);
 }
 
+/* read user-specified tree from file */
+BOOST_AUTO_TEST_CASE ( read )
+{
+  string fn = "data/bulk/bulk.tre";
+
+  BOOST_TEST_MESSAGE( "Reading clone tree from file:\n  " << fn << "\n");
+
+  Tree<Clone> tree(fn);
+  tree._printNodes();
+  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
+
+  BOOST_TEST_MESSAGE( "\nVisible nodes (clones):" );
+
+  int i = 0;
+  for (auto c : clones) {
+    BOOST_TEST_MESSAGE( str(format("  %d: '%s'") % i % c->label ) );
+    i++;
+  }
+}
 
 BOOST_AUTO_TEST_SUITE_END()

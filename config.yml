@@ -5,7 +5,7 @@
 #--------------------#
 
 # prefix for output files
-out: "clonesim"
+out: "bulk"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -18,14 +18,16 @@ seed: 123456789
 # clone tree parameters #
 #-----------------------#
 
+# user-provided clone tree (overrides parameters below)
+tree: "data/bulk/bulk.tre"
+
 # number of clones to simulate
 clones: 5
-
 # number of total mutations to simulate
-mutations: 1010
+mutations: 0
 # number of transforming mutations shared by all clones
 # (included in total mutations)
-init-muts: 10
+init-muts: 100
 
 #-------------------------#
 # reference genome params #
@@ -46,7 +48,7 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # germline variants (to generate personal genome from reference)
 #reference-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-germline : 100000
+mut-germline : 1000
 
 #-------------------------------#
 # sequence evolution parameters #
@@ -77,16 +79,22 @@ model-params:
 # first column contains sample name (used to name output files)
 # NOTE: make sure number of columns correspond to "clones" parameter +1
 samples:
+  ## only generate healthy reads:
   #- [ sample1 ]
-  - [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
-  - [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
-  - [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
+  ## 3x5 scheme
+  #- [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
+  #- [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
+  #- [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
+  ## 3x4 scheme
+  - [ sample1, 0.4, 0.0, 0.2, 0.2 ]
+  - [ sample2, 0.7, 0.0, 0.0, 0.0 ]
+  - [ sample3, 0.0, 0.4, 0.4, 0.0 ]
 
 #-------------------------------#
 #     sequencing parameters     #
 #-------------------------------#
 
-# average depth of coverage (applied to diploid genome, i.e. haploid coverage is 2x this value)
+# haploid depth of coverage
 seq-coverage      : 50
 # read length
 seq-read-len      : 100

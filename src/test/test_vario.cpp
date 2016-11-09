@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE( vcf_sumstats )
 }
 
 /* generate set of novel variants */
-BOOST_AUTO_TEST_CASE( generate_variants )
+BOOST_AUTO_TEST_CASE( germline )
 {
   int num_vars = 1000;
   boost::timer::auto_cpu_timer t;
@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE( generate_variants )
   ref_genome.duplicate();
 
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateVariants(num_vars, ref_genome, model, rng);
+  vector<Variant> variants = generateGermlineVariants(num_vars, ref_genome, model, rng);
   BOOST_TEST_MESSAGE( "done generating 1000 variants, here are the first 10: " );
   BOOST_TEST_MESSAGE( "  id, chr, bp, ref, alt, copy" );
   for (int i=0; i<10; ++i) {
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE( var_dist )
 {
   boost::timer::auto_cpu_timer t;
   BOOST_TEST_MESSAGE( "generating 10000 genomic variants (using substitution frequencies)..." );
-  vector<Variant> vars_model = generateVariants(10000, ref_genome, model, rng);
+  vector<Variant> vars_model = generateGermlineVariants(10000, ref_genome, model, rng);
   VariantSet varset_model;
   varset_model.vec_variants = vars_model;
   varset_model.calculateSumstats();
