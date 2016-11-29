@@ -10,6 +10,9 @@
 #include <seqan/bam_io.h>
 #include <string>
 
+/**
+ * Methods to support the input/output of SAM/BAM files.
+ */
 namespace bamio {
 
 /** Takes an existing SAM/BAM file and adds germline mutations to reads. */

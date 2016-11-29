@@ -33,7 +33,8 @@ struct FixtureBamio {
     // init somatic mutation model
     string fn_somatic = "../resources/signatures_probabilities.txt";
     map<string, double> contrib;
-    contrib["Signature 1"] = 1.0;
+    contrib["Signature 1"] = 0.8;
+    contrib["Signature 5"] = 0.2;
     model_sm = SomaticSubstitutionModel(fn_somatic, contrib);
 
     char* argv[3] = {const_cast<char*>("test_bamio"), const_cast<char*>("-c"), const_cast<char*>("../config.yml")};

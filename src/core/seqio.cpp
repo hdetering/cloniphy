@@ -37,8 +37,14 @@ void Genome::generate(
   this->generate(total_len, 1, nuc_freqs, rng);
 }
 
-/** DEPRECATED(?)
-  * Generate random reference genome based on nucleotide frequencies. */
+/**
+ * Generate random reference genome based on nucleotide frequencies.
+ *
+ * \param total_len total genome length including all sequences
+ * \param num_chr number of chromosomes/sequences to generate
+ * \param nuc_freqs nucleotide frequencies (A,C,G,T)
+ * \param object to generate random numbers
+ */
 void Genome::generate(
   const unsigned long total_len,
   const unsigned short num_chr,
@@ -140,9 +146,7 @@ void Genome::indexRecords() {
           is_new_region = true;
           vec_start_masked.push_back(cum_start + p);
         }
-        //nuc_count[toupper(*it)]++;
         nuc_count[nuc]++;
-        //map_nuc_pos[toupper(*it)].push_back(cum_start + p);
         nuc_pos[nuc].push_back(cum_start + p);
         it++; p++; masked_length++;
         nuc = nuc2idx(*it);

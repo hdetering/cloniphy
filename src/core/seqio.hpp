@@ -61,18 +61,47 @@ struct Genome
   // TODO: make ploidy a feature of each sequence (?)
   short ploidy;                           /** number of copies for each chromosome */
   std::vector<SeqRecord> records;
+
   std::vector<unsigned> vec_start_chr;    /** cumulative start positions of sequences */
   std::vector<unsigned> vec_start_masked; /** cumulative start positions of unmasked regions */
   std::vector<unsigned> vec_cumlen_masked; /** cumulative lengths of unmasked regions */
   double nuc_freq[4];                     /** nucleotide frequencies */
-  std::map<char, std::vector<long> > map_nuc_pos; /** absolute bp positions indexed by nucleotide */
+  /** absolute bp positions indexed by nucleotide */
+  //std::map<char, std::vector<long> > map_nuc_pos;
   std::vector<std::vector<long> > nuc_pos;
+  /** absolute bp positions indexed by tri-nucleotides */
+  std::map<std::string, std::vector<long> > map_3mer_pos;
 
   Genome();
   Genome(const char*);
-  void generate(const unsigned long, const std::vector<double>, RandomNumberGenerator<>&);
-  void generate(const unsigned long, const unsigned short, const std::vector<double>, RandomNumberGenerator<>&);
-  /** generate random genome by given number of fragments, mean len, sd len, nuc freqs */
+  /** Simulate DNA seq of given length and nuc freqs. */
+  void generate(
+    const unsigned long,
+    const std::vector<double>,
+    RandomNumberGenerator<>&);
+  /**
+   * Generate random reference genome based on nucleotide frequencies.
+   *
+   * \param total genome length including all sequences
+   * \param number of chromosomes/sequences to generate
+   * \param nucleotide frequencies (A,C,G,T)
+   * \param object to generate random numbers
+   */
+  void generate(
+    const unsigned long,
+    const unsigned short,
+    const std::vector<double>,
+    RandomNumberGenerator<>&);
+
+  /**
+    * Generate random genome with given number of fragments, mean len, sd len, nuc freqs.
+    *
+    * \param num_frags  number of chromosomes/sequences to generate
+    * \param mean_len   mean sequence length
+    * \param sd_len     standard deviation of sequence length
+    * \param nuc_freqs  nucleotide frequencies (A,C,G,T)
+    * \param rng object to generate random numbers
+    */
   void generate(
     const unsigned num_frags,
     const unsigned long mean_len,

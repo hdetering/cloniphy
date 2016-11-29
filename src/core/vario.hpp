@@ -15,6 +15,9 @@ using seqio::SeqRecord;
 using evolution::GermlineSubstitutionModel;
 using evolution::SomaticSubstitutionModel;
 
+/**
+ * Classes and methods for input/output and simulation of variants.
+ */
 namespace vario {
 
 /** Variants represent variable sites in nucleotide sequences */
