@@ -21,13 +21,21 @@ struct FixtureBamio {
   FixtureBamio() {
     BOOST_TEST_MESSAGE( "setup fixure" );
 
+    // init germline mutation model
     double Q[4][4] = {
       {    0.0, 0.0406, 0.1661, 0.0331 },
       { 0.0417,    0.0, 0.0438, 0.1746 },
       { 0.1744, 0.0440,    0.0, 0.0418 },
       { 0.0331, 0.1662, 0.0405,    0.0 }
     };
-    model = SubstitutionModel(Q);
+    model_gl = GermlineSubstitutionModel(Q);
+
+    // init somatic mutation model
+    string fn_somatic = "../resources/signatures_probabilities.txt";
+    map<string, double> contrib;
+    contrib["Signature 1"] = 1.0;
+    model_sm = SomaticSubstitutionModel(fn_somatic, contrib);
+
     char* argv[3] = {const_cast<char*>("test_bamio"), const_cast<char*>("-c"), const_cast<char*>("../config.yml")};
     config.parseArgs(3, argv);
   }
@@ -37,7 +45,8 @@ struct FixtureBamio {
 
   long seed = 123456789;
   RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
-  SubstitutionModel model;
+  GermlineSubstitutionModel model_gl;
+  SomaticSubstitutionModel model_sm;
   config::ConfigStore config;
 };
 
@@ -51,7 +60,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   node root;
   readNewick(fn_tree, root);
   Tree<Clone> tree(root);*/
-
+return;
   // TODO: this should be replaced by loading a tree from file (see above)
   // -> integrate flags "is_visible" and "weight" into Newick format
   function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
@@ -104,7 +113,7 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model, rng);
+  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model_gl, rng);
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   auto fn_out = "pers.bulk.vcf";
   ofstream fs_out;
@@ -168,7 +177,7 @@ BOOST_AUTO_TEST_CASE( multisample )
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model, rng);
+  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model_gl, rng);
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_idx;

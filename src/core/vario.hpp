@@ -12,7 +12,8 @@
 
 using seqio::Genome;
 using seqio::SeqRecord;
-using evolution::SubstitutionModel;
+using evolution::GermlineSubstitutionModel;
+using evolution::SomaticSubstitutionModel;
 
 namespace vario {
 
@@ -95,7 +96,7 @@ struct Mutation
   /** returning a Variant and Genotype object */
   void apply(
     Genome& genome,
-    SubstitutionModel model,
+    GermlineSubstitutionModel model,
     std::function<double()>& random,
     Variant &var,
     Genotype &gt);
@@ -112,7 +113,7 @@ std::vector<Mutation> generateMutations(
 void applyMutations(
   const std::vector<Mutation> &,
   const Genome& genome,
-  SubstitutionModel model,
+  GermlineSubstitutionModel model,
   std::function<double()>& random,
   std::vector<Variant> &variants);
 
@@ -148,7 +149,7 @@ void writeVcf(
 std::vector<Variant> generateGermlineVariants(
   const int num_variants,
   const Genome& genome,
-  SubstitutionModel& model,
+  GermlineSubstitutionModel& model,
   RandomNumberGenerator<>&,
   const bool infinite_sites = false
 );
@@ -157,7 +158,7 @@ std::vector<Variant> generateGermlineVariants(
 std::vector<Variant> generateVariantsRandomPos(
   const int num_variants,
   const Genome& genome,
-  SubstitutionModel& model,
+  GermlineSubstitutionModel& model,
   RandomNumberGenerator<>&,
   const bool infinite_sites = false
 );

@@ -26,6 +26,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_mut = 0;
   int n_mut_init = 0;
   string model = "JC";
+  string fn_mut_sig = "resources/signatures_probabilities.txt";
   string fn_ref = "";
   string fn_ref_vcf = "";
   string fn_tree = "";
@@ -101,6 +102,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   if (var_map.count("reference") || !_config["reference"]) {
     _config["reference"] = fn_ref;
   }
+  if (_config["mut-sig-file"]) {
+    fn_mut_sig = _config["mut-sig-file"].as<string>();
+  } else {
+    _config["mut-sig-file"] = fn_mut_sig;
+  }
   fn_ref = _config["reference"].as<string>();
   if (var_map.count("reference-vcf") || !_config["reference-vcf"]) {
     _config["reference-vcf"] = fn_ref_vcf;
@@ -161,7 +167,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     }
   }
 
-  // check evolutionary model params
+  // check germline evolutionary model params
   if (!_config["model"]) {
     //fprintf(stderr, "\n[INFO] Missing evolutionary model - assuming '%s'.\n", model.c_str());
     YAML::Node node = YAML::Load(model);
@@ -201,6 +207,17 @@ bool ConfigStore::parseArgs (int ac, char* av[])
         return false;
       }
     }
+  }
+
+  // check somatic evolution parameters
+  if (!fileExists(fn_mut_sig)) {
+    fprintf(stderr, "\nArgumentError: Mutation signature file '%s' does not exist.\n", fn_mut_sig.c_str());
+    return false;
+  }
+  if (!_config["mut-signatures"]) {
+    fprintf(stderr, "\n[INFO] Missing somatic mutation signatures - assuming signature 1.\n");
+    YAML::Node node = YAML::Load("1: 1.0");
+    _config["mut-signatures"] = node;
   }
 
   // does sampling matrix have the expected number of rows (clones + 1)?

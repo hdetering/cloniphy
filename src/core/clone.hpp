@@ -15,7 +15,7 @@ using seqio::Genome;
 using vario::Genotype;
 using vario::Mutation;
 using vario::Variant;
-using evolution::SubstitutionModel;
+using evolution::GermlineSubstitutionModel;
 
 struct Clone: public treeio::TreeNode
 {
@@ -48,7 +48,7 @@ struct Clone: public treeio::TreeNode
   /** apply a predefined set of mutations to own genome */
   void applyMutations(
     const std::vector<Mutation>&,
-    SubstitutionModel,
+    GermlineSubstitutionModel,
     Genome&,
     std::function<double()>&);
 };

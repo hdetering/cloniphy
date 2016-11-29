@@ -34,7 +34,8 @@ using seqio::Genome;
 using vario::Genotype;
 using vario::Variant;
 using vario::VariantSet;
-using evolution::SubstitutionModel;
+using evolution::GermlineSubstitutionModel;
+using evolution::SomaticSubstitutionModel;
 
 
 int main (int argc, char* argv[])
@@ -55,7 +56,7 @@ int main (int argc, char* argv[])
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref = config.getValue<string>("reference");
   string fn_ref_vcf = config.getValue<string>("reference-vcf");
-  string str_model = config.getValue<string>("model");
+  string str_model_gl = config.getValue<string>("model");
   string fn_tree = config.getValue<string>("tree");
   map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
   double seq_coverage = config.getValue<double>("seq-coverage");
@@ -74,7 +75,9 @@ int main (int argc, char* argv[])
   // internal vars
   map<shared_ptr<Clone>, string> clone2fn; // stores genome file names for each clone
   treeio::Tree<Clone> tree; // contains clone genealogy
-  SubstitutionModel model; // model of sequence evolution
+  GermlineSubstitutionModel model_gl; // model of germline seq evolution
+  SomaticSubstitutionModel model_sm; // model of somatic seq evolution
+
   vector<Mutation> vec_mut_gl; // germline mutations
   vector<Variant> vec_var_gl; // germline variants
 
@@ -196,27 +199,27 @@ int main (int argc, char* argv[])
   */
 
   // inititalize model of sequence evolution
-  if (str_model == "JC") {
-    model.init_JC();
-  } else if (str_model == "F81") {
+  if (str_model_gl == "JC") {
+    model_gl.init_JC();
+} else if (str_model_gl == "F81") {
     vector<double> vec_freqs = config.getValue<vector<double>>("model-params:nucFreq");
-    model.init_F81(&vec_freqs[0]);
-  } else if (str_model == "K80") {
+    model_gl.init_F81(&vec_freqs[0]);
+} else if (str_model_gl == "K80") {
     double kappa = config.getValue<double>("model-params:kappa");
-    model.init_K80(kappa);
-  } else if (str_model == "HKY") {
+    model_gl.init_K80(kappa);
+} else if (str_model_gl == "HKY") {
     vector<double> vec_freqs = config.getValue<vector<double>>("model-params:nucFreq");
     double kappa = config.getValue<double>("model-params:kappa");
-    model.init_HKY(&vec_freqs[0], kappa);
+    model_gl.init_HKY(&vec_freqs[0], kappa);
   }
 
   // if a VCF file was provided, read germline variants from file, otherwise simulate variants
   if (fn_ref_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
     fprintf(stderr, "applying germline variants (from %s).\n", fn_ref_vcf.c_str());
   } else if (n_mut_germline > 0) {
-    fprintf(stderr, "simulating %d germline variants (model: %s).\n", n_mut_germline, str_model.c_str());
+    fprintf(stderr, "simulating %d germline variants (model: %s).\n", n_mut_germline, str_model_gl.c_str());
     //vec_mut_gl = vario::generateMutations(n_mut_germline, random_dbl);
-    vec_var_gl = vario::generateGermlineVariants(n_mut_germline, ref_genome, model, rng);
+    vec_var_gl = vario::generateGermlineVariants(n_mut_germline, ref_genome, model_gl, rng);
     //vario::applyVariants(ref_genome, vec_var_gl);
 
     fn_ref_vcf = str(format("%s.germline.vcf") % pfx_out.c_str());
@@ -246,7 +249,7 @@ int main (int argc, char* argv[])
   }
   // apply mutations, creating variants in the process
   vector<Variant> variants = vector<Variant>();
-  vario::applyMutations(mutations, ref_genome, model, random_dbl, variants);
+  vario::applyMutations(mutations, ref_genome, model_gl, random_dbl, variants);
 
   // setup mutation matrix
   int num_nodes = tree.m_numNodes;

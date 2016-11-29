@@ -10,7 +10,7 @@ using namespace boost::icl;
 #include <fstream>
 #include <vector>
 using boost::format;
-using evolution::SubstitutionModel;
+using evolution::GermlineSubstitutionModel;
 using namespace std;
 using namespace vario;
 
@@ -44,14 +44,14 @@ struct FixtureVario {
       { 0.1744, 0.0440,    0.0, 0.0418 },
       { 0.0331, 0.1662, 0.0405,    0.0 }
     };
-    model = SubstitutionModel(Q);
+    model = GermlineSubstitutionModel(Q);
   }
   ~FixtureVario() {
     BOOST_TEST_MESSAGE( "teardown fixture" );
   }
 
   string fn_vcf;
-  SubstitutionModel model;
+  GermlineSubstitutionModel model;
   seqio::Genome ref_genome;
   long seed = 123456789;
   RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);

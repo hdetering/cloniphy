@@ -124,7 +124,7 @@ cerr << "\nGenerating genome for " << *this << ", " << this->m_vec_mutations.siz
 }*/
 
 void Clone::applyMutations(const vector<Mutation> &my_mutations,
-                          SubstitutionModel model,
+                          GermlineSubstitutionModel model,
                           Genome &my_genome,
                           function<double()>& rng)
 {

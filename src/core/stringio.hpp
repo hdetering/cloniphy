@@ -12,13 +12,38 @@ namespace stringio {
 
 /** Splits a string by a delimitor into an existing vector */
 std::vector<std::string> &split(const std::string&, char, std::vector<std::string>&);
-/** Splits a string by a delimiter into an existing vector */
+/** Splits a string by a delimiter into a new vector */
 std::vector<std::string> split(const std::string&, char);
 /** Reads a line from a stream, dealing with different styles of line endings. */
 std::istream& safeGetline(std::istream& is, std::string& t);
 /** takes a map and formats it as a table with keys in first column */
 template<typename T>
 std::string printMatrix(std::map<std::string, std::vector<T>> mtx);
+
+/** Reads a line from a CSV file and splits it into cells.  */
+class CSVRow
+{
+    public:
+        /** Default c'tor. Sets separator to ','. */
+        CSVRow() : m_sep(',') {}
+        /** Inititalize CSVRow with given char as separator. */
+        CSVRow(char sep) : m_sep(sep) {}
+
+        /** Enable access to CSVRow fields by index. */
+        std::string const& operator[](std::size_t index) const;
+        /** Return number of fields in CSV row. */
+        std::size_t size() const;
+        /** Read line from input stream. */
+        void readNextRow(std::istream& str);
+
+    private:
+        std::vector<std::string> m_data;
+        char m_sep;
+};
+
+/** Enable streaming into CSVRow from input stream. */
+std::istream& operator>>(std::istream& str, CSVRow& data);
+
 
 /*---------------------------------*
  * function templates declarations *

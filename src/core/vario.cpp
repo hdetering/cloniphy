@@ -109,7 +109,7 @@ vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
 
 void Mutation::apply(
        Genome &genome,
-       SubstitutionModel model,
+       GermlineSubstitutionModel model,
        function<double()> &rng,
        Variant &var,
        Genotype &gt)
@@ -217,7 +217,7 @@ vector<Mutation> generateMutations(
 void applyMutations(
   const std::vector<Mutation> & mutations,
   const Genome& genome,
-  SubstitutionModel model,
+  GermlineSubstitutionModel model,
   function<double()>& random,
   vector<Variant> &variants)
 {
@@ -408,7 +408,7 @@ void writeVcf(
 vector<Variant> generateGermlineVariants(
   const int num_variants,
   const Genome& genome,
-  SubstitutionModel& model,
+  GermlineSubstitutionModel& model,
   RandomNumberGenerator<>& rng,
   const bool inf_sites)
 {
@@ -477,7 +477,7 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
 vector<Variant> generateVariantsRandomPos(
   const int num_variants,
   const Genome& genome,
-  SubstitutionModel& model,
+  GermlineSubstitutionModel& model,
   RandomNumberGenerator<>& rng,
   const bool inf_sites)
 {

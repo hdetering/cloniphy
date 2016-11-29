@@ -53,4 +53,33 @@ istream& safeGetline(istream& is, string& t)
     }
 }
 
+/** Enable access to CSVRow fields by index. */
+string const& CSVRow::operator[](size_t index) const {
+    return m_data[index];
+}
+/** Return number of fields in CSV row. */
+size_t CSVRow::size() const {
+    return m_data.size();
+}
+/** Read line from input stream. */
+void CSVRow::readNextRow(istream& str) {
+    string line;
+    getline(str, line);
+
+    stringstream lineStream(line);
+    string cell;
+
+    m_data.clear();
+    while(getline(lineStream, cell, m_sep))
+    {
+        m_data.push_back(cell);
+    }
+}
+
+/** Enable streaming into CSVRow from input stream. */
+istream& operator>>(std::istream& str, CSVRow& data) {
+    data.readNextRow(str);
+    return str;
+}
+
 } /* namespace stringio */
