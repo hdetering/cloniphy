@@ -2,11 +2,12 @@
 #include <algorithm>
 #include <boost/format.hpp>
 using boost::str;
+#include <boost/circular_buffer.hpp>
 #include <cctype>
 #include <cmath>
 #include <fstream>
 #include <functional>
-#include <map>
+//#include <numeric> // std::accumulate
 #include <sstream>
 #include <stdlib.h> // for system() calls
 
@@ -128,6 +129,18 @@ void Genome::indexRecords() {
   nuc_pos = vector<vector<long> >(4); // nucleotide buckets
   unsigned cum_start = 0; // global start position
   vec_start_chr.clear(); // start positions of sequences
+  boost::circular_buffer<string> trinuc(3);  // next trinucleotide to index
+  // 3mer index
+  map_3mer_pos.clear();
+  char nucs[4] = { 'A', 'C', 'G', 'T' };
+  for (auto n1 : nucs) {
+    for (auto n2 : nucs) {
+      for (auto n3 : nucs) {
+        string key = string(1, n1) + string(1, n2) + string(1, n3);
+        map_3mer_pos[key] = vector<long>();
+      }
+    }
+  }
 
   vec_start_chr.push_back(cum_start);
   for (vector<SeqRecord>::const_iterator rec=records.begin(); rec!=records.end(); ++rec) {
@@ -140,7 +153,8 @@ void Genome::indexRecords() {
       short nuc = nuc2idx(*it);
       // skip to next unmasked position
       while (it!=rec->seq.end() && nuc == -1) { it++; p++; nuc=nuc2idx(*it); }
-      // skip to next masked position
+      trinuc.clear(); // clear out previous trinucleotide
+      // process seq until next masked position
       while (it!=rec->seq.end() && nuc > -1) {
         if (!is_new_region) {
           is_new_region = true;
@@ -148,6 +162,11 @@ void Genome::indexRecords() {
         }
         nuc_count[nuc]++;
         nuc_pos[nuc].push_back(cum_start + p);
+        trinuc.push_back(string(1, *it)); // new nuc will push out oldest one from circular buffer
+        if (trinuc.size() == 3) {
+          string tn = trinuc[0] + trinuc[1] + trinuc[2];
+          map_3mer_pos[tn].push_back(cum_start + p - 2);
+        }
         it++; p++; masked_length++;
         nuc = nuc2idx(*it);
       }

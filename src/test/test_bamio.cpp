@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   node root;
   readNewick(fn_tree, root);
   Tree<Clone> tree(root);*/
-return;
+
   // TODO: this should be replaced by loading a tree from file (see above)
   // -> integrate flags "is_visible" and "weight" into Newick format
   function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);

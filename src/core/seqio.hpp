@@ -14,6 +14,11 @@ namespace seqio {
 
 enum Nuc { A, C, G, T, N };
 
+/**
+ * Returns a canonical index (corresponding to ::Nuc) for a nucleotide.
+ *
+ * \returns index position of nucleotide, -1 for unknown characters
+ */
 inline short nuc2idx (char nuc) {
   switch (nuc) {
     case 'A': case 'a': return 0;
@@ -24,12 +29,18 @@ inline short nuc2idx (char nuc) {
   return -1; // default for unknown chars
 }
 
+/**
+ * Map nucleotide char to a canonical index (corresponding to ::Nuc).
+ *
+ * \returns Nucleotide char for defined indices, `?` otherwise
+ */
 inline char idx2nuc (short idx) {
   switch (idx) {
     case 0: return 'A';
     case 1: return 'C';
     case 2: return 'G';
     case 3: return 'T';
+    case 4: return 'N';
   }
   return '?'; // default for unknown chars
 }
@@ -75,10 +86,12 @@ struct Genome
   Genome();
   Genome(const char*);
   /** Simulate DNA seq of given length and nuc freqs. */
-  void generate(
+  void generate (
     const unsigned long,
     const std::vector<double>,
-    RandomNumberGenerator<>&);
+    RandomNumberGenerator<>&
+  );
+
   /**
    * Generate random reference genome based on nucleotide frequencies.
    *
@@ -87,11 +100,12 @@ struct Genome
    * \param nucleotide frequencies (A,C,G,T)
    * \param object to generate random numbers
    */
-  void generate(
+  void generate (
     const unsigned long,
     const unsigned short,
     const std::vector<double>,
-    RandomNumberGenerator<>&);
+    RandomNumberGenerator<>&
+  );
 
   /**
     * Generate random genome with given number of fragments, mean len, sd len, nuc freqs.
@@ -102,17 +116,38 @@ struct Genome
     * \param nuc_freqs  nucleotide frequencies (A,C,G,T)
     * \param rng object to generate random numbers
     */
-  void generate(
+  void generate (
     const unsigned num_frags,
     const unsigned long mean_len,
     const unsigned long sd_len,
     const std::vector<double> nuc_freqs,
-    RandomNumberGenerator<>& rng);
+    RandomNumberGenerator<>& rng
+  );
+
+  /**
+   * Index genome for easier access to sequences and individual nucleotides.
+   *
+   * Indices are generated to translate between global and local coordinates
+   * as well as to quickly locate
+   *  - unmasked (non-"N") regions
+   *  - positions having a given nucleotide
+   *  - positions having a given tri-nucleotide
+   */
   void indexRecords();
-  void duplicate(); // increase ploidy
-  /** Get chromosome and local position for global position */
+
+  /**
+   * Increase the ploidy of the whole genome by a factor of two.
+   */
+  void duplicate();
+
+  /**
+   * Get chromosome and local position for global position
+   */
   Locus getLocusByGlobalPos(long) const;
-  /** Get absolute coordinates for a relative position in unmasked part of the genome */
+
+  /**
+   * Get absolute coordinates for a relative position in unmasked part of the genome
+   */
   Locus getAbsoluteLocusMasked(double) const;
 };
 
