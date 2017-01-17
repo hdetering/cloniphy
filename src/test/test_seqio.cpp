@@ -43,13 +43,17 @@ BOOST_AUTO_TEST_CASE( ref )
   // write genome to file
   BOOST_TEST_MESSAGE( "writing generated genome to file 'ref_genome.fa'..." );
   ofstream f_fasta;
-  f_fasta.open("ref_genome.fa");
+  f_fasta.open("ref.fa");
   writeFasta(ref_genome.records, f_fasta);
   f_fasta.close();
   BOOST_TEST_MESSAGE( "done." );
 
   // display summary stats
   ref_genome.indexRecords();
+  BOOST_TEST_MESSAGE( "Genomic 3-mer counts:" );
+  for (auto kv : ref_genome.map_3mer_pos) {
+    BOOST_TEST_MESSAGE( "  " << kv.first << ": " << kv.second.size() );
+  }
 }
 
 /* generate reference exome */

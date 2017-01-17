@@ -10,6 +10,9 @@
 #include <seqan/bam_io.h>
 #include <string>
 
+/**
+ * Methods to support the input/output of SAM/BAM files
+ */
 namespace bamio {
 
 /** Takes an existing SAM/BAM file and adds germline mutations to reads. */
@@ -21,7 +24,7 @@ void mutateReads(
   RandomNumberGenerator<> &rng
 );
 
-/** Takes an existing SAM/BAM file and adds subclonal mutations to reads.
+/** DEPRECATED Takes an existing SAM/BAM file and adds subclonal mutations to reads.
  *  NOTE: weights are to be provided for clone nodes (root node receives 1-sum)
  */
 void mutateReads(
@@ -30,6 +33,23 @@ void mutateReads(
   std::string fn_sam_in,
   vario::VariantSet &variants,
   treeio::Tree<Clone> &tree,
+  std::vector<double> weights,
+  std::string id_sample,
+  const short ploidy,
+  RandomNumberGenerator<> &rng,
+  bool do_write_fastq = false
+);
+
+/** Takes an existing SAM/BAM file and adds subclonal mutations to reads.
+ *  NOTE: weights are to be provided for clone nodes (root node receives 1-sum)
+ */
+void mutateReads(
+  std::string fn_fq_out,
+  std::string fn_sam_out,
+  std::string fn_sam_in,
+  vario::VariantSet &variants,
+  std::vector<std::shared_ptr<Clone>> vec_clones,
+  std::map<std::string, std::vector<bool>> mm,
   std::vector<double> weights,
   std::string id_sample,
   const short ploidy,

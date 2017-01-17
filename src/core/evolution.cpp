@@ -2,10 +2,12 @@
 #include <cmath>
 #include <cstdlib>
 
+using namespace std;
+
 namespace evolution {
 
 /** default c'tor */
-SubstitutionModel::SubstitutionModel() {
+GermlineSubstitutionModel::GermlineSubstitutionModel() {
   double q = 1.0/12.0;
   for (int i=0; i<4; ++i) {
     for (int j=0; j<4; ++j) {
@@ -20,13 +22,13 @@ SubstitutionModel::SubstitutionModel() {
 }
 
 /**custom transition probabilities */
-SubstitutionModel::SubstitutionModel(double Q[4][4]) {
+GermlineSubstitutionModel::GermlineSubstitutionModel(double Q[4][4]) {
   for (int i=0; i<4; ++i)
     for (int j=0; j<4; ++j)
       this->Qij[i][j] = Q[i][j];
 }
 
-SubstitutionModel::SubstitutionModel(double p[4], double titv) {
+GermlineSubstitutionModel::GermlineSubstitutionModel(double p[4], double titv) {
   //kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]);
 
   // TODO: add support for GTR model
@@ -61,32 +63,36 @@ SubstitutionModel::SubstitutionModel(double p[4], double titv) {
   };*/
 }
 
-/** Simulates the nucleotide substitution process for a site
+/** Simulates the nucleotide substitution process for a germline site
   * Assuming that mutation is certain -> use Qij to pick new nucleotide */
-short SubstitutionModel::MutateNucleotide(short ref_nuc, std::function<double()>& random) {
-	double r, cumProb[4];
+short MutateSite(
+  short ref_nuc,
+  function<double()>& random,
+  const GermlineSubstitutionModel& model
+)
+{
+  double r, cumProb[4];
   short new_nuc = 0;
 
-  cumProb[0] = Qij[ref_nuc][0];
-	for (short i=1; i<4; ++i)
-		cumProb[i] = cumProb[i-1] + Qij[ref_nuc][i];
+  cumProb[0] = model.Qij[ref_nuc][0];
+  for (short i=1; i<4; ++i)
+    cumProb[i] = cumProb[i-1] + model.Qij[ref_nuc][i];
   // normalize
   for (short i=0; i<4; ++i)
     cumProb[i] /= cumProb[3];
 
-	r = random();
-	if (r >= 0.0 && r <= cumProb[0])
-		new_nuc = 0;
-	else if (r > cumProb[0] && r <= cumProb[1])
-		new_nuc = 1;
-	else if (r > cumProb[1] && r <= cumProb[2])
-		new_nuc = 2;
-	else
-		new_nuc = 3;
+  r = random();
+  if (r >= 0.0 && r <= cumProb[0])
+    new_nuc = 0;
+  else if (r > cumProb[0] && r <= cumProb[1])
+    new_nuc = 1;
+  else if (r > cumProb[1] && r <= cumProb[2])
+    new_nuc = 2;
+  else
+    new_nuc = 3;
 
   return new_nuc;
 }
-
 
 /* parameters */
 double pinv;      // proportion of invariable sites
@@ -112,26 +118,26 @@ void init() {
 }
 
 /* Nucleotide substition matrix - Jukes-Cantor 1961 */
-void SubstitutionModel::init_JC() {
+void GermlineSubstitutionModel::init_JC() {
   double p[4] = { 0.25, 0.25, 0.25, 0.25 };
   double k = 1.0;
   init_HKY(p, k);
 }
 
 /* Nucleotide substition matrix - Felseinstein 1981 */
-void SubstitutionModel::init_F81(double p[4]) {
+void GermlineSubstitutionModel::init_F81(double p[4]) {
   double k = 1.0;
   init_HKY(p, k);
 }
 
 /* Nucleotide substition matrix - Kimura 1980 */
-void SubstitutionModel::init_K80(double k) {
+void GermlineSubstitutionModel::init_K80(double k) {
   double p[4] = { 1.0, 1.0, 1.0, 1.0 };
   init_HKY(p, k);
 }
 
 /* Nucleotide substition matrix - Hasegawa, Kishino and Yano 1985 */
-void SubstitutionModel::init_HKY(double p[4], double k) {
+void GermlineSubstitutionModel::init_HKY(double p[4], double k) {
   for (short i; i<4; i++)
     for (short j; j<4; i++)
       if (i==j) /* force mutation */
@@ -345,6 +351,73 @@ int EigenREV (double Root[], double Cijk[])
    				Cijk[i*4*4+j*4+k] = U[i*4+k]*V[k*4+j];
 
 	return (0);
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* SomaticSubstitutionModel
+/*----------------------------------------------------------------------------*/
+
+/** Parse TSV file with mutation profile and calculate cumulative frequencies */
+SomaticSubstitutionModel::SomaticSubstitutionModel(
+    const string &fn_mut_sig,
+    const map<string, double> &contrib) :
+  m_site(96), m_alt(96), m_weight(96)
+{
+  int n_lines_read = parseProfiles(fn_mut_sig, contrib);
+
+  // sanity check: did we read complete profiles? expected: 96 probability values
+  // (6 types of substitution ∗ 4 types of 5’ base ∗ 4 types of 3’ base)
+  if (n_lines_read != 96) {
+    fprintf(stderr, "[ERROR] Somatic mutation profiles in file '%s' do not contain the expected number of rows (96)\n", fn_mut_sig.c_str());
+  }
+}
+
+/** Read mutation profiles from file and return mutation probabilities for signatures.
+ *
+ *  Expected input format (tab-separated):
+ *  Substitution Type  Trinucleotide  Somatic Mutation Type  Signature 1     Signature 2  ...
+ *  C>A                ACA            A[C>A]A                0.011098326166  0.000682708227
+ *  C>A                ACC            A[C>A]C                0.009149340734  0.000619107232
+ *  ...
+ *
+ * Input file was be obtained from COSMIC database:
+ * http://cancer.sanger.ac.uk/cancergenome/assets/signatures_probabilities.txt
+ */
+int SomaticSubstitutionModel::parseProfiles(
+    const string &filename,
+    const map<string, double> &contrib
+) {
+  int n_lines = 0;
+  string line;
+  vector<string> header, id_row;
+  ifstream filestream;
+  filestream.open(filename.c_str());
+
+  // parse header line
+  stringio::safeGetline(filestream, line);
+  stringio::split(line, '\t', header);
+
+  // read each substitution line, get probabilities for profiles
+  stringio::CSVRow row('\t');
+  while (filestream >> row) {
+    this->m_site[n_lines] = row[1];
+    this->m_alt[n_lines] = row[0].substr(2, 1);
+    for (auto i=3; i<row.size(); i++) {
+      if (!header[i].empty()) {
+        string id_prof = header[i];
+        double prob = stod(row[i]);
+        if (contrib.find(id_prof) != contrib.end()) {
+          this->m_weight[n_lines] += prob * contrib.at(id_prof);
+        }
+      }
+    }
+
+    n_lines++;
+  }
+
+  filestream.close();
+  return n_lines;
 }
 
 } /* namespace evolution */

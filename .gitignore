@@ -4,9 +4,10 @@ build
 
 # Ignore third-party components (for now)
 util
-
 # Ignore example data
 data
+# cocumentation is auto-generated, no need to include it
+doc
 
 # Ignore data output files
 *.log

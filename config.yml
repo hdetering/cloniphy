@@ -24,10 +24,23 @@ tree: "data/bulk/bulk.tre"
 # number of clones to simulate
 clones: 5
 # number of total mutations to simulate
-mutations: 0
+mutations: 10000
 # number of transforming mutations shared by all clones
 # (included in total mutations)
 init-muts: 100
+
+#----------------------------#
+# existing seq data as input #
+#----------------------------#
+
+# setting this property deactivates simulation of
+## 1. reference genome
+## 2. reference reads
+## 3. germline mutations
+#bam-input: crc.ref.sam
+# file containing reference genome sequence
+#reference: data/ref/Hg18.chr20-22.fa
+#chr0-335294
 
 #-------------------------#
 # reference genome params #
@@ -42,17 +55,13 @@ ref-seq-len-sd: 10000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
-# file containing reference genome sequence
-# NOTE: overrides simulation of reference!
-#reference: data/ref/Hg18.chr20-22.fa
+#-------------------------------#
+# germline evolution parameters #
+#-------------------------------#
 
 # germline variants (to generate personal genome from reference)
 #reference-vcf: data/input/1000G_phase1.indels.b37.vcf
 mut-germline : 1000
-
-#-------------------------------#
-# sequence evolution parameters #
-#-------------------------------#
 
 # evolutionary model
 # choices: 'JC', 'F81', 'K80', 'HKY', 'matrix', 'matrixFromVcf'
@@ -68,6 +77,21 @@ model-params:
   Qg      : [ 0.1744, 0.0440,    0.0, 0.0418 ]
   Qt      : [ 0.0331, 0.1662, 0.0405,    0.0 ]
 
+#------------------------------#
+# somatic evolution parameters #
+#------------------------------#
+
+# somatic variants file
+mut-som-vcf: crc.somatic.vcf
+
+# Mutational signatures are obtained from COSMIC:
+#   http://cancer.sanger.ac.uk/cosmic/signatures
+mut-sig-file: resources/signatures_probabilities.txt
+
+# The following list defines the relative contribution each signature (1-30).
+# Signatures not present in the list will not be applied.
+mut-signatures:
+  'Signature 1': 1.0
 
 #-------------------------------#
 #      sampling parameters      #
