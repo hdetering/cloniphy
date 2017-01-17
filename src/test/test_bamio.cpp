@@ -33,8 +33,8 @@ struct FixtureBamio {
     // init somatic mutation model
     string fn_somatic = "../resources/signatures_probabilities.txt";
     map<string, double> contrib;
-    contrib["Signature 1"] = 0.8;
-    contrib["Signature 5"] = 0.2;
+    contrib["Signature 1"] = 0.2;
+    contrib["Signature 22"] = 0.8;
     model_sm = SomaticSubstitutionModel(fn_somatic, contrib);
 
     char* argv[3] = {const_cast<char*>("test_bamio"), const_cast<char*>("-c"), const_cast<char*>("../config.yml")};
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model_gl, rng);
+  vector<Variant> variants = generateSomaticVariants(num_mutations, genome, model_sm, rng);
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   auto fn_out = "pers.bulk.vcf";
   ofstream fs_out;
@@ -177,8 +177,8 @@ BOOST_AUTO_TEST_CASE( multisample )
   genome.indexRecords();
 
   // generate (sub)clonal variants
-  BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateGermlineVariants(num_mutations, genome, model_gl, rng);
+  BOOST_TEST_MESSAGE( "generating somatic variants (using substitution frequencies)..." );
+  vector<Variant> variants = generateSomaticVariants(num_mutations, genome, model_sm, rng);
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_idx;
@@ -202,9 +202,39 @@ BOOST_AUTO_TEST_CASE( multisample )
     vector<double> w = row_sample.second;
     string fn_fastq = str(boost::format("%s.fq") % lbl_sample);
     string fn_sam = str(boost::format("%s.sam") % lbl_sample);
-    bamio::mutateReads(fn_fastq, fn_sam, "build/data/pers_reads.sam", varset, tree, w, lbl_sample, genome.ploidy, rng);
+    bamio::mutateReads(fn_fastq, fn_sam, "build/pers.sam", varset, tree, w, lbl_sample, genome.ploidy, rng);
   }
   BOOST_TEST_MESSAGE( "EOT" );
+}
+
+BOOST_AUTO_TEST_CASE( crc )
+{
+  // read clone tree from file
+  treeio::Tree<Clone> tree("data/crc/clones.crc.tree");
+  vector<shared_ptr<Clone>> vec_clones = tree.getVisibleNodes();
+
+  // read variants from VCF
+  string fn_vcf = "crc.somatic.vcf";
+  vario::VariantSet varset;
+  map<string, vector<vario::Genotype> > mtx_gt;
+  vario::readVcf(fn_vcf, varset, mtx_gt);
+
+  // read mutation map from file
+  unsigned n_rows_mm = 0;
+  map<string, vector<bool>> mm;
+  n_rows_mm = vario::readMutMapFromCSV(mm, "crc.mm.csv");
+
+  // process BAM file
+  string fn_fq_out = "";
+  string fn_sam_out = "buid/crc.test.sam";
+  string fn_sam_in = "build/crc.ref.sam";
+  vector<double> weights = { 0.50, 0.45, 0.05, 0.0, 0.0, 0.0, 0.0 };
+  string id_sample = "T1";
+  short ploidy = 2;
+  bool do_write_fastq = false;
+
+  mutateReads(fn_fq_out, fn_sam_out, fn_sam_in, varset, vec_clones, mm,
+              weights, id_sample, ploidy, rng, do_write_fastq);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

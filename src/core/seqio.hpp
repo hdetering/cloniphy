@@ -3,6 +3,8 @@
 
 #include "random.hpp"
 #include "stringio.hpp"
+#include <algorithm>
+#include <cassert>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -45,6 +47,29 @@ inline char idx2nuc (short idx) {
   return '?'; // default for unknown chars
 }
 
+/**
+ * Get reverse complement of a nucleotide.
+ */
+inline char rev_comp (char nuc) {
+   switch (nuc) {
+     case 'A': case 'a': return 'T';
+     case 'C': case 'c': return 'G';
+     case 'G': case 'g': return 'C';
+     case 'T': case 't': return 'A';
+   }
+   assert(false);
+   return '?'; // default for unknown chars
+}
+
+/**
+ * Get reverse complement of a DNA sequence.
+ */
+inline std::string rev_comp (std::string dna) {
+  std::transform(dna.begin(), dna.end(), dna.begin(),
+                 [](char c) { return rev_comp(c); });
+  return dna;
+}
+
 struct SeqRecord
 {
   std::string id;          /** identifier */
@@ -58,9 +83,10 @@ struct SeqRecord
 /** Represents a genomic location */
 struct Locus
 {
-  unsigned idx_record; // index of genomic sequence
-  unsigned start;      // local start position in sequence (0-based)
-  unsigned length;     // length of locus (e.g. =1 for single nucleotide)
+  unsigned    idx_record; // index of genomic sequence
+  std::string id_ref;     // seq id in ref genome
+  unsigned    start;      // local start position in sequence (0-based)
+  unsigned    length;     // length of locus (e.g. =1 for single nucleotide)
 };
 
 /** Stores a set of SeqRecords along with indexing information. */

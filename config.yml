@@ -24,10 +24,23 @@ tree: "data/bulk/bulk.tre"
 # number of clones to simulate
 clones: 5
 # number of total mutations to simulate
-mutations: 0
+mutations: 10000
 # number of transforming mutations shared by all clones
 # (included in total mutations)
 init-muts: 100
+
+#----------------------------#
+# existing seq data as input #
+#----------------------------#
+
+# setting this property deactivates simulation of
+## 1. reference genome
+## 2. reference reads
+## 3. germline mutations
+#bam-input: crc.ref.sam
+# file containing reference genome sequence
+#reference: data/ref/Hg18.chr20-22.fa
+#chr0-335294
 
 #-------------------------#
 # reference genome params #
@@ -41,10 +54,6 @@ ref-seq-len-mean: 100000
 ref-seq-len-sd: 10000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
-
-# file containing reference genome sequence
-# NOTE: overrides simulation of reference!
-#reference: data/ref/Hg18.chr20-22.fa
 
 #-------------------------------#
 # germline evolution parameters #
@@ -71,6 +80,9 @@ model-params:
 #------------------------------#
 # somatic evolution parameters #
 #------------------------------#
+
+# somatic variants file
+mut-som-vcf: crc.somatic.vcf
 
 # Mutational signatures are obtained from COSMIC:
 #   http://cancer.sanger.ac.uk/cosmic/signatures

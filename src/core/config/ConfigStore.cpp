@@ -26,9 +26,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_mut = 0;
   int n_mut_init = 0;
   string model = "JC";
+  string fn_bam_input = "";
+  string fn_mut_ref_vcf = "";
+  string fn_mut_som_vcf = "";
   string fn_mut_sig = "resources/signatures_probabilities.txt";
-  string fn_ref = "";
-  string fn_ref_vcf = "";
+  string fn_ref_fa = "";
   string fn_tree = "";
   string pfx_out = "clonesim";
   int verb = 1;
@@ -48,8 +50,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("config,c", po::value<string>(), "config file")
     ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
     ("mutations,m", po::value<int>(&n_mut), "total number of mutations")
-    ("reference,r", po::value<string>(&fn_ref), "reference sequence")
-    ("reference-vcf,v", po::value<string>(&fn_ref_vcf), "reference variants")
+    ("reference,r", po::value<string>(&fn_ref_fa), "reference sequence")
+    ("reference-vcf,v", po::value<string>(&fn_mut_ref_vcf), "reference variants")
     ("init-muts,i", po::value<int>(&n_mut_init), "number of transforming mutations (separating healthy genome from first cancer genome)")
     ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
     ("out,o", po::value<string>(&pfx_out), "prefix for output files")
@@ -100,18 +102,27 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
   n_mut_init = _config["init-muts"].as<int>();
   if (var_map.count("reference") || !_config["reference"]) {
-    _config["reference"] = fn_ref;
+    _config["reference"] = fn_ref_fa;
   }
   if (_config["mut-sig-file"]) {
     fn_mut_sig = _config["mut-sig-file"].as<string>();
   } else {
     _config["mut-sig-file"] = fn_mut_sig;
   }
-  fn_ref = _config["reference"].as<string>();
-  if (var_map.count("reference-vcf") || !_config["reference-vcf"]) {
-    _config["reference-vcf"] = fn_ref_vcf;
+  if (_config["bam-input"]) {
+    fn_bam_input = _config["bam-input"].as<string>();
+  } else {
+    _config["bam-input"] = fn_bam_input;
   }
-  fn_ref = _config["reference-vcf"].as<string>();
+  fn_ref_fa = _config["reference"].as<string>();
+  if (var_map.count("reference-vcf") || !_config["reference-vcf"]) {
+    _config["reference-vcf"] = fn_mut_ref_vcf;
+  }
+  fn_mut_ref_vcf = _config["reference-vcf"].as<string>();
+  if (var_map.count("mut-som-vcf") || !_config["mut-som-vcf"]) {
+    _config["mut-som-vcf"] = fn_mut_som_vcf;
+  }
+  fn_mut_som_vcf = _config["mut-som-vcf"].as<string>();
   if (var_map.count("tree") || !_config["tree"]) {
     _config["tree"] = fn_tree;
   }
@@ -147,19 +158,29 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   //  fprintf(stderr, "\nArgumentError: Too many initial mutations (%d)\n -> can't be more than total mutations minus #clones (%d).\n", n_mut_init, n_mut-n_clones);
   //  return false;
   //}
+  // input BAM file exists?
+  if (fn_bam_input.length()>0 && !fileExists(fn_bam_input)) {
+    fprintf(stderr, "\nArgumentError: Input BAM file '%s' does not exist.\n", fn_bam_input.c_str());
+    return false;
+  }
   // reference file exists?
-  if (fn_ref.length()>0 && !fileExists(fn_ref)) {
-    fprintf(stderr, "\nArgumentError: Reference genome file '%s' does not exist.\n", fn_ref.c_str());
+  if (fn_ref_fa.length()>0 && !fileExists(fn_ref_fa)) {
+    fprintf(stderr, "\nArgumentError: Reference genome file '%s' does not exist.\n", fn_ref_fa.c_str());
     return false;
   }
   // reference VCF file exists?
-  if (fn_ref_vcf.length()>0 && !fileExists(fn_ref_vcf)) {
-    fprintf(stderr, "\nArgumentError: Reference VCF file '%s' does not exist.\n", fn_ref_vcf.c_str());
+  if (fn_mut_ref_vcf.length()>0 && !fileExists(fn_mut_ref_vcf)) {
+    fprintf(stderr, "\nArgumentError: Reference VCF file '%s' does not exist.\n", fn_mut_ref_vcf.c_str());
+    return false;
+  }
+  // somatic VCF file exists?
+  if (fn_mut_som_vcf.length()>0 && !fileExists(fn_mut_som_vcf)) {
+    fprintf(stderr, "\nArgumentError: Somatic VCF file '%s' does not exist.\n", fn_mut_som_vcf.c_str());
     return false;
   }
   // was a clone tree provided by the user?
   if (fn_tree.length()>0) {
-    fprintf(stderr, "\nUser-defined clone tree was specified, parameter '-c/--clones' will be ignored\n");
+    //fprintf(stderr, "\nUser-defined clone tree was specified, parameter '-c/--clones' will be ignored\n");
     // check: does tree file exist?
     if (!fileExists(fn_tree)) {
       fprintf(stderr, "\nArgumentError: Tree file '%s' does not exist.\n", fn_tree.c_str());
@@ -246,19 +267,50 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   if(_config["verbosity"].as<int>() > 0) {
     fprintf(stderr, "---\n");
     fprintf(stderr, "Running with the following options:\n");
-    fprintf(stderr, "random seed:\t%ld\n", seed);
+    fprintf(stderr, "==================================\n");
+    fprintf(stderr, "  random seed:\t\t%ld\n", seed);
     if (fn_tree.length()>0) {
-      fprintf(stderr, "clone tree:\t%s\n", fn_tree.c_str());
+      fprintf(stderr, "  clone tree:\t\t%s\n", fn_tree.c_str());
     } else {
-      fprintf(stderr, "clones:\t\t%d\n", n_clones);
+      fprintf(stderr, "  clones:\t\t%d\n", n_clones);
     }
+    fprintf(stderr, "----------------------------------\n");
+    fprintf(stderr, "Reference genome:\n");
+    fprintf(stderr, "----------------------------------\n");
+    if (fn_ref_fa.length()>0) {
+      fprintf(stderr, "  input file:\t\t%s\n", fn_ref_fa.c_str());
+    } else {
+      fprintf(stderr, "  generate in-silico:\tyes\n");
+      fprintf(stderr, "  ref seqs:\t\t%d\n", this->getValue<int>("ref-seq-num"));
+      fprintf(stderr, "  seq len:\t\t%d (+/-%d)\n", this->getValue<int>("ref-seq-len-mean"), this->getValue<int>("ref-seq-len-mean"));
+    }
+    fprintf(stderr, "----------------------------------\n");
+    fprintf(stderr, "Germline mutations:\n");
+    fprintf(stderr, "----------------------------------\n");
+    if (fn_mut_ref_vcf.length() > 0) {
+      fprintf(stderr, "reference VCF:\t%s\n", fn_mut_ref_vcf.c_str());
+    } else {
+      // TODO: print germline mutation params
+    }
+    fprintf(stderr, "----------------------------------\n");
+    fprintf(stderr, "Sequencing data\n");
+    fprintf(stderr, "----------------------------------\n");
+    if (fn_bam_input.length()>0) {
+      fprintf(stderr, "  simulate reads:\tno\n");
+      fprintf(stderr, "  input reads:\t%s\n", fn_bam_input.c_str());
+    } else {
+      fprintf(stderr, "  simulate reads:\tyes\n");
+      fprintf(stderr, "  ref coverage:\t\t%d\n", this->getValue<int>("seq-coverage"));
+      fprintf(stderr, "  seq read length:\t%d\n", this->getValue<int>("seq-read-len"));
+      fprintf(stderr, "  seq insert size:\t%d (+-%d)\n", this->getValue<int>("seq-frag-len-mean"), this->getValue<int>("seq-frag-len-sd"));
+      fprintf(stderr, "  simulator:\t\t%s\n", this->getValue<string>("seq-art-path").c_str());
+    }
+    fprintf(stderr, "----------------------------------\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "----------------------------------\n");
     fprintf(stderr, "mutations:\t%d\n", n_mut);
     fprintf(stderr, "transforming mutations:\t%d\n", n_mut_init);
     fprintf(stderr, "evolutionary model:\t%s\n", model.c_str());
-    fprintf(stderr, "reference:\t%s\n", fn_ref.c_str());
-    if (fn_ref_vcf.length() > 0) {
-      fprintf(stderr, "reference VCF:\t%s\n", fn_ref_vcf.c_str());
-    }
     if (_config["samples"]) {
       fprintf(stderr, "Sampling scheme:\n");
       map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");

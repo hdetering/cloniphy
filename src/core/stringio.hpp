@@ -19,6 +19,12 @@ std::istream& safeGetline(std::istream& is, std::string& t);
 /** takes a map and formats it as a table with keys in first column */
 template<typename T>
 std::string printMatrix(std::map<std::string, std::vector<T>> mtx);
+/** Read a CSV file into a vector of vectors */
+unsigned readCSV (
+  std::vector<std::vector<std::string>> &data,
+  const std::string filename,
+  const char sep=','
+);
 
 /** Reads a line from a CSV file and splits it into cells.  */
 class CSVRow
@@ -35,6 +41,8 @@ class CSVRow
         std::size_t size() const;
         /** Read line from input stream. */
         void readNextRow(std::istream& str);
+        /** Make data vector accessible */
+        std::vector<std::string> getData();
 
     private:
         std::vector<std::string> m_data;

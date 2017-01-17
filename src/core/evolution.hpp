@@ -19,8 +19,6 @@ struct GermlineSubstitutionModel {
   GermlineSubstitutionModel(double Qij[4][4]);
   /** default model: HKY with titv=0.5 */
   GermlineSubstitutionModel(double p_i[4], double titv);
-  /** Simulates the nucleotide substitution process for a site */
-  short MutateNucleotide(short nuc, std::function<double()>&);
   // calculate nucleotide substitution matrix (Q/mu)
   void init_JC();
   void init_F81(double p[4]);
@@ -36,9 +34,9 @@ int EigenREV (double Root[], double Cijk[]);
 
 /** Provides access to somatic mutation profiles. */
 struct SomaticSubstitutionModel {
-  std::vector<std::string> _site; // list of tri-nucleotides
-  std::vector<std::string> _alt; // list of alternative alleles
-  std::vector<double> _weight; // probabilities for all possible substitutions
+  std::vector<std::string> m_site; // list of tri-nucleotides
+  std::vector<std::string> m_alt; // list of alternative alleles
+  std::vector<double> m_weight; // probabilities for all possible substitutions
 
   /** default c'tor */
   SomaticSubstitutionModel () {};
@@ -49,9 +47,17 @@ struct SomaticSubstitutionModel {
   );
   /** Read mutation profiles from file and return cumulative mutation probabilities for signatures. */
   int parseProfiles (
-      const std::string &filename, 
+      const std::string &filename,
       const std::map<std::string, double> &contrib);
 };
+
+/** Simulates the nucleotide substitution process for a germline site */
+short MutateSite(
+  short idx_nuc,
+  std::function<double()>&,
+  const GermlineSubstitutionModel&
+);
+
 
 } /* namespace evolution */
 

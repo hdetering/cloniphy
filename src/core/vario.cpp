@@ -116,7 +116,7 @@ void Mutation::apply(
 {
   Locus loc = genome.getAbsoluteLocusMasked(this->relPos);
   Nuc nuc_ref = seqio::charToNuc(genome.records[loc.idx_record].seq[loc.start]);
-  Nuc nuc_alt = (Nuc)(model.MutateNucleotide((short)nuc_ref, rng));
+  Nuc nuc_alt = (Nuc)(evolution::MutateSite((short)nuc_ref, rng, model));
 
   // initialize variant
   var.id = str(boost::format("m%u") % this->id);
@@ -224,7 +224,7 @@ void applyMutations(
   for (vector<Mutation>::const_iterator m=mutations.begin(); m!=mutations.end(); ++m) {
     Locus loc = genome.getAbsoluteLocusMasked(m->relPos);
     Nuc nuc_ref = seqio::charToNuc(genome.records[loc.idx_record].seq[loc.start]);
-    Nuc nuc_alt = (Nuc)(model.MutateNucleotide((short)nuc_ref, random));
+    Nuc nuc_alt = (Nuc)(evolution::MutateSite((short)nuc_ref, random, model));
 
     // initialize variant
     Variant var = *(new Variant());
@@ -239,6 +239,29 @@ void applyMutations(
 
     // append variant to output
     variants.push_back(var);
+  }
+}
+
+/** Read mutation map (clone x mutation) from a CSV file. */
+int readMutMapFromCSV(
+  map<string, vector<bool>> &mm,
+  const string &filename)
+{
+  unsigned n_rows_mm = 0;
+  vector<vector<string>> mtx_csv;
+  n_rows_mm = stringio::readCSV(mtx_csv, filename);
+  // convert CSV table to mutation map
+  mm.clear();
+  for (auto row : mtx_csv) {
+    string c_lbl = row[0];
+    unsigned n_col = row.size();
+
+    vector<bool> vec_row(n_col-1, false);
+    for (auto i=1; i<n_col; i++) {
+      vec_row[i-1] = (row[i] == "0" ? false : true);
+    }
+
+    mm[c_lbl] = vec_row;
   }
 }
 
@@ -286,11 +309,13 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
     }
     Variant var;
     var.chr = var_cols[0];
-    var.pos = atol(var_cols[1].c_str());
+    var.pos = atol(var_cols[1].c_str())-1; // NOTE: internal positions should always zero-based!
     var.id  = var_cols[2];
     var.alleles.push_back(var_cols[3]);
     vector<string> alt = stringio::split(var_cols[4], ',');
     var.alleles.insert(var.alleles.end(), alt.begin(), alt.end());
+    var.reg_copy = 0; // TODO: can we do better than this?
+    var.chr_copy = 0; // TODO: can we do better than this?
     // TODO: at this point only SNVs are supported
     if (!var.isSnv()) {
       stringio::safeGetline(input, line);
@@ -333,20 +358,20 @@ void writeVcf(
   const vector<int> &id_samples,
   const vector<string> &labels,
   const vector<vector<bool> > &mutMatrix,
-  std::ostream &out)
+  ostream &out)
 {
   unsigned num_samples = id_samples.size();
-  short  var_qual = 40; // QUAL column
+  string var_qual = "."; // QUAL column
   string var_info = (format("NS=%d") % num_samples).str(); // INFO column
   string var_fmt  = "GT:GQ"; // FORMAT column
   short  gt_qual  = 60; // genotype quality (global)
 
   // write header
-  out << "##fileformat=VCFv4.1" << std::endl;
+  out << "##fileformat=VCFv4.1" << endl;
   time_t timer = time(NULL);
   tm* t = localtime(&timer);
-  out << boost::format("##fileDate=%d-%d-%d") % (1900+t->tm_year) % t->tm_mon % t->tm_mday << std::endl;
-  out << "##source=CloniPhy v0.01" << std::endl;
+  out << format("##fileDate=%d-%d-%d") % (1900+t->tm_year) % t->tm_mon % t->tm_mday << endl;
+  out << "##source=CloniPhy v0.01" << endl;
   //out << "##reference=" << std::endl; # TODO: include ref filename
   vector<string> vec_ref_ids;
   for (auto rec : seqs) {
@@ -355,10 +380,10 @@ void writeVcf(
       out << format("##contig=<ID=%d, length=%u>") % rec.id_ref % rec.seq.size() << endl;
     }
   }
-  out << "##phasing=complete" << std::endl;
-  out << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples With Data\">" << std::endl;
-  out << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
-  out << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
+  out << "##phasing=complete" << endl;
+  out << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples With Data\">" << endl;
+  out << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+  out << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << endl;
   out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
   //out << "\thealthy";
   for (auto lbl : labels)
@@ -370,7 +395,7 @@ void writeVcf(
   for (Variant var : sorted_vars) {
     string ref = var.alleles[0];
     string alt = var.alleles[1];
-    out << format("%s\t%d\t%d\t%s\t%s\t%d\tPASS\t%d\t%s")
+    out << format("%s\t%d\t%d\t%s\t%s\t%s\tPASS\t%d\t%s")
                   % (var.chr) % (var.pos+1) % (var.idx_mutation)
                   % ref % alt % var_qual % var_info % var_fmt;
     for (auto sid : id_samples) {
@@ -381,7 +406,7 @@ void writeVcf(
         genotype = "0|0";
       out << format("\t%s:%d") % genotype % gt_qual;
     }
-    out << std::endl;
+    out << endl;
   }
 }
 
@@ -401,6 +426,14 @@ void writeVcf(
   f_out.open(filename);
   writeVcf(seqs, vars, vec_ids, vec_labels, mtx_mut, f_out);
   f_out.close();
+}
+
+long getRandomMutPos(
+  function<int()> r_bucket,
+  map<string, vector<long>> map_bucket_pos,
+  short offset)
+{
+  return 0;
 }
 
 /** Generate variant loci in a given genome based on evolutionary model.
@@ -442,29 +475,89 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
       var_pos.insert(nuc_pos);
     }
     Locus loc = genome.getLocusByGlobalPos(nuc_pos);
-    string id_ref = genome.records[loc.idx_record].id_ref;
     // pick new nucleotide
-    short nuc_alt = model.MutateNucleotide(idx_bucket, random_float);
+    short nuc_alt = evolution::MutateSite(idx_bucket, random_float, model);
     Variant var;
     var.id = to_string(i);
-    var.chr = id_ref;
-    //short chr_copy = genome.records[loc.idx_record].chr_copy;
+    var.chr = loc.id_ref;
     var.chr_copy = random_copy();
     var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
-    /*if (genome.ploidy > 1) {
-      vector<string> parts = stringio::split(genome.records[loc.idx_record].id, '_');
-      int chr_copy = atoi(parts.back().c_str());
-      var.chr_copy = chr_copy;
-      var.rel_pos = double(nuc_pos-(chr_copy*genome_len))/genome_len;
-    }
-    else {
-      var.chr_copy = 0;
-      var.rel_pos = double(nuc_pos)/genome_len;
-    }*/
     var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
     var.pos = loc.start;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
+    var.idx_mutation = i;
+    variants[i] = var;
+  }
+
+  return variants;
+}
+
+/** Generate variant loci in a given genome based on somatic mutation model. */
+vector<Variant> generateSomaticVariants(
+  const int num_variants,
+  const Genome& genome,
+  SomaticSubstitutionModel& model,
+  RandomNumberGenerator<>& rng,
+  const bool inf_sites)
+{
+  vector<Variant> variants = vector<Variant>(num_variants);
+  boost::container::flat_set<int> var_pos; // keep track of variant positions (ISM)
+  vector<string> vec_ref_sites; // reference sites
+  vector<string> vec_alt_nucs;  // alternative nucleotides (matching vec_ref_sites)
+  vector<double> vec_mut_probs; // mutation probabilities (matching vec_ref_sites, vec_alt_nucs)
+  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+  random_selector<> selector(rng.generator); // used to pick random vector indices
+
+  // determine trinuc mutation probs from model
+  for (auto i=0; i<model.m_site.size(); i++) {
+    string site = model.m_site[i];
+    string rc_site = seqio::rev_comp(site);
+    string alt = model.m_alt[i];
+    string rc_alt = seqio::rev_comp(model.m_alt[i]);
+    double p = model.m_weight[i];
+
+    vec_ref_sites.push_back(site);
+    vec_alt_nucs.push_back(alt);
+    vec_mut_probs.push_back(p);
+
+    vec_ref_sites.push_back(rc_site);
+    vec_alt_nucs.push_back(rc_alt);
+    vec_mut_probs.push_back(p);
+  }
+  assert(vec_ref_sites.size() == 192); // sanity check: are all possible mutations represented?
+  vector<double> vec_3mer_probs;
+  function<int()> r_ref_alt = rng.getRandomIndexWeighted(vec_mut_probs);
+
+  unsigned long genome_len = genome.length; // haploid genome length
+  for (int i=0; i<num_variants; ++i) {
+    // pick random ref->alt substitution
+    int i_sub = r_ref_alt();
+    string ref_site = vec_ref_sites[i_sub];
+    string ref_nuc = ref_site.substr(1, 1);
+    string alt_nuc = vec_alt_nucs[i_sub];
+    // pick random position (+1 b/c second nucleotide in 3-mer is mutated)
+    long nuc_pos = selector(genome.map_3mer_pos.at(ref_site)) + 1;
+    if (inf_sites) {
+      while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
+// TODO: check verbosity setting
+fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated before, picking another one...\n", nuc_pos);
+        nuc_pos = selector(genome.map_3mer_pos.at(ref_site)) + 1;
+      }
+      var_pos.insert(nuc_pos);
+    }
+    Locus loc = genome.getLocusByGlobalPos(nuc_pos);
+
+    // init new Variant
+    Variant var;
+    var.id = to_string(i);
+    var.chr = loc.id_ref;
+    var.chr_copy = random_copy();
+    var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+    var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
+    var.pos = loc.start;
+    var.alleles.push_back(ref_site);
+    var.alleles.push_back(alt_nuc);
     var.idx_mutation = i;
     variants[i] = var;
   }
@@ -502,7 +595,7 @@ fprintf(stderr, "locus %ld has beend mutated before, picking another one...\n", 
     string id_chr = genome.records[loc.idx_record].id;
     short ref_nuc = seqio::nuc2idx(genome.records[loc.idx_record].seq[loc.start]);
     // pick new nucleotide
-    short nuc_alt = model.MutateNucleotide(ref_nuc, random_float);
+    short nuc_alt = evolution::MutateSite(ref_nuc, random_float, model);
     Variant var;
     var.id = to_string(i);
     var.chr = id_chr;

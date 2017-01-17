@@ -3,6 +3,7 @@
 
 #include "random.hpp"
 #include "seqio.hpp"
+#include "stringio.hpp"
 #include "evolution.hpp"
 #include <fstream>
 #include <functional>
@@ -147,12 +148,27 @@ void writeVcf(
   const std::string label,
   const std::string filename);
 
+/** Read mutation map (clone x mutation) from a CSV file. */
+int readMutMapFromCSV(
+  std::map<std::string, std::vector<bool>> &mm,
+  const std::string &filename
+);
+
 /** Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */
 std::vector<Variant> generateGermlineVariants(
   const int num_variants,
   const Genome& genome,
   GermlineSubstitutionModel& model,
+  RandomNumberGenerator<>&,
+  const bool infinite_sites = false
+);
+/** Generate variant loci in a given genome based on somatic mutation model.
+    Use context-dependent mutation signature to select loci. */
+std::vector<Variant> generateSomaticVariants(
+  const int num_variants,
+  const Genome& genome,
+  SomaticSubstitutionModel& model,
   RandomNumberGenerator<>&,
   const bool infinite_sites = false
 );

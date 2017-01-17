@@ -63,32 +63,36 @@ GermlineSubstitutionModel::GermlineSubstitutionModel(double p[4], double titv) {
   };*/
 }
 
-/** Simulates the nucleotide substitution process for a site
+/** Simulates the nucleotide substitution process for a germline site
   * Assuming that mutation is certain -> use Qij to pick new nucleotide */
-short GermlineSubstitutionModel::MutateNucleotide(short ref_nuc, std::function<double()>& random) {
-	double r, cumProb[4];
+short MutateSite(
+  short ref_nuc,
+  function<double()>& random,
+  const GermlineSubstitutionModel& model
+)
+{
+  double r, cumProb[4];
   short new_nuc = 0;
 
-  cumProb[0] = Qij[ref_nuc][0];
-	for (short i=1; i<4; ++i)
-		cumProb[i] = cumProb[i-1] + Qij[ref_nuc][i];
+  cumProb[0] = model.Qij[ref_nuc][0];
+  for (short i=1; i<4; ++i)
+    cumProb[i] = cumProb[i-1] + model.Qij[ref_nuc][i];
   // normalize
   for (short i=0; i<4; ++i)
     cumProb[i] /= cumProb[3];
 
-	r = random();
-	if (r >= 0.0 && r <= cumProb[0])
-		new_nuc = 0;
-	else if (r > cumProb[0] && r <= cumProb[1])
-		new_nuc = 1;
-	else if (r > cumProb[1] && r <= cumProb[2])
-		new_nuc = 2;
-	else
-		new_nuc = 3;
+  r = random();
+  if (r >= 0.0 && r <= cumProb[0])
+    new_nuc = 0;
+  else if (r > cumProb[0] && r <= cumProb[1])
+    new_nuc = 1;
+  else if (r > cumProb[1] && r <= cumProb[2])
+    new_nuc = 2;
+  else
+    new_nuc = 3;
 
   return new_nuc;
 }
-
 
 /* parameters */
 double pinv;      // proportion of invariable sites
@@ -358,11 +362,12 @@ int EigenREV (double Root[], double Cijk[])
 SomaticSubstitutionModel::SomaticSubstitutionModel(
     const string &fn_mut_sig,
     const map<string, double> &contrib) :
-  _site(96), _alt(96), _weight(96)
+  m_site(96), m_alt(96), m_weight(96)
 {
   int n_lines_read = parseProfiles(fn_mut_sig, contrib);
 
-  // sanity check: did we read complete profiles? (expected: 96 probability values)
+  // sanity check: did we read complete profiles? expected: 96 probability values
+  // (6 types of substitution ∗ 4 types of 5’ base ∗ 4 types of 3’ base)
   if (n_lines_read != 96) {
     fprintf(stderr, "[ERROR] Somatic mutation profiles in file '%s' do not contain the expected number of rows (96)\n", fn_mut_sig.c_str());
   }
@@ -396,14 +401,14 @@ int SomaticSubstitutionModel::parseProfiles(
   // read each substitution line, get probabilities for profiles
   stringio::CSVRow row('\t');
   while (filestream >> row) {
-    this->_site[n_lines] = row[1];
-    this->_alt[n_lines] = row[0].substr(2, 1);
+    this->m_site[n_lines] = row[1];
+    this->m_alt[n_lines] = row[0].substr(2, 1);
     for (auto i=3; i<row.size(); i++) {
       if (!header[i].empty()) {
         string id_prof = header[i];
         double prob = stod(row[i]);
         if (contrib.find(id_prof) != contrib.end()) {
-          this->_weight[n_lines] += prob * contrib.at(id_prof);
+          this->m_weight[n_lines] += prob * contrib.at(id_prof);
         }
       }
     }

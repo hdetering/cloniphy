@@ -1,3 +1,4 @@
+#include <cassert>
 #include "stringio.hpp"
 
 using namespace std;
@@ -53,6 +54,39 @@ istream& safeGetline(istream& is, string& t)
     }
 }
 
+/** Read a CSV file into a vector of vectors */
+unsigned readCSV(vector<vector<string>> &mtx_data, const string filename, char sep) {
+  unsigned n_row, n_col = 0;
+  ifstream filestream;
+  stringio::CSVRow row(sep);
+
+  filestream.open(filename.c_str());
+  assert(filestream.good());
+  // determine number of columns from first line
+  filestream >> row;
+  n_col = row.size();
+
+  // read CSV file line by line, splitting cells by separating character
+  do {
+    unsigned cols = row.size();
+    vector<string> vec_row(cols);
+    if (cols == 0) { // skip empty lines
+      continue;
+    }
+    else if (cols != n_col) { // issue a warning if #columns differ
+      fprintf(stderr, "[WARN] (readCsv) Row #%d has different number of columns (%u) than first row (%u).\n", n_row+1, cols, n_col);
+    }
+    for (unsigned i=0; i<cols; i++) {
+      vec_row[i] = row[i];
+    }
+    mtx_data.push_back(vec_row);
+    n_row++;
+  } while (filestream >> row);
+
+  filestream.close();
+  return n_row;
+}
+
 /** Enable access to CSVRow fields by index. */
 string const& CSVRow::operator[](size_t index) const {
     return m_data[index];
@@ -74,6 +108,11 @@ void CSVRow::readNextRow(istream& str) {
     {
         m_data.push_back(cell);
     }
+}
+
+/** Make data vector accessible */
+vector<string> CSVRow::getData() {
+  return this->m_data;
 }
 
 /** Enable streaming into CSVRow from input stream. */

@@ -214,6 +214,7 @@ Locus Genome::getLocusByGlobalPos(long global_pos) const {
   // compile locus info
   Locus *loc = new Locus();
   loc->idx_record = idx_seq;
+  loc->id_ref = records[idx_seq].id_ref;
   loc->start = global_pos - vec_start_chr[idx_seq];
   loc->length = 1;
 

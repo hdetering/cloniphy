@@ -15,6 +15,7 @@
 #include "core/coalescentclonetree.hpp"
 
 #include <boost/format.hpp>
+#include <cassert>
 #include <ctime>
 #include <exception>
 #include <fstream>
@@ -46,6 +47,7 @@ int main (int argc, char* argv[])
   if (!args_ok) { return EXIT_FAILURE; }
 
   // params specified by user (in config file or command line)
+  string fn_bam_input = config.getValue<string>("bam-input");
   int num_clones = config.getValue<int>("clones");
   int n_mut_clonal = config.getValue<int>("mutations");
   int n_mut_transforming = config.getValue<int>("init-muts");
@@ -54,8 +56,9 @@ int main (int argc, char* argv[])
   unsigned long ref_seq_len_mean = config.getValue<unsigned long>("ref-seq-len-mean");
   unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
-  string fn_ref = config.getValue<string>("reference");
-  string fn_ref_vcf = config.getValue<string>("reference-vcf");
+  string fn_ref_fa = config.getValue<string>("reference");
+  string fn_mut_ref_vcf = config.getValue<string>("reference-vcf");
+  string fn_mut_som_vcf = config.getValue<string>("mut-som-vcf");
   string str_model_gl = config.getValue<string>("model");
   string fn_tree = config.getValue<string>("tree");
   map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
@@ -71,6 +74,14 @@ int main (int argc, char* argv[])
 
   float ado_pct = 0.0; // TODO: make this a user parameter
   int ado_frag_len = 10000; // TODO: make this a user parameter
+
+  // inferred properties
+  bool do_ref_sim = fn_bam_input.length() == 0;
+  bool do_ref_reads = fn_bam_input.length() == 0;
+  bool do_germline_vars = (fn_mut_ref_vcf.size() > 0) || (n_mut_germline > 0);
+
+  // output file names
+  string fn_mm = str(format("%s.mm.csv") % pfx_out); // mutation map
 
   // internal vars
   map<shared_ptr<Clone>, string> clone2fn; // stores genome file names for each clone
@@ -130,26 +141,25 @@ int main (int argc, char* argv[])
     tree.printDot(fn_dot);
 
     // write mutation matrix to file
-    string fn_mm = str(format("%s.mm.csv") % pfx_out);
     fprintf(stderr, "Writing mutation matrix for visible clones to file: %s\n", fn_mm.c_str());
     tree.writeMutationMatrix(fn_mm);
   }
 
   // get reference genome
   Genome ref_genome;
-  if (fn_ref.length() > 0) {
-    fprintf(stderr, "\nReading reference from file '%s'...\n", fn_ref.c_str());
-    ref_genome = Genome(fn_ref.c_str());
+  if (fn_ref_fa.length() > 0) {
+    fprintf(stderr, "\nReading reference from file '%s'...\n", fn_ref_fa.c_str());
+    ref_genome = Genome(fn_ref_fa.c_str());
   }
   else if (ref_nuc_freqs.size() > 0) {
     fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", ref_seq_num, ref_seq_len_mean, ref_seq_len_sd);
     ref_genome.generate(ref_seq_num, ref_seq_len_mean, ref_seq_len_sd, ref_nuc_freqs, rng);
 
     // write generated genome to file
-    fn_ref = str(format("%s.ref.fa") % pfx_out.c_str());
-    fprintf(stderr, "writing reference genome to file: %s\n", fn_ref.c_str());
-    seqio::writeFasta(ref_genome.records, fn_ref);
-    clone2fn[tree.m_root] = fn_ref;
+    fn_ref_fa = str(format("%s.ref.fa") % pfx_out.c_str());
+    fprintf(stderr, "writing reference genome to file: %s\n", fn_ref_fa.c_str());
+    seqio::writeFasta(ref_genome.records, fn_ref_fa);
+    clone2fn[tree.m_root] = fn_ref_fa;
   }
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
@@ -158,21 +168,28 @@ int main (int argc, char* argv[])
   ref_genome.duplicate();
   //ref_genome.indexRecords(); // working with haploid reference, no re-indexing necessary
 
-  // generate baseline sequencing reads from reference genome (haploid)
-  fprintf(stderr, "---\nGenerating baseline sequencing reads from reference genome...\n");
-  // generate reads using ART
-  string art_cmd = str(format("%s -sam -na") % seq_art_path);
-  art_cmd += str(format(" -l %d") % seq_read_len);
-  art_cmd += str(format(" -p -m %d -s %d") % seq_frag_len_mean % seq_frag_len_sd);
-  art_cmd += str(format(" -f %.2f") % seq_coverage);
-  art_cmd += " -ss HS25";
-  art_cmd += str(format(" -i %s") % fn_ref);
-  art_cmd += str(format(" -o %s.ref") % pfx_out);
-  fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
-  int res_art = system(art_cmd.c_str());
-  if (res_art != 0) {
-    fprintf(stderr, "[ERROR] ART call had non-zero return value:\n        %s\n", art_cmd.c_str());
-    return EXIT_FAILURE;
+  string fn_ref_bam = "";
+  if (do_ref_reads) {
+    // generate baseline sequencing reads from reference genome (haploid)
+    fprintf(stderr, "---\nGenerating baseline sequencing reads from reference genome...\n");
+    // generate reads using ART
+    string art_cmd = str(format("%s -sam -na") % seq_art_path);
+    art_cmd += str(format(" -l %d") % seq_read_len);
+    art_cmd += str(format(" -p -m %d -s %d") % seq_frag_len_mean % seq_frag_len_sd);
+    art_cmd += str(format(" -f %.2f") % seq_coverage);
+    art_cmd += " -ss HS25";
+    art_cmd += str(format(" -i %s") % fn_ref_fa);
+    art_cmd += str(format(" -o %s.ref") % pfx_out);
+    fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
+    int res_art = system(art_cmd.c_str());
+    if (res_art != 0) {
+      fprintf(stderr, "[ERROR] ART call had non-zero return value:\n        %s\n", art_cmd.c_str());
+      return EXIT_FAILURE;
+    }
+    // Simulated read alignments can be found in the following SAM file
+    fn_ref_bam = str(format("%s.ref.sam") % pfx_out);
+  } else {
+    fn_ref_bam = fn_bam_input;
   }
 
   /* CNV simulation will be performed further down the line
@@ -201,43 +218,47 @@ int main (int argc, char* argv[])
   // inititalize model of sequence evolution
   if (str_model_gl == "JC") {
     model_gl.init_JC();
-} else if (str_model_gl == "F81") {
+  } else if (str_model_gl == "F81") {
     vector<double> vec_freqs = config.getValue<vector<double>>("model-params:nucFreq");
     model_gl.init_F81(&vec_freqs[0]);
-} else if (str_model_gl == "K80") {
+  } else if (str_model_gl == "K80") {
     double kappa = config.getValue<double>("model-params:kappa");
     model_gl.init_K80(kappa);
-} else if (str_model_gl == "HKY") {
+  } else if (str_model_gl == "HKY") {
     vector<double> vec_freqs = config.getValue<vector<double>>("model-params:nucFreq");
     double kappa = config.getValue<double>("model-params:kappa");
     model_gl.init_HKY(&vec_freqs[0], kappa);
   }
 
   // if a VCF file was provided, read germline variants from file, otherwise simulate variants
-  if (fn_ref_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
-    fprintf(stderr, "applying germline variants (from %s).\n", fn_ref_vcf.c_str());
+  if (fn_mut_ref_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
+    fprintf(stderr, "applying germline variants (from %s).\n", fn_mut_ref_vcf.c_str());
   } else if (n_mut_germline > 0) {
     fprintf(stderr, "simulating %d germline variants (model: %s).\n", n_mut_germline, str_model_gl.c_str());
     //vec_mut_gl = vario::generateMutations(n_mut_germline, random_dbl);
     vec_var_gl = vario::generateGermlineVariants(n_mut_germline, ref_genome, model_gl, rng);
     //vario::applyVariants(ref_genome, vec_var_gl);
 
-    fn_ref_vcf = str(format("%s.germline.vcf") % pfx_out.c_str());
-    fprintf(stderr, "writing generated variants to file: %s\n", fn_ref_vcf.c_str());
-    vario::writeVcf(ref_genome.records, vec_var_gl, "germline", fn_ref_vcf);
+    fn_mut_ref_vcf = str(format("%s.germline.vcf") % pfx_out.c_str());
+    fprintf(stderr, "writing generated variants to file: %s\n", fn_mut_ref_vcf.c_str());
+    vario::writeVcf(ref_genome.records, vec_var_gl, "germline", fn_mut_ref_vcf);
   }
 
   // apply germline variants
-  string fn_normal_bam = str(format("%s.normal.sam") % pfx_out);
-  string fn_ref_bam = str(format("%s.ref.sam") % pfx_out);
-  fprintf(stderr, "\nSpike in variants from file: %s\n", fn_ref_vcf.c_str());
-  fprintf(stderr, "  into baseline BAM: %s\n", fn_ref_bam.c_str());
-  VariantSet ref_variants;
-  map<string, vector<Genotype >> ref_gt_matrix;
-  vario::readVcf(fn_ref_vcf, ref_variants, ref_gt_matrix);
-  bamio::mutateReads(fn_normal_bam, fn_ref_bam, ref_variants, ref_genome.ploidy, rng);
-  fprintf(stderr, "\nReads containing germline mutations are in file: %s\n", fn_normal_bam.c_str());
-  //vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
+  string fn_normal_bam = "";
+  if (do_germline_vars) {
+    fn_normal_bam = str(format("%s.normal.sam") % pfx_out);
+    fprintf(stderr, "\nSpike in variants from file: %s\n", fn_mut_ref_vcf.c_str());
+    fprintf(stderr, "  into baseline BAM: %s\n", fn_ref_bam.c_str());
+    VariantSet ref_variants;
+    map<string, vector<Genotype >> ref_gt_matrix;
+    vario::readVcf(fn_mut_ref_vcf, ref_variants, ref_gt_matrix);
+    bamio::mutateReads(fn_normal_bam, fn_ref_bam, ref_variants, ref_genome.ploidy, rng);
+    fprintf(stderr, "\nReads containing germline mutations are in file: %s\n", fn_normal_bam.c_str());
+    //vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
+  } else { // there are no germline variants
+    fn_normal_bam = fn_ref_bam;
+  }
 
   vector<Mutation> mutations;
   if (n_mut_clonal > 0) {
@@ -271,20 +292,28 @@ int main (int argc, char* argv[])
   vario::writeVcf(ref_genome.records, variants, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
   f_vcf.close();
 
+  // get clones and mutation map from intermediate files
+  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
+  int num_mm_rows = 0;
+  map<string, vector<bool>> mm;
+  num_mm_rows = vario::readMutMapFromCSV(mm, fn_mm);
+  assert( num_mm_rows == clones.size() );
+
   // introduce somatic mutations in baseline reads
   fprintf(stderr, "---\nNow generating sequencing reads for %ld samples...\n", mtx_sample.size());
-  vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
   for (auto sample : mtx_sample) {
     string fn_baseline = str(format("build/%s") % pfx_out.c_str());
     if (do_cnv_sim) // choose sample-specific or joint baseline file
       fn_baseline += str(format(".%s") % sample.first);
     else
-      fn_baseline += ".normal.sam";
+      fn_baseline = str(format("build/%s") % fn_normal_bam.c_str());
     string fn_fqout = str(format("%s.%s.bulk.fq") % pfx_out % sample.first);;
     string fn_samout = str(format("%s.%s.bulk.sam") % pfx_out % sample.first);;
 
     VariantSet varset_somatic(variants);
-    bamio::mutateReads(fn_fqout, fn_samout, fn_baseline, varset_somatic, tree, sample.second, sample.first, ref_genome.ploidy, rng);
+    vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
+    bamio::mutateReads(fn_fqout, fn_samout, fn_baseline, varset_somatic,
+      clones, mm, sample.second, sample.first, ref_genome.ploidy, rng);
   }
 
   // perform ADO -> on hold (better: generate coverage distribution for read sim)
