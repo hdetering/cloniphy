@@ -67,6 +67,7 @@ int main (int argc, char* argv[])
   unsigned seq_frag_len_mean = config.getValue<unsigned>("seq-frag-len-mean");
   unsigned seq_frag_len_sd = config.getValue<unsigned>("seq-frag-len-sd");
   string seq_art_path = config.getValue<string>("seq-art-path");
+  bool seq_reuse_reads = config.getValue<bool>("seq-reuse-reads");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
   string pfx_out = config.getValue<string>("out");
@@ -172,22 +173,27 @@ int main (int argc, char* argv[])
   if (do_ref_reads) {
     // generate baseline sequencing reads from reference genome (haploid)
     fprintf(stderr, "---\nGenerating baseline sequencing reads from reference genome...\n");
+    // initialize ART wrapper
+    bamio::ArtWrapper art(seq_art_path);
+    art.read_len = seq_read_len;
+    art.frag_len_mean = seq_frag_len_mean;
+    art.frag_len_sd = seq_frag_len_sd;
+    art.fold_cvg = seq_coverage;
+    art.fn_ref_fa = fn_ref_fa;
     // generate reads using ART
-    string art_cmd = str(format("%s -sam -na") % seq_art_path);
-    art_cmd += str(format(" -l %d") % seq_read_len);
-    art_cmd += str(format(" -p -m %d -s %d") % seq_frag_len_mean % seq_frag_len_sd);
-    art_cmd += str(format(" -f %.2f") % seq_coverage);
-    art_cmd += " -ss HS25";
-    art_cmd += str(format(" -i %s") % fn_ref_fa);
-    art_cmd += str(format(" -o %s.ref") % pfx_out);
-    fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
-    int res_art = system(art_cmd.c_str());
-    if (res_art != 0) {
-      fprintf(stderr, "[ERROR] ART call had non-zero return value:\n        %s\n", art_cmd.c_str());
-      return EXIT_FAILURE;
-    }
+    string art_out_pfx = pfx_out + ".ref";
+    int res_art = art.run(art_out_pfx);
     // Simulated read alignments can be found in the following SAM file
-    fn_ref_bam = str(format("%s.ref.sam") % pfx_out);
+    fn_ref_bam = art_out_pfx + ".sam";
+
+    // simulate individual baseline reads for each sample if required
+    if (!seq_reuse_reads) {
+      fprintf(stderr, "---\nGenerating baseline sequencing reads for %ld samples...\n", mtx_sample.size());
+      for (auto sample : mtx_sample) {
+        art_out_pfx = str(format("%s.%s.baseline") % pfx_out % sample.first);
+        res_art = art.run(art_out_pfx);
+      }
+    }
   } else {
     fn_ref_bam = fn_bam_input;
   }
@@ -302,11 +308,11 @@ int main (int argc, char* argv[])
   // introduce somatic mutations in baseline reads
   fprintf(stderr, "---\nNow generating sequencing reads for %ld samples...\n", mtx_sample.size());
   for (auto sample : mtx_sample) {
-    string fn_baseline = str(format("build/%s") % pfx_out.c_str());
-    if (do_cnv_sim) // choose sample-specific or joint baseline file
-      fn_baseline += str(format(".%s") % sample.first);
-    else
+    string fn_baseline;
+    if (seq_reuse_reads) // use normal sample reads as baseline for tumor samples
       fn_baseline = str(format("build/%s") % fn_normal_bam.c_str());
+    else // choose sample-specific baseline files
+      fn_baseline = str(format("build/%s.%s.baseline.sam") % pfx_out.c_str() % sample.first);
     string fn_fqout = str(format("%s.%s.bulk.fq") % pfx_out % sample.first);;
     string fn_samout = str(format("%s.%s.bulk.sam") % pfx_out % sample.first);;
 

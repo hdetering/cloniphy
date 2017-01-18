@@ -1,10 +1,55 @@
 #include "bamio.hpp"
+#include <cstdio> // std::remove
+#include <cstdlib> // system()
 #include <map>
 using boost::str;
 using namespace std;
 using namespace seqan;
 
 namespace bamio {
+
+ArtWrapper::ArtWrapper(string path) : bin_path(path) {
+  // set default values
+  read_len = 100;
+  frag_len_mean = 500;
+  frag_len_sd = 20;
+  fold_cvg = 50;
+  out_pfx = "art_sim";
+  out_sam = true;
+  out_aln = false;
+  seq_sys = "HS25";
+  fn_ref_fa = "";
+  do_keep_fq = false;
+}
+
+int ArtWrapper::run(string out_pfx) {
+  this->out_pfx = out_pfx;
+
+  // build ART command line
+  string art_cmd = bin_path;
+  art_cmd += str(boost::format(" -l %d") % read_len);
+  art_cmd += str(boost::format(" -p -m %d -s %d") % frag_len_mean % frag_len_sd);
+  art_cmd += str(boost::format(" -f %.2f") % fold_cvg);
+  art_cmd += " -ss " + seq_sys;
+  art_cmd += " -i " + fn_ref_fa;
+  art_cmd += " -o " + out_pfx;
+  art_cmd += (out_sam ? " -sam" : "");
+  art_cmd += (out_aln ? "" : " -na");
+
+  fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
+  int res_art = system(art_cmd.c_str());
+  if (res_art != EXIT_SUCCESS) {
+    fprintf(stderr, "[ERROR] ART call had non-zero return value.\n");
+    return EXIT_FAILURE;
+  }
+
+  if (!do_keep_fq) {
+    remove((out_pfx + "1.fq").c_str());
+    remove((out_pfx + "2.fq").c_str());
+  }
+
+  return res_art;
+}
 
 /** Spike in germline mutations to SAM input. */
 void mutateReads(
@@ -187,6 +232,7 @@ void mutateReads(
 
   // TODO: check verbosity setting
   fprintf(stdout, "-- %s --\n", id_sample.c_str());
+  fprintf(stdout, "Baseline reads: %s\n", fn_sam_in.c_str());
   fprintf(stdout, "Creating bulk sample with the following prevalences:\n");
   for (int i=0; i<vec_clone_lbl.size(); i++) {
     fprintf(stdout, "clone %d: \"%s\"\t(%.4f)\n", vec_clone_idx[i], vec_clone_lbl[i].c_str(), vec_clone_weight[i]);
@@ -297,9 +343,6 @@ void mutateReads(
     int c_idx = vec_clone_idx[r_idx];
     string c_lbl = vec_clone_lbl[c_idx];
     string r1_name = toCString(read1.qName);
-if (r1_name == "chr0-482170") {
-  fprintf(stderr, "gotcha!\n");
-}
     int r1_begin = read1.beginPos;
     int r2_begin = read2.beginPos;
     int r1_len = getAlignmentLengthInRef(read1);

@@ -32,6 +32,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_mut_sig = "resources/signatures_probabilities.txt";
   string fn_ref_fa = "";
   string fn_tree = "";
+  bool do_reuse_reads = false;
   string pfx_out = "clonesim";
   int verb = 1;
   long seed = time(NULL) + clock();
@@ -139,6 +140,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["seed"] = seed;
   }
   seed = _config["seed"].as<long>();
+  if (!_config["seq-reuse-reads"]) {
+      _config["seq-reuse-reads"] = do_reuse_reads;
+  }
+  do_reuse_reads = _config["seq-reuse-reads"].as<bool>();
 
 
   // perform sanity checks
@@ -300,6 +305,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  input reads:\t%s\n", fn_bam_input.c_str());
     } else {
       fprintf(stderr, "  simulate reads:\tyes\n");
+      fprintf(stderr, "  reuse healthy reads:\t%s\n", do_reuse_reads ? "yes" : "no");
       fprintf(stderr, "  ref coverage:\t\t%d\n", this->getValue<int>("seq-coverage"));
       fprintf(stderr, "  seq read length:\t%d\n", this->getValue<int>("seq-read-len"));
       fprintf(stderr, "  seq insert size:\t%d (+-%d)\n", this->getValue<int>("seq-frag-len-mean"), this->getValue<int>("seq-frag-len-sd"));

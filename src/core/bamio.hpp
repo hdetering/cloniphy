@@ -15,6 +15,27 @@
  */
 namespace bamio {
 
+/** encapsulates sequence simulation with ART */
+class ArtWrapper {
+public:
+  std::string bin_path;
+  unsigned read_len;
+  unsigned frag_len_mean;
+  unsigned frag_len_sd;
+  float fold_cvg;
+  std::string out_pfx;
+  bool out_sam;
+  bool out_aln;
+  std::string seq_sys;
+  /** path to reference FASTA file */
+  std::string fn_ref_fa;
+  /** should FASTQ output file be kept? */
+  bool do_keep_fq;
+
+  ArtWrapper(std::string bin_path);
+  int run(std::string out_pfx);
+};
+
 /** Takes an existing SAM/BAM file and adds germline mutations to reads. */
 void mutateReads(
   const std::string fn_sam_out,

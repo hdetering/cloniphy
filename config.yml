@@ -127,5 +127,7 @@ seq-frag-len-mean : 500
 # standard deviation of fragment length (only for paired-end reads)
 seq-frag-len-sd   : 20
 # path to ART executable
-seq-art-path          : /home/harry/src/art_src_MountRainier_Linux/art_illumina
+seq-art-path      : /home/harry/src/art_src_MountRainier_Linux/art_illumina
+# whether to use reads from healthy sample for tumor samples
+seq-reuse-reads   : true
 ...
