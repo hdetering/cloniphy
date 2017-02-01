@@ -341,7 +341,7 @@ void mutateReads(
     // pick random clone (weighted) to which next read pair belongs
     int r_idx = rand_idx();
     int c_idx = vec_clone_idx[r_idx];
-    string c_lbl = vec_clone_lbl[c_idx];
+    string c_lbl = vec_clone_lbl[r_idx];
     string r1_name = toCString(read1.qName);
     int r1_begin = read1.beginPos;
     int r2_begin = read2.beginPos;
@@ -413,6 +413,9 @@ void mutateReads(
     bool is_mutated = false;
     while (it_pos!=it_chr->second.end() && it_pos->first<=max_pos_read) {
       Variant var = it_pos->second;
+//if (fn_sam_in == "build/crc.R3.baseline.sam" && var.id == "m469") {
+//  fprintf(stderr, "gotcha!\n");
+//}
       is_mutated = mm[c_lbl][var.idx_mutation]; // does read pair's clone carry mutation?
       is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
 
@@ -425,7 +428,7 @@ void mutateReads(
           read1.seq[r1_var_pos] = var.alleles[1][0];
         }
       }
-      int r2_var_pos = var.pos+1 - r2_begin;
+      int r2_var_pos = var.pos - r2_begin;
       if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
         map_var_cvg[var.id]++;
         if (is_mutated) { // mutate read2

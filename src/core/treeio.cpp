@@ -387,6 +387,10 @@ void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGe
 #endif
   dropRandomMutations(n_random, ++next_mut_id, rng);
 
+  // relabel mutations to pre-order sequence
+  next_mut_id = 0;
+  _relabelMutationsRec(m_root, next_mut_id);
+
   // reset branch lengths to #mutations
   for (auto node : m_vecNodes) {
     node->length = node->m_vec_mutations.size();
@@ -447,6 +451,17 @@ void Tree<TNodeType>::dropRandomMutations(int n_mutations, int &mutation_id, Ran
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, c->label);
     node->m_vec_mutations.push_back(mutation_id++);
   }
+}
+
+/** Reset mutation ids to follow pre-oder traversal sequence. */
+template<typename TNodeType>
+void Tree<TNodeType>::_relabelMutationsRec(shared_ptr<TNodeType> node, int &next_mut_id) {
+  // relabel this node's mutations
+  for (int &m_id : node->m_vec_mutations)
+    m_id = next_mut_id++;
+  // relabel children's mutations
+  for (shared_ptr<TNodeType> child : node->m_vecChildren)
+    _relabelMutationsRec(child, next_mut_id);
 }
 
 template<typename TNodeType>

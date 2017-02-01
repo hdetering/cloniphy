@@ -23,13 +23,13 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 {
   // default values
   int n_clones = 0;
-  int n_mut = 0;
-  int n_mut_init = 0;
+  int n_mut_somatic = 0;
+  int n_mut_trunk = 0;
   string model = "JC";
   string fn_bam_input = "";
-  string fn_mut_ref_vcf = "";
+  string fn_mut_gl_vcf = "";
   string fn_mut_som_vcf = "";
-  string fn_mut_sig = "resources/signatures_probabilities.txt";
+  string fn_mut_som_sig = "resources/signatures_probabilities.txt";
   string fn_ref_fa = "";
   string fn_tree = "";
   bool do_reuse_reads = false;
@@ -50,12 +50,12 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("help,h", "print help message")
     ("config,c", po::value<string>(), "config file")
     ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
-    ("mutations,m", po::value<int>(&n_mut), "total number of mutations")
+    ("mut-somatic,m", po::value<int>(&n_mut_somatic), "total number of mutations")
     ("reference,r", po::value<string>(&fn_ref_fa), "reference sequence")
-    ("reference-vcf,v", po::value<string>(&fn_mut_ref_vcf), "reference variants")
-    ("init-muts,i", po::value<int>(&n_mut_init), "number of transforming mutations (separating healthy genome from first cancer genome)")
+    ("mut-gl-vcf,v", po::value<string>(&fn_mut_gl_vcf), "germline variants")
+    ("init-muts,i", po::value<int>(&n_mut_trunk), "number of transforming mutations (separating healthy genome from first cancer genome)")
     ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
-    ("out,o", po::value<string>(&pfx_out), "prefix for output files")
+    ("out-pfx,o", po::value<string>(&pfx_out), "prefix for output files")
     ("verbosity,v", po::value<int>(&verb), "detail level of console output")
     ("seed,s", po::value<long>(&seed), "random seed")
   ;
@@ -94,21 +94,21 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["clones"] = n_clones;
   }
   n_clones = _config["clones"].as<int>();
-  if (var_map.count("mutations") || !_config["mutations"]) {
-    _config["mutations"] = n_mut;
+  if (var_map.count("mut-som") || !_config["mut-som"]) {
+    _config["mut-som"] = n_mut_somatic;
   }
-  n_mut = _config["mutations"].as<int>();
-  if (var_map.count("init-muts") || !_config["init-muts"]) {
-    _config["init-muts"] = n_mut_init;
+  n_mut_somatic = _config["mut-som"].as<int>();
+  if (var_map.count("mut-som-trunk") || !_config["mut-som-trunk"]) {
+    _config["mut-som-trunk"] = n_mut_trunk;
   }
-  n_mut_init = _config["init-muts"].as<int>();
+  n_mut_trunk = _config["init-muts"].as<int>();
   if (var_map.count("reference") || !_config["reference"]) {
     _config["reference"] = fn_ref_fa;
   }
-  if (_config["mut-sig-file"]) {
-    fn_mut_sig = _config["mut-sig-file"].as<string>();
+  if (_config["mut-som-sig-file"]) {
+    fn_mut_som_sig = _config["mut-som-sig-file"].as<string>();
   } else {
-    _config["mut-sig-file"] = fn_mut_sig;
+    _config["mut-som-sig-file"] = fn_mut_som_sig;
   }
   if (_config["bam-input"]) {
     fn_bam_input = _config["bam-input"].as<string>();
@@ -116,10 +116,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["bam-input"] = fn_bam_input;
   }
   fn_ref_fa = _config["reference"].as<string>();
-  if (var_map.count("reference-vcf") || !_config["reference-vcf"]) {
-    _config["reference-vcf"] = fn_mut_ref_vcf;
+  if (var_map.count("mut-gl-vcf") || !_config["mut-gl-vcf"]) {
+    _config["mut-gl-vcf"] = fn_mut_gl_vcf;
   }
-  fn_mut_ref_vcf = _config["reference-vcf"].as<string>();
+  fn_mut_gl_vcf = _config["mut-gl-vcf"].as<string>();
   if (var_map.count("mut-som-vcf") || !_config["mut-som-vcf"]) {
     _config["mut-som-vcf"] = fn_mut_som_vcf;
   }
@@ -128,8 +128,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["tree"] = fn_tree;
   }
   fn_tree = _config["tree"].as<string>();
-  if (var_map.count("out") || !_config["out"]) {
-    _config["out"] = pfx_out;
+  if (var_map.count("out-pfx") || !_config["out-pfx"]) {
+    _config["out-pfx"] = pfx_out;
   }
   fn_tree = _config["tree"].as<string>();
   if (var_map.count("verbosity") || !_config["verbosity"]) {
@@ -149,18 +149,18 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   // perform sanity checks
 
   // at least one mutation per clone?
-  if (n_mut < n_clones) {
-    if (n_mut > 0) {
-      fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut, n_clones);
+  if (n_mut_somatic < n_clones) {
+    if (n_mut_somatic > 0) {
+      fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut_somatic, n_clones);
       return false;
-    } else if (n_mut == 0 && fn_tree.length()==0) {
+    } else if (n_mut_somatic == 0 && fn_tree.length()==0) {
       fprintf(stderr, "\nArgumentError: When setting number of mutations = 0, a tree file needs to be specified. (Branch lengths -> #mutations)\n");
       return false;
     }
   }
   // initial mutations do not exceed total mutations?
-  //if (n_mut_init > (n_mut-n_clones)) {
-  //  fprintf(stderr, "\nArgumentError: Too many initial mutations (%d)\n -> can't be more than total mutations minus #clones (%d).\n", n_mut_init, n_mut-n_clones);
+  //if (n_mut_trunk > (n_mut-n_clones)) {
+  //  fprintf(stderr, "\nArgumentError: Too many initial mutations (%d)\n -> can't be more than total mutations minus #clones (%d).\n", n_mut_trunk, n_mut-n_clones);
   //  return false;
   //}
   // input BAM file exists?
@@ -174,13 +174,18 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     return false;
   }
   // reference VCF file exists?
-  if (fn_mut_ref_vcf.length()>0 && !fileExists(fn_mut_ref_vcf)) {
-    fprintf(stderr, "\nArgumentError: Reference VCF file '%s' does not exist.\n", fn_mut_ref_vcf.c_str());
+  if (fn_mut_gl_vcf.length()>0 && !fileExists(fn_mut_gl_vcf)) {
+    fprintf(stderr, "\nArgumentError: Germline VCF file '%s' does not exist.\n", fn_mut_gl_vcf.c_str());
     return false;
   }
   // somatic VCF file exists?
   if (fn_mut_som_vcf.length()>0 && !fileExists(fn_mut_som_vcf)) {
     fprintf(stderr, "\nArgumentError: Somatic VCF file '%s' does not exist.\n", fn_mut_som_vcf.c_str());
+    return false;
+  }
+  // somatic mutation signature file exists?
+  if (fn_mut_som_sig.length()>0 && !fileExists(fn_mut_som_sig)) {
+    fprintf(stderr, "\nArgumentError: Somatic mutation signature file '%s' does not exist.\n", fn_mut_som_sig.c_str());
     return false;
   }
   // was a clone tree provided by the user?
@@ -236,8 +241,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
 
   // check somatic evolution parameters
-  if (!fileExists(fn_mut_sig)) {
-    fprintf(stderr, "\nArgumentError: Mutation signature file '%s' does not exist.\n", fn_mut_sig.c_str());
+  if (!fileExists(fn_mut_som_sig)) {
+    fprintf(stderr, "\nArgumentError: Mutation signature file '%s' does not exist.\n", fn_mut_som_sig.c_str());
     return false;
   }
   if (!_config["mut-signatures"]) {
@@ -292,8 +297,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "----------------------------------\n");
     fprintf(stderr, "Germline mutations:\n");
     fprintf(stderr, "----------------------------------\n");
-    if (fn_mut_ref_vcf.length() > 0) {
-      fprintf(stderr, "reference VCF:\t%s\n", fn_mut_ref_vcf.c_str());
+    if (fn_mut_gl_vcf.length() > 0) {
+      fprintf(stderr, "germline VCF:\t%s\n", fn_mut_gl_vcf.c_str());
     } else {
       // TODO: print germline mutation params
     }
@@ -314,8 +319,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "----------------------------------\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "----------------------------------\n");
-    fprintf(stderr, "mutations:\t%d\n", n_mut);
-    fprintf(stderr, "transforming mutations:\t%d\n", n_mut_init);
+    fprintf(stderr, "somatic mutations:\t%d\n", n_mut_somatic);
+    fprintf(stderr, "transforming mutations:\t%d\n", n_mut_trunk);
     fprintf(stderr, "evolutionary model:\t%s\n", model.c_str());
     if (_config["samples"]) {
       fprintf(stderr, "Sampling scheme:\n");

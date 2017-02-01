@@ -49,18 +49,19 @@ int main (int argc, char* argv[])
   // params specified by user (in config file or command line)
   string fn_bam_input = config.getValue<string>("bam-input");
   int num_clones = config.getValue<int>("clones");
-  int n_mut_clonal = config.getValue<int>("mutations");
-  int n_mut_transforming = config.getValue<int>("init-muts");
-  int n_mut_germline = config.getValue<int>("mut-germline");
+  int n_mut_somatic = config.getValue<int>("mut-som");
+  int n_mut_transforming = config.getValue<int>("mut-som-trunk");
+  int n_mut_germline = config.getValue<int>("mut-gl");
   unsigned ref_seq_num = config.getValue<int>("ref-seq-num");
   unsigned long ref_seq_len_mean = config.getValue<unsigned long>("ref-seq-len-mean");
   unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref_fa = config.getValue<string>("reference");
-  string fn_mut_ref_vcf = config.getValue<string>("reference-vcf");
-  string fn_mut_som_vcf = config.getValue<string>("mut-som-vcf");
+  string fn_mut_gl_vcf = config.getValue<string>("mut-gl-vcf");
   string str_model_gl = config.getValue<string>("model");
   string fn_tree = config.getValue<string>("tree");
+  string fn_mut_som_vcf = config.getValue<string>("mut-som-vcf");
+  string fn_mut_som_sig = config.getValue<string>("mut-som-sig-file");
   map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
   double seq_coverage = config.getValue<double>("seq-coverage");
   unsigned seq_read_len = config.getValue<unsigned>("seq-read-len");
@@ -70,7 +71,7 @@ int main (int argc, char* argv[])
   bool seq_reuse_reads = config.getValue<bool>("seq-reuse-reads");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
-  string pfx_out = config.getValue<string>("out");
+  string pfx_out = config.getValue<string>("out-pfx");
   bool do_cnv_sim = false; // indicates if CNVs will be considered
 
   float ado_pct = 0.0; // TODO: make this a user parameter
@@ -79,7 +80,8 @@ int main (int argc, char* argv[])
   // inferred properties
   bool do_ref_sim = fn_bam_input.length() == 0;
   bool do_ref_reads = fn_bam_input.length() == 0;
-  bool do_germline_vars = (fn_mut_ref_vcf.size() > 0) || (n_mut_germline > 0);
+  bool do_germline_vars = (fn_mut_gl_vcf.size() > 0) || (n_mut_germline > 0);
+  bool do_somatic_vars = (fn_mut_som_vcf.size() == 0);
 
   // output file names
   string fn_mm = str(format("%s.mm.csv") % pfx_out); // mutation map
@@ -89,6 +91,10 @@ int main (int argc, char* argv[])
   treeio::Tree<Clone> tree; // contains clone genealogy
   GermlineSubstitutionModel model_gl; // model of germline seq evolution
   SomaticSubstitutionModel model_sm; // model of somatic seq evolution
+  if (do_somatic_vars) {
+    map<string, double> map_mut_som_sig_mix = config.getMap<double>("mut-som-sig-mix");
+    model_sm = SomaticSubstitutionModel(fn_mut_som_sig, map_mut_som_sig_mix);
+  }
 
   vector<Mutation> vec_mut_gl; // germline mutations
   vector<Variant> vec_var_gl; // germline variants
@@ -100,51 +106,51 @@ int main (int argc, char* argv[])
   function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
   function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
 
-  if (num_clones > 0) {
-    if (fn_tree.size()>0) {
-      cerr << "Reading tree from file '" << fn_tree << "'" << endl;
-      //treeio::parse::node root_node;
-      //treeio::parse::readNewick(fn_tree, root_node);
-      //tree = *(new treeio::Tree<Clone>(root_node));
-      tree = *(new treeio::Tree<Clone>(fn_tree));
-      num_clones = tree.getVisibleNodes().size();
-      cerr << "num_nodes:\t" << tree.m_numVisibleNodes << endl;
-      cerr << "num_clones:\t" << num_clones << endl;
+  if (fn_tree.size() > 0) {
+    cerr << "Reading tree from file '" << fn_tree << "'" << endl;
+    //treeio::parse::node root_node;
+    //treeio::parse::readNewick(fn_tree, root_node);
+    //tree = *(new treeio::Tree<Clone>(root_node));
+    tree = *(new treeio::Tree<Clone>(fn_tree));
+    num_clones = tree.getVisibleNodes().size();
+    cerr << "num_nodes:\t" << tree.m_numVisibleNodes << endl;
+    cerr << "num_clones:\t" << num_clones << endl;
 
-      // if number of mutations have not been supplied specifically,
-      // branch lengths are interpreted as number of mutations
-      if (n_mut_clonal == 0) {
-        fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths (expected number of mutations).\n");
-        // TODO: should absolute number of mutations be encodable in branch lengths?
-        double dbl_branch_length = tree.getTotalBranchLength();
-        n_mut_clonal = floor(dbl_branch_length);
-        fprintf(stderr, "Simulating a total of %d mutations.\n", n_mut_clonal);
-      }
+    // if number of mutations have not been supplied specifically,
+    // branch lengths are interpreted as number of mutations
+    if (n_mut_somatic == 0) {
+      fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths (expected number of mutations).\n");
+      // TODO: should absolute number of mutations be encodable in branch lengths?
+      double dbl_branch_length = tree.getTotalBranchLength();
+      n_mut_somatic = floor(dbl_branch_length);
+      fprintf(stderr, "Simulating a total of %d mutations.\n", n_mut_somatic);
     }
-    else {
-      tree = treeio::Tree<Clone>(num_clones);
-      fprintf(stderr, "\nGenerating random topology for %d clones...\n", num_clones);
-      tree.generateRandomTopologyLeafsOnly(random_dbl);
-      tree.varyBranchLengths(random_gamma);
-      fprintf(stderr, "done.\n");
-    }
-    fprintf(stderr, "\nNewick representation of underlying tree:\n");
-    tree.printNewick(cerr);
-    fprintf(stderr, "\n");
-
-    tree.evolve(n_mut_clonal, n_mut_transforming, rng);
-    string fn_newick = str(format("%s.tree") % pfx_out);
-    fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
-    tree.printNewick(fn_newick);
-
-    string fn_dot = str(format("%s.tree.dot") % pfx_out);
-    fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
-    tree.printDot(fn_dot);
-
-    // write mutation matrix to file
-    fprintf(stderr, "Writing mutation matrix for visible clones to file: %s\n", fn_mm.c_str());
-    tree.writeMutationMatrix(fn_mm);
   }
+  else if (num_clones > 0) {
+    tree = treeio::Tree<Clone>(num_clones);
+    fprintf(stderr, "\nGenerating random topology for %d clones...\n", num_clones);
+    tree.generateRandomTopologyLeafsOnly(random_dbl);
+    tree.varyBranchLengths(random_gamma);
+    fprintf(stderr, "done.\n");
+  }
+
+  fprintf(stderr, "\nNewick representation of underlying tree:\n");
+  tree.printNewick(cerr);
+  fprintf(stderr, "\n");
+
+  tree.evolve(n_mut_somatic, n_mut_transforming, rng);
+  string fn_newick = str(format("%s.tree") % pfx_out);
+  fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
+  tree.printNewick(fn_newick);
+
+  string fn_dot = str(format("%s.tree.dot") % pfx_out);
+  fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
+  tree.printDot(fn_dot);
+
+  // write mutation matrix to file
+  fprintf(stderr, "Writing mutation matrix for visible clones to file: %s\n", fn_mm.c_str());
+  tree.writeMutationMatrix(fn_mm);
+
 
   // get reference genome
   Genome ref_genome;
@@ -237,28 +243,28 @@ int main (int argc, char* argv[])
   }
 
   // if a VCF file was provided, read germline variants from file, otherwise simulate variants
-  if (fn_mut_ref_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
-    fprintf(stderr, "applying germline variants (from %s).\n", fn_mut_ref_vcf.c_str());
+  if (fn_mut_gl_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
+    fprintf(stderr, "applying germline variants (from %s).\n", fn_mut_gl_vcf.c_str());
   } else if (n_mut_germline > 0) {
     fprintf(stderr, "simulating %d germline variants (model: %s).\n", n_mut_germline, str_model_gl.c_str());
     //vec_mut_gl = vario::generateMutations(n_mut_germline, random_dbl);
     vec_var_gl = vario::generateGermlineVariants(n_mut_germline, ref_genome, model_gl, rng);
     //vario::applyVariants(ref_genome, vec_var_gl);
 
-    fn_mut_ref_vcf = str(format("%s.germline.vcf") % pfx_out.c_str());
-    fprintf(stderr, "writing generated variants to file: %s\n", fn_mut_ref_vcf.c_str());
-    vario::writeVcf(ref_genome.records, vec_var_gl, "germline", fn_mut_ref_vcf);
+    fn_mut_gl_vcf = str(format("%s.germline.vcf") % pfx_out.c_str());
+    fprintf(stderr, "writing generated variants to file: %s\n", fn_mut_gl_vcf.c_str());
+    vario::writeVcf(ref_genome.records, vec_var_gl, "germline", fn_mut_gl_vcf);
   }
 
   // apply germline variants
   string fn_normal_bam = "";
   if (do_germline_vars) {
     fn_normal_bam = str(format("%s.normal.sam") % pfx_out);
-    fprintf(stderr, "\nSpike in variants from file: %s\n", fn_mut_ref_vcf.c_str());
+    fprintf(stderr, "\nSpike in variants from file: %s\n", fn_mut_gl_vcf.c_str());
     fprintf(stderr, "  into baseline BAM: %s\n", fn_ref_bam.c_str());
     VariantSet ref_variants;
     map<string, vector<Genotype >> ref_gt_matrix;
-    vario::readVcf(fn_mut_ref_vcf, ref_variants, ref_gt_matrix);
+    vario::readVcf(fn_mut_gl_vcf, ref_variants, ref_gt_matrix);
     bamio::mutateReads(fn_normal_bam, fn_ref_bam, ref_variants, ref_genome.ploidy, rng);
     fprintf(stderr, "\nReads containing germline mutations are in file: %s\n", fn_normal_bam.c_str());
     //vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
@@ -266,21 +272,22 @@ int main (int argc, char* argv[])
     fn_normal_bam = fn_ref_bam;
   }
 
-  vector<Mutation> mutations;
-  if (n_mut_clonal > 0) {
+  // generate somatic mutations
+  vector<Variant> vec_var_somatic;
+  if (do_somatic_vars) {
     // generate point mutations (relative position + chr copy)
-    mutations = vario::generateMutations(n_mut_clonal, random_dbl);
-    fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
-    for (int i=0; i<n_mut_clonal; i++)
-      fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
+    vec_var_somatic = vario::generateSomaticVariants(n_mut_somatic, ref_genome, model_sm, rng);
+//fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
+//for (int i=0; i<n_mut_somatic; i++)
+//  fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
   }
   // apply mutations, creating variants in the process
-  vector<Variant> variants = vector<Variant>();
-  vario::applyMutations(mutations, ref_genome, model_gl, random_dbl, variants);
+  //vector<Variant> variants = vector<Variant>();
+  //vario::applyMutations(mutations, ref_genome, model_gl, random_dbl, variants);
 
   // setup mutation matrix
   int num_nodes = tree.m_numNodes;
-  vector<vector<bool> > mat_mut(num_nodes, vector<bool>(n_mut_clonal, false));
+  vector<vector<bool> > mat_mut(num_nodes, vector<bool>(n_mut_somatic, false));
   tree.m_root->populateMutationMatrixRec(mat_mut);
 
   // collect clone labels
@@ -290,12 +297,12 @@ int main (int argc, char* argv[])
     vec_labels.push_back(tree.m_vecNodes[i]->label);
   }
 
-  // write clonal variants to VCF file
+  // write somatic variants to VCF file
   string fn_vcf = str(format("%s.somatic.vcf") % pfx_out);
   fprintf(stderr, "\nWriting (sub)clonal mutations to file '%s'.\n", fn_vcf.c_str());
   ofstream f_vcf;
   f_vcf.open(fn_vcf);
-  vario::writeVcf(ref_genome.records, variants, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
+  vario::writeVcf(ref_genome.records, vec_var_somatic, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
   f_vcf.close();
 
   // get clones and mutation map from intermediate files
@@ -316,7 +323,7 @@ int main (int argc, char* argv[])
     string fn_fqout = str(format("%s.%s.bulk.fq") % pfx_out % sample.first);;
     string fn_samout = str(format("%s.%s.bulk.sam") % pfx_out % sample.first);;
 
-    VariantSet varset_somatic(variants);
+    VariantSet varset_somatic(vec_var_somatic);
     vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
     bamio::mutateReads(fn_fqout, fn_samout, fn_baseline, varset_somatic,
       clones, mm, sample.second, sample.first, ref_genome.ploidy, rng);

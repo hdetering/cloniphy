@@ -5,7 +5,7 @@
 #--------------------#
 
 # prefix for output files
-out: "bulk"
+out-pfx: "bulk"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -24,10 +24,10 @@ tree: "data/bulk/bulk.tre"
 # number of clones to simulate
 clones: 5
 # number of total mutations to simulate
-mutations: 10000
+mut-som: 10000
 # number of transforming mutations shared by all clones
 # (included in total mutations)
-init-muts: 100
+mut-som-trunk: 100
 
 #----------------------------#
 # existing seq data as input #
@@ -60,8 +60,8 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 #-------------------------------#
 
 # germline variants (to generate personal genome from reference)
-#reference-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-germline : 1000
+#mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
+mut-gl : 1000
 
 # evolutionary model
 # choices: 'JC', 'F81', 'K80', 'HKY', 'matrix', 'matrixFromVcf'
@@ -86,11 +86,11 @@ mut-som-vcf: crc.somatic.vcf
 
 # Mutational signatures are obtained from COSMIC:
 #   http://cancer.sanger.ac.uk/cosmic/signatures
-mut-sig-file: resources/signatures_probabilities.txt
+mut-som-sig-file: resources/signatures_probabilities.txt
 
 # The following list defines the relative contribution each signature (1-30).
 # Signatures not present in the list will not be applied.
-mut-signatures:
+mut-som-sig-mix:
   'Signature 1': 1.0
 
 #-------------------------------#

@@ -94,6 +94,8 @@ private:
   void dropMandatoryMutations(std::shared_ptr<TNodeType>, int&);
   /** Drop free mutations on random clone nodes. */
   void dropRandomMutations(int, int&, RandomNumberGenerator<>&);
+  /** Reset mutation ids to follow pre-oder traversal sequence. */
+  void _relabelMutationsRec(std::shared_ptr<TNodeType>, int&);
   void _varyBranchLengthsRec(std::shared_ptr<TNodeType>, std::function<double()>&);
   void _assignWeightsRec(
     std::shared_ptr<TNodeType>,
