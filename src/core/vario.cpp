@@ -33,8 +33,10 @@ long VariantSet::indexVariants() {
 
   for (Variant var : this->vec_variants) {
     if (this->map_chr2pos2var.find(var.chr) == this->map_chr2pos2var.end())
-      this->map_chr2pos2var[var.chr] = map<unsigned long, Variant>();
-    this->map_chr2pos2var[var.chr][var.pos] = var;
+      this->map_chr2pos2var[var.chr] = map<unsigned long, vector<Variant>>();
+    //if (this->map_chr2pos2var[var.chr].find(var.pos) == this->map_chr2pos2var[var.chr].end())
+    //  this->map_chr2pos2var[var.chr][var.pos] = vector<Variant>>();
+    this->map_chr2pos2var[var.chr][var.pos].push_back(var);
     num_variants++;
   }
 
@@ -139,7 +141,7 @@ void Mutation::apply(
 fprintf(stderr, "Mutated '%s:%u' (%s>%s)\n", genome.records[targetSeqIndex].id.c_str(), loc.start, var.alleles[0].c_str(), var.alleles[1].c_str());
 }
 
-Variant::Variant() : id(""), chr(""), pos(0), alleles(0), idx_mutation(0), rel_pos(0.0) {}
+Variant::Variant() : id(""), chr(""), pos(0), alleles(0), idx_mutation(0), rel_pos(0.0), is_somatic(false) {}
 Variant::~Variant() {}
 
 bool Variant::operator< (const Variant &other) const {
@@ -332,9 +334,6 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
     }
 
     variants.vec_variants.push_back(var);
-    if (variants.map_chr2pos2var.find(var.chr) == variants.map_chr2pos2var.end())
-      variants.map_chr2pos2var[var.chr] = map<unsigned long, Variant>();
-    variants.map_chr2pos2var[var.chr][var.pos] = var;
     var_idx++;
 //fprintf(stderr, "read from VCF: <Variant(idx=%u,id=%s,pos=%lu,num_alleles=%lu)> ", var_idx, var->id.c_str(), var->pos, var->alt.size()+1);
     for (unsigned i=0; i<num_samples; ++i) {
@@ -348,6 +347,8 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
     stringio::safeGetline(input, line);
   }
   variants.num_variants = var_idx;
+  // index Variants by chromosome and position
+  variants.indexVariants();
   // calculate substitution freqs etc.
   variants.calculateSumstats();
 }
@@ -559,6 +560,7 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.alleles.push_back(ref_site);
     var.alleles.push_back(alt_nuc);
     var.idx_mutation = i;
+    var.is_somatic = true;
     variants[i] = var;
   }
 

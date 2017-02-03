@@ -32,6 +32,7 @@ struct Variant
   std::vector<std::string> alleles; /** observed alleles */
   unsigned idx_mutation; /** reference to mutation that gave rise to this variant */
   double rel_pos;     /** relative position in genome (use for sorting) */
+  bool is_somatic;    /** is this Variant somatic or germline? (different output channels) */
 
   Variant();
   Variant(std::string id, std::string chr, unsigned long pos);
@@ -56,7 +57,7 @@ struct VariantSet
   unsigned long num_variants = 0;
   std::vector<Variant> vec_variants; /** all variants that belong to the set */
   // TODO: a position must be able to store more than one variable! (-> CNVs, homoplasy)
-  std::map<std::string, std::map<unsigned long, Variant>> map_chr2pos2var; /** variants stored by chromosome id */
+  std::map<std::string, std::map<unsigned long, std::vector<Variant>>> map_chr2pos2var; /** variants stored by chromosome id */
 
   /** summary statistics */
   double mat_freqs[4][4] = {

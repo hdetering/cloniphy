@@ -6,6 +6,7 @@
 using boost::format;
 using boost::str;
 #include <boost/program_options.hpp>
+#include <cassert>
 #include <iostream>
 #include <sys/stat.h>
 #include "yaml-cpp/yaml.h"
@@ -68,6 +69,8 @@ std::map<std::string, std::vector<T>> ConfigStore::getMatrix(const char* key) {
     fprintf(stderr, "[ERROR] (ConfigStore::getMatrix) No element found with name '%s'.\n", key);
     return mtx;
   }
+  YAML::Node node = _config[key];
+  assert(node.Type() == YAML::NodeType::Sequence);
   for (auto row : _config[key]) {
     if (row.size() < 2) {
       fprintf(stderr, "[ERROR] (ConfigStore::getMatrix) Too few elements while reading parameter '%s' (key: '%s').\n", row[0].as<std::string>().c_str(), key);
@@ -88,13 +91,12 @@ std::map<std::string, T> ConfigStore::getMap(const char* key) {
     fprintf(stderr, "[ERROR] (ConfigStore::getMap) No element found with name '%s'.\n", key);
     return m;
   }
-  for (auto row : _config[key]) {
-    if (row.size() < 2) {
-      fprintf(stderr, "[ERROR] (ConfigStore::getMap) Too few elements while reading parameter '%s' (key: '%s').\n", row[0].as<std::string>().c_str(), key);
-      continue;
-    }
-    T v = row[1].as<T>();
-    m[row[0].as<std::string>()] = v;
+  YAML::Node node = _config[key];
+  assert(node.Type() == YAML::NodeType::Map);
+  for (auto kv : node) {
+    std::string k = kv.first.as<std::string>();
+    T v = kv.second.as<T>();
+    m[k] = v;
   }
   return m;
 }

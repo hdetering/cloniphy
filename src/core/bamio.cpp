@@ -104,8 +104,12 @@ void mutateReads(
     int r2_begin = read2.beginPos; // coordinates are 0-based!
     int r1_len = getAlignmentLengthInRef(read1);
     int r2_len = getAlignmentLengthInRef(read2);
+    int r1_end = r1_begin + r1_len;
+    int r2_end = r2_begin + r2_len;
     string r1_ref = toCString(contigNames(bamContextIn)[read1.rID]);
     string r2_ref = toCString(contigNames(bamContextIn)[read2.rID]);
+    auto min_pos_read = (r1_begin < r2_begin ? r1_begin : r2_begin);
+    auto max_pos_read = (r1_end > r2_end ? r1_end : r2_end);
 
     // check custom tags for read pair
     BamTagsDict tags(read1.tags);
@@ -114,7 +118,9 @@ void mutateReads(
     // extract or set phase information
     unsigned idx_tag_xp = 0;
     if (findTagKey(idx_tag_xp, tags, "XP")) { // get phase info
+      char char_phase;
       extractTagValue(phase, tags, idx_tag_xp);
+      phase = char_phase - '0';
     }
     else { // add custom field
       phase = rphase(); // pick random phase for read pair
@@ -125,7 +131,9 @@ void mutateReads(
     // extract or set copy information
     unsigned idx_tag_xc = 0;
     if (findTagKey(idx_tag_xc, tags, "XC")) { // get copy info
+      char char_copy;
       extractTagValue(copy, tags, idx_tag_xc);
+      copy = char_copy - '0';
     }
     else { // add custom field
       CharString tagXC = str(boost::format("XC:A:%s") % copy);
@@ -134,37 +142,40 @@ void mutateReads(
     }
 
     // mutate reads
-    // variants are accessible by chromosome name which should speed up lookup
+    // variants are accessible by chromosome name (optimized lookup)
 
     // find first candidate variant
     auto it_chr = variants.map_chr2pos2var.find(r1_ref);
     if (it_chr == variants.map_chr2pos2var.end()) {
       continue; // no variants for this reference sequence
     }
-    auto it_pos = it_chr->second.lower_bound(r1_begin);
+    auto it_pos = it_chr->second.lower_bound(min_pos_read);
 
     // identify variants affecting read pair
     bool is_mutated = false;
-    while (it_pos!=it_chr->second.end() && it_pos->first<r2_begin+r2_len) {
-      Variant var = it_pos->second;
-      is_mutated = (var.chr_copy == phase); // does read pair have same phase as variant?
+    while (it_pos!=it_chr->second.end() && it_pos->first<max_pos_read) {
+      // variants located at position it_pos
+      vector<Variant> vec_vars = it_pos->second;
+      for (auto var : vec_vars) {
+        is_mutated = (var.chr_copy == phase); // does read pair have same phase as variant?
 
-      int r1_var_pos = var.pos-1 - r1_begin;
-      if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
-        map_var_cvg[var.id]++;
-        if (is_mutated) { // mutate read1
-          //cerr << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
-          read1.seq[r1_var_pos] = var.alleles[1][0];
-          map_var_vaf[var.id]++;
+        int r1_var_pos = var.pos-1 - r1_begin;
+        if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
+          map_var_cvg[var.id]++;
+          if (is_mutated) { // mutate read1
+            //cerr << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            read1.seq[r1_var_pos] = var.alleles[1][0];
+            map_var_vaf[var.id]++;
+          }
         }
-      }
-      int r2_var_pos = var.pos - r2_begin;
-      if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
-        map_var_cvg[var.id]++;
-        if (is_mutated) { // mutate read2
-          //cerr << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
-          read2.seq[r2_var_pos] = var.alleles[1][0];
-          map_var_vaf[var.id]++;
+        int r2_var_pos = var.pos - r2_begin;
+        if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
+          map_var_cvg[var.id]++;
+          if (is_mutated) { // mutate read2
+            //cerr << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            read2.seq[r2_var_pos] = var.alleles[1][0];
+            map_var_vaf[var.id]++;
+          }
         }
       }
       ++it_pos;
@@ -182,7 +193,7 @@ void mutateReads(
   ofstream fs_varout;
   fs_varout.open(fn_varout.c_str());
   for (Variant v : variants.vec_variants) {
-    string id = str(boost::format("%s_%d:%ld") % v.chr % v.chr_copy % v.pos);
+    string id = str(boost::format("%s_%d:%ld") % v.chr % v.chr_copy % (v.pos+1));
     unsigned alt = map_var_vaf[v.id];
     unsigned ref = map_var_cvg[v.id] - alt;
     string line = str(boost::format("%d\t%s\t%s\t%s\n") % v.idx_mutation % id % ref % alt);
@@ -406,35 +417,37 @@ void mutateReads(
     if (it_chr == variants.map_chr2pos2var.end()) {
       continue; // no variants for this reference sequence
     }
-    // TODO: misses mutations when occurring at same pos
     auto it_pos = it_chr->second.lower_bound(min_pos_read);
 
     // identify variants affecting read pair
     bool is_mutated = false;
     while (it_pos!=it_chr->second.end() && it_pos->first<=max_pos_read) {
-      Variant var = it_pos->second;
+      // variants located at position it_pos
+      vector<Variant> vec_vars = it_pos->second;
+      for (auto var : vec_vars) {
 //if (fn_sam_in == "build/crc.R3.baseline.sam" && var.id == "m469") {
 //  fprintf(stderr, "gotcha!\n");
 //}
-      is_mutated = mm[c_lbl][var.idx_mutation]; // does read pair's clone carry mutation?
-      is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
+        is_mutated = mm[c_lbl][var.idx_mutation]; // does read pair's clone carry mutation?
+        is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
 
-      int r1_var_pos = var.pos - r1_begin;
-      if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
-        map_var_cvg[var.id]++;
-        if (is_mutated) { // mutate read1
-          map_var_vaf[var.id]++;
-          fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
-          read1.seq[r1_var_pos] = var.alleles[1][0];
+        int r1_var_pos = var.pos - r1_begin;
+        if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
+          map_var_cvg[var.id]++;
+          if (is_mutated) { // mutate read1
+            map_var_vaf[var.id]++;
+            fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            read1.seq[r1_var_pos] = var.alleles[1][0];
+          }
         }
-      }
-      int r2_var_pos = var.pos - r2_begin;
-      if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
-        map_var_cvg[var.id]++;
-        if (is_mutated) { // mutate read2
-          map_var_vaf[var.id]++;
-          fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
-          read2.seq[r2_var_pos] = var.alleles[1][0];
+        int r2_var_pos = var.pos - r2_begin;
+        if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
+          map_var_cvg[var.id]++;
+          if (is_mutated) { // mutate read2
+            map_var_vaf[var.id]++;
+            fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            read2.seq[r2_var_pos] = var.alleles[1][0];
+          }
         }
       }
 
@@ -477,7 +490,9 @@ void mutateReads(
   ofstream fs_varout;
   fs_varout.open(fn_varout.c_str());
   for (Variant v : variants.vec_variants) {
-    string id = str(boost::format("%s_%d:%ld") % v.chr % v.chr_copy % v.pos);
+    // only output somatic variants
+    if (!v.is_somatic) continue;
+    string id = str(boost::format("%s_%d:%ld") % v.chr % v.chr_copy % (v.pos+1));
     unsigned alt = map_var_vaf[v.id];
     unsigned ref = map_var_cvg[v.id] - alt;
     string line = str(boost::format("%d\t%s\t%s\t%s\n") % v.id % id % ref % alt);
@@ -704,32 +719,35 @@ void mutateReads(
     // identify variants affecting read pair
     bool is_mutated = false;
     while (it_pos!=it_chr->second.end() && it_pos->first<r2_begin+r2_len) {
-      Variant var = it_pos->second;
-      is_mutated = mm[c_idx][var.idx_mutation]; // does read pair's clone carry mutation?
-      is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
+      // variants located at position it_pos
+      vector<Variant> vec_vars = it_pos->second;
+      for (auto var : vec_vars) {
+        is_mutated = mm[c_idx][var.idx_mutation]; // does read pair's clone carry mutation?
+        is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
 
-      int r1_var_pos = var.pos-1 - r1_begin;
-      if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
+        int r1_var_pos = var.pos-1 - r1_begin;
+        if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
 if (var.id == "m27") {
   fprintf(stderr, "%s\n", toCString(read1.qName));
 }
-        map_var_cvg[var.id]++;
-        if (is_mutated) { // mutate read1
-          map_var_vaf[var.id]++;
-          fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
-          read1.seq[r1_var_pos] = var.alleles[1][0];
+          map_var_cvg[var.id]++;
+          if (is_mutated) { // mutate read1
+            map_var_vaf[var.id]++;
+            fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            read1.seq[r1_var_pos] = var.alleles[1][0];
+          }
         }
-      }
-      int r2_var_pos = var.pos - r2_begin;
-      if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
+        int r2_var_pos = var.pos - r2_begin;
+        if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
 if (var.id == "m27") {
   fprintf(stderr, "%s\n", toCString(read2.qName));
 }
-        map_var_cvg[var.id]++;
-        if (is_mutated) { // mutate read2
-          map_var_vaf[var.id]++;
-          fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
-          read2.seq[r2_var_pos] = var.alleles[1][0];
+          map_var_cvg[var.id]++;
+          if (is_mutated) { // mutate read2
+            map_var_vaf[var.id]++;
+            fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            read2.seq[r2_var_pos] = var.alleles[1][0];
+          }
         }
       }
 

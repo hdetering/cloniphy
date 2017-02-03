@@ -13,22 +13,6 @@ verbosity: 1
 # random seed
 seed: 123456789
 
-
-#-----------------------#
-# clone tree parameters #
-#-----------------------#
-
-# user-provided clone tree (overrides parameters below)
-tree: "data/bulk/bulk.tre"
-
-# number of clones to simulate
-clones: 5
-# number of total mutations to simulate
-mut-som: 10000
-# number of transforming mutations shared by all clones
-# (included in total mutations)
-mut-som-trunk: 100
-
 #----------------------------#
 # existing seq data as input #
 #----------------------------#
@@ -41,6 +25,17 @@ mut-som-trunk: 100
 # file containing reference genome sequence
 #reference: data/ref/Hg18.chr20-22.fa
 #chr0-335294
+
+
+#-----------------------#
+# clone tree parameters #
+#-----------------------#
+
+# user-provided clone tree (overrides parameters below)
+tree: "data/bulk/bulk.tre"
+
+# number of clones to simulate
+clones: 5
 
 #-------------------------#
 # reference genome params #
@@ -81,6 +76,12 @@ model-params:
 # somatic evolution parameters #
 #------------------------------#
 
+# number of total mutations to simulate
+mut-som: 10000
+# number of transforming mutations shared by all clones
+# (included in total mutations)
+mut-som-trunk: 100
+
 # somatic variants file
 mut-som-vcf: crc.somatic.vcf
 
@@ -91,7 +92,7 @@ mut-som-sig-file: resources/signatures_probabilities.txt
 # The following list defines the relative contribution each signature (1-30).
 # Signatures not present in the list will not be applied.
 mut-som-sig-mix:
-  'Signature 1': 1.0
+  - [ 'Signature 1', 1.0 ]
 
 #-------------------------------#
 #      sampling parameters      #

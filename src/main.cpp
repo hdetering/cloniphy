@@ -16,6 +16,7 @@
 
 #include <boost/format.hpp>
 #include <cassert>
+#include <cstdio> // remove(), rename()
 #include <ctime>
 #include <exception>
 #include <fstream>
@@ -260,14 +261,13 @@ int main (int argc, char* argv[])
   string fn_normal_bam = "";
   if (do_germline_vars) {
     fn_normal_bam = str(format("%s.normal.sam") % pfx_out);
-    fprintf(stderr, "\nSpike in variants from file: %s\n", fn_mut_gl_vcf.c_str());
-    fprintf(stderr, "  into baseline BAM: %s\n", fn_ref_bam.c_str());
     VariantSet ref_variants;
     map<string, vector<Genotype >> ref_gt_matrix;
     vario::readVcf(fn_mut_gl_vcf, ref_variants, ref_gt_matrix);
+    fprintf(stderr, "\nSpike in variants from file: %s\n", fn_mut_gl_vcf.c_str());
+    fprintf(stderr, "  into baseline normal reads: %s\n", fn_ref_bam.c_str());
     bamio::mutateReads(fn_normal_bam, fn_ref_bam, ref_variants, ref_genome.ploidy, rng);
     fprintf(stderr, "\nReads containing germline mutations are in file: %s\n", fn_normal_bam.c_str());
-    //vario::applyVariants(ref_genome, ref_variants.vec_variants, ref_gt_matrix["0"]);
   } else { // there are no germline variants
     fn_normal_bam = fn_ref_bam;
   }
@@ -312,20 +312,30 @@ int main (int argc, char* argv[])
   num_mm_rows = vario::readMutMapFromCSV(mm, fn_mm);
   assert( num_mm_rows == clones.size() );
 
-  // introduce somatic mutations in baseline reads
+  // spike-in somatic mutations in baseline reads
+  vector<Variant> vec_var_spikein;
   fprintf(stderr, "---\nNow generating sequencing reads for %ld samples...\n", mtx_sample.size());
   for (auto sample : mtx_sample) {
     string fn_baseline;
-    if (seq_reuse_reads) // use normal sample reads as baseline for tumor samples
+    if (seq_reuse_reads) {
+      // use normal sample reads as baseline for tumor samples
       fn_baseline = str(format("build/%s") % fn_normal_bam.c_str());
-    else // choose sample-specific baseline files
+      // germline variants are already contained in baseline reads
+      vec_var_spikein = vec_var_somatic;
+    }
+    else  {
+      // choose sample-specific baseline files
       fn_baseline = str(format("build/%s.%s.baseline.sam") % pfx_out.c_str() % sample.first);
+      // include germline variants in spike-in variants
+      vec_var_spikein = vec_var_gl;
+      vec_var_spikein.insert(vec_var_spikein.end(), vec_var_somatic.begin(), vec_var_somatic.end());
+    }
     string fn_fqout = str(format("%s.%s.bulk.fq") % pfx_out % sample.first);;
     string fn_samout = str(format("%s.%s.bulk.sam") % pfx_out % sample.first);;
 
-    VariantSet varset_somatic(vec_var_somatic);
+    VariantSet varset_spikein(vec_var_spikein);
     vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
-    bamio::mutateReads(fn_fqout, fn_samout, fn_baseline, varset_somatic,
+    bamio::mutateReads(fn_fqout, fn_samout, fn_baseline, varset_spikein,
       clones, mm, sample.second, sample.first, ref_genome.ploidy, rng);
   }
 
