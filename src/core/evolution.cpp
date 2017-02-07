@@ -400,7 +400,7 @@ int SomaticSubstitutionModel::parseProfiles(
 
   // read each substitution line, get probabilities for profiles
   stringio::CSVRow row('\t');
-  while (filestream >> row) {
+  while (filestream >> row && row.size()>0) {
     this->m_site[n_lines] = row[1];
     this->m_alt[n_lines] = row[0].substr(2, 1);
     for (auto i=3; i<row.size(); i++) {

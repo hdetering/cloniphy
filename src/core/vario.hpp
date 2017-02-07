@@ -71,6 +71,20 @@ struct VariantSet
   VariantSet(std::vector<Variant> variants);
   ~VariantSet();
 
+  /** Compound assignment VariantSets: add Variants of rhs to this VariantSet.
+   *  (Does not need to be a member, but often is, to modify the private members)
+   */
+  VariantSet& operator+=(const VariantSet& rhs);
+  /** Add two VariantSets: returns the union set.
+   *  Friends defined inside class body are inline and are hidden from non-ADL lookup.
+   *  Passing lhs by value helps optimize chained a+b+c. (Otherwise, both parameters
+   *    may be const references)
+   */
+  friend VariantSet operator+(VariantSet lhs, const VariantSet& rhs) {
+    lhs += rhs; // reuse compound assignment
+    return lhs; // return the result by value (uses move constructor)
+  }
+
   /** Index variants by chromosome and position. */
   long indexVariants();
   long calculateSumstats();

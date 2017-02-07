@@ -245,10 +245,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "\nArgumentError: Mutation signature file '%s' does not exist.\n", fn_mut_som_sig.c_str());
     return false;
   }
-  if (!_config["mut-signatures"]) {
+  if (!_config["mut-som-sig-mix"]) {
     fprintf(stderr, "\n[INFO] Missing somatic mutation signatures - assuming signature 1.\n");
-    YAML::Node node = YAML::Load("1: 1.0");
-    _config["mut-signatures"] = node;
+    YAML::Node node = YAML::Load("  - Signature 1: 1.0");
+    _config["mut-som-sig-mix"] = node;
   }
 
   // does sampling matrix have the expected number of rows (clones + 1)?

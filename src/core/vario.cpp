@@ -26,6 +26,17 @@ VariantSet::VariantSet(vector<Variant> variants) {
   this->calculateSumstats();
 }
 
+VariantSet& VariantSet::operator+=(const VariantSet& rhs) {
+  this->vec_variants.insert(
+    this->vec_variants.end(),
+    rhs.vec_variants.begin(),
+    rhs.vec_variants.end()
+  );
+  this->indexVariants();
+  this->calculateSumstats();
+  return *this; // return the result by reference
+}
+
 /** Index variants by chromosome and position. */
 long VariantSet::indexVariants() {
   long num_variants;
@@ -121,7 +132,7 @@ void Mutation::apply(
   Nuc nuc_alt = (Nuc)(evolution::MutateSite((short)nuc_ref, rng, model));
 
   // initialize variant
-  var.id = str(boost::format("m%u") % this->id);
+  var.id = str(format("m%u") % this->id);
   var.chr = genome.records[loc.idx_record].id_ref;
   var.pos = loc.start;
   var.alleles.push_back(seqio::nucToString(nuc_ref));
@@ -230,7 +241,7 @@ void applyMutations(
 
     // initialize variant
     Variant var = *(new Variant());
-    var.id = str(boost::format("m%u") % m->id);
+    var.id = str(format("m%u") % m->id);
     var.chr = genome.records[loc.idx_record].id_ref;
     var.pos = loc.start;
     var.alleles.push_back(seqio::nucToString(nuc_ref));
@@ -397,7 +408,7 @@ void writeVcf(
     string ref = var.alleles[0];
     string alt = var.alleles[1];
     out << format("%s\t%d\t%d\t%s\t%s\t%s\tPASS\t%d\t%s")
-                  % (var.chr) % (var.pos+1) % (var.idx_mutation)
+                  % (var.chr) % (var.pos+1) % (var.id)
                   % ref % alt % var_qual % var_info % var_fmt;
     for (auto sid : id_samples) {
       string genotype = "";
@@ -479,7 +490,7 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     // pick new nucleotide
     short nuc_alt = evolution::MutateSite(idx_bucket, random_float, model);
     Variant var;
-    var.id = to_string(i);
+    var.id = str(format("g%d") % i);
     var.chr = loc.id_ref;
     var.chr_copy = random_copy();
     var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
@@ -551,13 +562,13 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
 
     // init new Variant
     Variant var;
-    var.id = to_string(i);
+    var.id = str(format("s%d") % i);
     var.chr = loc.id_ref;
     var.chr_copy = random_copy();
     var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
     var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
     var.pos = loc.start;
-    var.alleles.push_back(ref_site);
+    var.alleles.push_back(ref_nuc);
     var.alleles.push_back(alt_nuc);
     var.idx_mutation = i;
     var.is_somatic = true;

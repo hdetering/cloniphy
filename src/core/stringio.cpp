@@ -98,7 +98,7 @@ size_t CSVRow::size() const {
 /** Read line from input stream. */
 void CSVRow::readNextRow(istream& str) {
     string line;
-    getline(str, line);
+    safeGetline(str, line);
 
     stringstream lineStream(line);
     string cell;

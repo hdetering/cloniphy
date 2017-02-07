@@ -425,10 +425,8 @@ void mutateReads(
       // variants located at position it_pos
       vector<Variant> vec_vars = it_pos->second;
       for (auto var : vec_vars) {
-//if (fn_sam_in == "build/crc.R3.baseline.sam" && var.id == "m469") {
-//  fprintf(stderr, "gotcha!\n");
-//}
-        is_mutated = mm[c_lbl][var.idx_mutation]; // does read pair's clone carry mutation?
+        // germline or applicable clone mutation?
+        is_mutated = (!var.is_somatic) || mm[c_lbl][var.idx_mutation];
         is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
 
         int r1_var_pos = var.pos - r1_begin;
