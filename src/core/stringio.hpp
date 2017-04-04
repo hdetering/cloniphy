@@ -25,6 +25,22 @@ unsigned readCSV (
   const std::string filename,
   const char sep=','
 );
+/** Write vector of vectors to file in CSV format. */
+template <typename T>
+unsigned writeCSV (
+  const std::vector<std::vector<T>> &data,
+  const std::string filename,
+  const char sep=','
+);
+/** Write map of named vectors to file in CSV format. */
+template <typename T>
+unsigned writeCSV (
+  const std::map<std::string, std::vector<T>> &data,
+  const std::string filename,
+  const char sep=','
+);
+
+
 
 /** Reads a line from a CSV file and splits it into cells.  */
 class CSVRow
@@ -68,6 +84,49 @@ std::string printMatrix(std::map<std::string, std::vector<T>> mtx) {
     output += "\n";
   }
   return output;
+}
+
+/** Write vector of vectors to file in CSV format. */
+template <typename T>
+unsigned writeCSV (
+  const std::vector<std::vector<T>> &data,
+  const std::string filename,
+  const char sep)
+{
+  std::ofstream filestream;
+  filestream.open(filename.c_str());
+
+  for (auto row : data) {
+    auto it = row.begin();
+    filestream << *it;
+    while (++it != row.end()) {
+      filestream << sep << *it;
+    }
+    filestream << std::endl;
+  }
+
+  filestream.close();
+}
+
+/** Write map of named vectors to file in CSV format. */
+template <typename T>
+unsigned writeCSV (
+  const std::map<std::string, std::vector<T>> &data,
+  const std::string filename,
+  const char sep)
+{
+  std::ofstream filestream;
+  filestream.open(filename.c_str());
+
+  for (auto row : data) {
+    filestream << row.first;
+    for (auto cell : row.second) {
+      filestream << sep << cell;
+    }
+    filestream << std::endl;
+  }
+
+  filestream.close();
 }
 
 } /* namespace stringio */

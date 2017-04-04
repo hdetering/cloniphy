@@ -131,4 +131,8 @@ seq-frag-len-sd   : 20
 seq-art-path      : /home/harry/src/art_src_MountRainier_Linux/art_illumina
 # whether to use reads from healthy sample for tumor samples
 seq-reuse-reads   : true
+# whether to keep FASTQ files
+seq-fq-out        : false
+# whether to generate SAM output
+seq-sam-out       : true
 ...

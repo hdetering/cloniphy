@@ -87,6 +87,11 @@ unsigned readCSV(vector<vector<string>> &mtx_data, const string filename, char s
   return n_row;
 }
 
+
+/* --------------------------- *
+ *  CSVRow method definitions  *
+ * --------------------------- */
+
 /** Enable access to CSVRow fields by index. */
 string const& CSVRow::operator[](size_t index) const {
     return m_data[index];

@@ -70,6 +70,8 @@ int main (int argc, char* argv[])
   unsigned seq_frag_len_sd = config.getValue<unsigned>("seq-frag-len-sd");
   string seq_art_path = config.getValue<string>("seq-art-path");
   bool seq_reuse_reads = config.getValue<bool>("seq-reuse-reads");
+  bool seq_fq_out = config.getValue<bool>("seq-fq-out");
+  bool seq_sam_out = config.getValue<bool>("seq-sam-out");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
   string pfx_out = config.getValue<string>("out-pfx");
@@ -79,7 +81,7 @@ int main (int argc, char* argv[])
   int ado_frag_len = 10000; // TODO: make this a user parameter
 
   // inferred properties
-  bool do_ref_sim = fn_bam_input.length() == 0;
+  bool do_ref_sim = fn_ref_fa.length() == 0;
   bool do_ref_reads = fn_bam_input.length() == 0;
   bool do_germline_vars = (fn_mut_gl_vcf.size() > 0) || (n_mut_germline > 0);
   bool do_somatic_vars = (fn_mut_som_vcf.size() == 0);
@@ -186,6 +188,8 @@ int main (int argc, char* argv[])
     art.frag_len_sd = seq_frag_len_sd;
     art.fold_cvg = seq_coverage;
     art.fn_ref_fa = fn_ref_fa;
+    art.out_sam = seq_sam_out;
+    //art.do_keep_fq = seq_fq_out; // do baseline FASTQs have any application?
     // generate reads using ART
     string art_out_pfx = pfx_out + ".ref";
     int res_art = art.run(art_out_pfx);
@@ -312,7 +316,7 @@ int main (int argc, char* argv[])
     fprintf(stderr, "\nSpike in variants from file: %s\n", fn_mut_gl_vcf.c_str());
     fprintf(stderr, "  into baseline reads: %s\n", fn_ref_bam.c_str());
     bamio::mutateReads(fn_fqout, fn_normal_bam, fn_baseline, varset_spikein,
-      clones, mm, vec_freq, id_sample, ref_genome.ploidy, rng);
+      clones, mm, vec_freq, id_sample, ref_genome.ploidy, rng, seq_fq_out);
     fprintf(stderr, "\nReads containing germline mutations are in file: %s\n", fn_normal_bam.c_str());
   } else { // there are no germline variants
     fn_normal_bam = fn_ref_bam;
@@ -346,6 +350,11 @@ int main (int argc, char* argv[])
     for (auto kv : clone2fn)
       seqio::simulateADO(kv.second, ref_genome.masked_length, ado_pct, ado_frag_len, random_dbl);
   */
+
+  // output sampling scheme to CSV file
+  string fn_sampling_csv = str(format("%s.prevalences.csv") % pfx_out);
+  stringio::writeCSV(mtx_sample, fn_sampling_csv);
+  fprintf(stderr, "\nSampling scheme with clone prevalences written to file:\n  %s\n", fn_sampling_csv.c_str());
 
   return EXIT_SUCCESS;
 }

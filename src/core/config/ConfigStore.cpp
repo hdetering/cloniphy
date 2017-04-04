@@ -25,6 +25,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_clones = 0;
   int n_mut_somatic = 0;
   int n_mut_trunk = 0;
+  int n_mut_gl = 0;
   string model = "JC";
   string fn_bam_input = "";
   string fn_mut_gl_vcf = "";
@@ -33,6 +34,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_ref_fa = "";
   string fn_tree = "";
   bool do_reuse_reads = false;
+  bool do_fq_out = true;
+  bool do_sam_out = true;
   string pfx_out = "clonesim";
   int verb = 1;
   long seed = time(NULL) + clock();
@@ -90,21 +93,28 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   // overwrite/set config params
   // (making sure parameters are set)
+
+  // number of clones to simulate
   if (var_map.count("clones") || !_config["clones"]) {
     _config["clones"] = n_clones;
   }
   n_clones = _config["clones"].as<int>();
+  // number of somatic mutations
   if (var_map.count("mut-som") || !_config["mut-som"]) {
     _config["mut-som"] = n_mut_somatic;
   }
   n_mut_somatic = _config["mut-som"].as<int>();
+  // number of somatic mutations assigned to trunk of clone tree
   if (var_map.count("mut-som-trunk") || !_config["mut-som-trunk"]) {
     _config["mut-som-trunk"] = n_mut_trunk;
   }
   n_mut_trunk = _config["mut-som-trunk"].as<int>();
+  // path to reference FASTA
   if (var_map.count("reference") || !_config["reference"]) {
     _config["reference"] = fn_ref_fa;
   }
+  fn_ref_fa = _config["reference"].as<string>();
+  // path to somatic mutation signature file
   if (_config["mut-som-sig-file"]) {
     fn_mut_som_sig = _config["mut-som-sig-file"].as<string>();
   } else {
@@ -115,35 +125,56 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   } else {
     _config["bam-input"] = fn_bam_input;
   }
-  fn_ref_fa = _config["reference"].as<string>();
+  // number of germline mutations
+  if (!_config["mut-gl"]) {
+    _config["mut-gl"] = n_mut_gl;
+  }
+  n_mut_gl = _config["mut-gl"].as<int>();
+  // path to germline variants input VCF
   if (var_map.count("mut-gl-vcf") || !_config["mut-gl-vcf"]) {
     _config["mut-gl-vcf"] = fn_mut_gl_vcf;
   }
   fn_mut_gl_vcf = _config["mut-gl-vcf"].as<string>();
+  // path to somatic variants input VCF
   if (var_map.count("mut-som-vcf") || !_config["mut-som-vcf"]) {
     _config["mut-som-vcf"] = fn_mut_som_vcf;
   }
   fn_mut_som_vcf = _config["mut-som-vcf"].as<string>();
+  // path to clone tree input file (Newick)
   if (var_map.count("tree") || !_config["tree"]) {
     _config["tree"] = fn_tree;
   }
   fn_tree = _config["tree"].as<string>();
+  // prefix to use for output files
   if (var_map.count("out-pfx") || !_config["out-pfx"]) {
     _config["out-pfx"] = pfx_out;
   }
-  fn_tree = _config["tree"].as<string>();
+  pfx_out = _config["out-pfx"].as<string>();
+  // how chatty should status messages be?
   if (var_map.count("verbosity") || !_config["verbosity"]) {
     _config["verbosity"] = verb;
   }
   verb = _config["verbosity"].as<int>();
+  // seed for random number generator
   if (var_map.count("seed") || !_config["seed"]) {
     _config["seed"] = seed;
   }
   seed = _config["seed"].as<long>();
+  // bit to indicate if reads of normal sample are be reused for tumor samples
   if (!_config["seq-reuse-reads"]) {
       _config["seq-reuse-reads"] = do_reuse_reads;
   }
   do_reuse_reads = _config["seq-reuse-reads"].as<bool>();
+  // bit to indicate if sequence simulator should keep FASTQ files
+  if (!_config["seq-fq-out"]) {
+      _config["seq-fq-out"] = do_fq_out;
+  }
+  do_fq_out = _config["seq-fq-out"].as<bool>();
+  // bit to indicate if sequence simulator should generate SAM files
+  if (!_config["seq-sam-out"]) {
+      _config["seq-sam-out"] = do_sam_out;
+  }
+  do_fq_out = _config["seq-sam-out"].as<bool>();
 
 
   // perform sanity checks
@@ -247,7 +278,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
   if (!_config["mut-som-sig-mix"]) {
     fprintf(stderr, "\n[INFO] Missing somatic mutation signatures - assuming signature 1.\n");
-    YAML::Node node = YAML::Load("  - Signature 1: 1.0");
+    YAML::Node node = YAML::Load("{'Signature 1': 1.0}");
     _config["mut-som-sig-mix"] = node;
   }
 
@@ -298,9 +329,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "Germline mutations:\n");
     fprintf(stderr, "--------------------------------------------------------------------\n");
     if (fn_mut_gl_vcf.length() > 0) {
-      fprintf(stderr, "germline VCF:\t%s\n", fn_mut_gl_vcf.c_str());
+      fprintf(stderr, "  germline VCF:\t%s\n", fn_mut_gl_vcf.c_str());
     } else {
       // TODO: print germline mutation params
+      fprintf(stderr, "  number of mutations: %d\n", n_mut_gl);
+      fprintf(stderr, "  evolutionary model:\t%s\n", model.c_str());
     }
     fprintf(stderr, "--------------------------------------------------------------------\n");
     fprintf(stderr, "Sequencing data\n");
@@ -317,11 +350,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  simulator:\t\t%s\n", this->getValue<string>("seq-art-path").c_str());
     }
     fprintf(stderr, "--------------------------------------------------------------------\n");
-    fprintf(stderr, "\n");
+    fprintf(stderr, "Somatic mutations\n");
     fprintf(stderr, "--------------------------------------------------------------------\n");
-    fprintf(stderr, "somatic mutations:\t%d\n", n_mut_somatic);
-    fprintf(stderr, "transforming mutations:\t%d\n", n_mut_trunk);
-    fprintf(stderr, "evolutionary model:\t%s\n", model.c_str());
+    fprintf(stderr, "  number of mutations:\t%d\n", n_mut_somatic);
+    fprintf(stderr, "  trunk mutations:\t%d\n", n_mut_trunk);
     if (_config["samples"]) {
       fprintf(stderr, "Sampling scheme:\n");
       map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");

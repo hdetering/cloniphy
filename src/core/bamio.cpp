@@ -51,7 +51,8 @@ int ArtWrapper::run(string out_pfx) {
   return res_art;
 }
 
-/** Spike in germline mutations to SAM input. */
+/** !DEPRECATED!
+ * Spike in germline mutations to SAM input. */
 void mutateReads(
   const string fn_sam_out,
   const string fn_sam_in,
@@ -286,58 +287,11 @@ void mutateReads(
   fs_bamout.open(fn_sam_out.c_str());
   BamFileOut bamFileOut(context(bamFileIn), fs_bamout, seqan::Sam());
   //BamFileOut bamFileOut(context(bamFileIn), cout, seqan::Sam());
-  // NOTE: reading the header first is MANDATORY!
-  BamHeader headerIn, headerOut;
-  readHeader(headerIn, bamFileIn);
-  TNameStore refNames; // keep haploid references
-  TNameStore refNamesMap; // map diploid references to haploid names
-  typedef seqan::Member<TBamContext, seqan::LengthStoreMember>::Type TLengthStore;
-  TLengthStore refLengths;
-  seqan::BamHeaderRecord headRec;
-  for (auto headRec : headerIn) {
-    // include only haploid references (seq sim was done on diploid genome)
-    if (headRec.type == seqan::BAM_HEADER_REFERENCE) {
-      CharString seqName, seqLen;
-      getTagValue(seqName, "SN", headRec);
-      getTagValue(seqLen, "LN", headRec);
-      string seq_name(toCString(seqName));
-      int pos_delim = seq_name.rfind('_');
-      /* healthy genome is generated from haploid reference now...remove this?
-      if (pos_delim == string::npos) {
-        fprintf(stderr, "[WARN] invalid sequence name: %s (missing copy info).\n", seq_name.c_str());
-        appendValue(refNames, seqName);
-        appendValue(refLengths, atoi(toCString(seqLen)));
-        appendValue(headerOut, headRec);
-      }
-      else {*/
-        CharString seqNameHap(seq_name.substr(0, pos_delim));
-        //appendValue(refNames, seqNameHap);
-        appendValue(refNamesMap, seqNameHap);
-        int copy = atoi(seq_name.substr(pos_delim+1).c_str());
-        if (copy == 0) {
-          appendValue(refNames, seqNameHap);
-          appendValue(refLengths, atoi(toCString(seqLen)));
-          setTagValue("SN", seqNameHap, headRec);
-          appendValue(headerOut, headRec);
-        }
-      //}
-    }
-    else {
-      appendValue(headerOut, headRec);
-    }
-  }
+  BamHeader header; // NOTE: reading the header first is MANDATORY!
+  readHeader(header, bamFileIn);
   // add read group for each clone
-  addCloneReadGroups(headerOut, id_sample, vec_clone_lbl);
-  // Context to map diploid reads to haploid references
-  TNameStoreCache refNamesMapCache(refNamesMap);
-  TBamContext bamContextMap(refNamesMap, refNamesMapCache);
-  // Context (haploid) for output BAM header
-  TNameStoreCache refNamesCache(refNames);
-  TBamContext bamContextOut(refNames, refNamesCache);
-  setContigLengths(bamContextOut, refLengths);
-
-  //writeHeader(bamFileOut, headerOut);
-  write(bamFileOut.iter, headerOut, bamContextOut, bamFileOut.format);
+  addCloneReadGroups(header, id_sample, vec_clone_lbl);
+  writeHeader(bamFileOut, header);
 
   ofstream fs_fq, fs_log;
   if (do_write_fastq) {
@@ -453,11 +407,8 @@ void mutateReads(
     }
 
     // BAM output
-
-    //CharString r1_ref_hap = refNames[read1.rID];
-    //CharString r2_ref_hap = refNames[read2.rID];
-    write(bamFileOut.iter, read1, bamContextMap, bamFileOut.format);
-    write(bamFileOut.iter, read2, bamContextMap, bamFileOut.format);
+    writeRecord(bamFileOut, read1);
+    writeRecord(bamFileOut, read2);
 
     // FASTQ output
     if (do_write_fastq) {
@@ -499,8 +450,8 @@ void mutateReads(
   fs_varout.close();
 }
 
-/** DEPRECATED Spike in subclonal mutations to SAM input. */
-// TODO: Ploidy could be clone-dependent.
+/** DEPRECATED Spike in subclonal mutations to SAM input.
+ *  kept for sentimental value - and if parsing of SQ headers should ever be required ;-) */
 void mutateReads(
   string fn_fq_out,
   string fn_sam_out,
