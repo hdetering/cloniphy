@@ -38,6 +38,7 @@ using vario::Variant;
 using vario::VariantSet;
 using evolution::GermlineSubstitutionModel;
 using evolution::SomaticSubstitutionModel;
+using evolution::SomaticCnvModel;
 
 
 int main (int argc, char* argv[])
@@ -75,10 +76,11 @@ int main (int argc, char* argv[])
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
   string pfx_out = config.getValue<string>("out-pfx");
-  bool do_cnv_sim = false; // indicates if CNVs will be considered
+  double mut_som_cnv_ratio = config.getValue<double>("mut-som-cnv-ratio");
+  bool do_cnv_sim = (mut_som_cnv_ratio > 0.0); // should CNVs be simulated?
 
-  float ado_pct = 0.0; // TODO: make this a user parameter
-  int ado_frag_len = 10000; // TODO: make this a user parameter
+  //float ado_pct = 0.0; // TODO: make this a user parameter
+  //int ado_frag_len = 10000; // TODO: make this a user parameter
 
   // inferred properties
   bool do_ref_sim = fn_ref_fa.length() == 0;
@@ -97,6 +99,17 @@ int main (int argc, char* argv[])
   if (do_somatic_vars) {
     map<string, double> map_mut_som_sig_mix = config.getMap<double>("mut-som-sig-mix");
     model_sm = SomaticSubstitutionModel(fn_mut_som_sig, map_mut_som_sig_mix);
+  }
+  SomaticCnvModel model_cnv; // model of somatic structural evolution
+  if (do_cnv_sim) {
+    model_cnv.len_min = config.getValue<double>("mut-som-cnv-len-min");
+    model_cnv.len_exp = config.getValue<double>("mut-som-cnv-len-exp");
+    model_cnv.gain_prob = config.getValue<double>("mut-som-cnv-gain-prob");
+    model_cnv.rate_wgd = config.getValue<double>("mut-som-cnv-rate-wgd");
+    model_cnv.rate_chr = config.getValue<double>("mut-som-cnv-rate-chr");
+    model_cnv.rate_arm = config.getValue<double>("mut-som-cnv-rate-arm");
+    model_cnv.rate_tel = config.getValue<double>("mut-som-cnv-rate-tel");
+    model_cnv.rate_foc = config.getValue<double>("mut-som-cnv-rate-foc");
   }
 
   vector<Mutation> vec_mut_gl; // germline mutations
@@ -189,7 +202,7 @@ int main (int argc, char* argv[])
     art.fold_cvg = seq_coverage;
     art.fn_ref_fa = fn_ref_fa;
     art.out_sam = seq_sam_out;
-    //art.do_keep_fq = seq_fq_out; // do baseline FASTQs have any application?
+    //art.do_keep_fq = seq_fq_out; // do baseline FASTQs have any application=
     // generate reads using ART
     string art_out_pfx = pfx_out + ".ref";
     int res_art = art.run(art_out_pfx);

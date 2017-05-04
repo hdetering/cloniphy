@@ -51,6 +51,29 @@ struct SomaticSubstitutionModel {
       const std::map<std::string, double> &contrib);
 };
 
+/** Encapsulates parameters associated with somatic copy number variants. */
+struct SomaticCnvModel {
+  /** Minimum length (bp) for CNV events */
+  unsigned len_min;
+  /** rate parameter for power-law distribution */
+  double len_exp;
+  /** Prior probability for an event to be a gain (vs. loss) */
+  double gain_prob;
+  /** Whole genome duplication event rate */
+  double rate_wgd;
+  /** Whole chromosome gain/loss event rate */
+  double rate_chr;
+  /** Chromosome arm gain/loss event rate */
+  double rate_arm;
+  /** Telomere-bounded gain/loss event rate */
+  double rate_tel;
+  /** Focal gain/loss event rate */
+  double rate_foc;
+
+  /** default c'tor */
+  SomaticCnvModel () {};
+};
+
 /** Simulates the nucleotide substitution process for a germline site */
 short MutateSite(
   short idx_nuc,

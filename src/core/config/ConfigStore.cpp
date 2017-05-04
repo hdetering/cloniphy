@@ -26,6 +26,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_mut_somatic = 0;
   int n_mut_trunk = 0;
   int n_mut_gl = 0;
+  double mut_som_cnv_ratio = 0.0;
   string model = "JC";
   string fn_bam_input = "";
   string fn_mut_gl_vcf = "";
@@ -140,6 +141,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["mut-som-vcf"] = fn_mut_som_vcf;
   }
   fn_mut_som_vcf = _config["mut-som-vcf"].as<string>();
+  // fraction of CNV events among all somatic mutations
+  if (!_config["mut-som-cnv-ratio"]) {
+    _config["mut-som-cnv-ratio"] = mut_som_cnv_ratio;
+  }
+  mut_som_cnv_ratio = _config["mut-som-cnv-ratio"].as<double>();
   // path to clone tree input file (Newick)
   if (var_map.count("tree") || !_config["tree"]) {
     _config["tree"] = fn_tree;
