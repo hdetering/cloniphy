@@ -113,6 +113,7 @@ int main (int argc, char* argv[])
   }
 
   vector<Mutation> vec_mut_gl; // germline mutations
+  vector<Mutation> vec_mut_som(n_mut_somatic); // somatic mutations
   vector<Variant> vec_var_gl; // germline variants
   VariantSet varset_gl; // germline variants
   VariantSet varset_sm; // somatic variants
@@ -153,7 +154,11 @@ int main (int argc, char* argv[])
   tree.printNewick(cerr);
   fprintf(stderr, "\n");
 
-  tree.evolve(n_mut_somatic, n_mut_transforming, rng);
+  // drop somatic mutations on clone tree
+  tree.dropSomaticMutations(n_mut_somatic, n_mut_transforming, rng);
+  // assign mutation types (single-nucleotide vs. copy-number)
+  unsigned n_som_cnv = vario::assignMutationType(vec_mut_som, mut_som_cnv_ratio, rng);
+
   string fn_newick = str(format("%s.tree") % pfx_out);
   fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
   tree.printNewick(fn_newick);
@@ -162,6 +167,7 @@ int main (int argc, char* argv[])
   fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
   tree.printDot(fn_dot);
 
+  // TODO: should output contain only SNVs here?
   // write mutation matrix to file
   fprintf(stderr, "Writing mutation matrix for visible clones to file: %s\n", fn_mm.c_str());
   tree.writeMutationMatrix(fn_mm);

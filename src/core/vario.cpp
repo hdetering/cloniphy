@@ -99,8 +99,12 @@ long VariantSet::calculateSumstats() {
 
 Mutation::Mutation() {
   this->id = 0;
-  this->relPos = 0.0;
-  this->copy = 0;
+  this->is_snv = false;
+  this->is_cnv = false;
+
+  //TODO: deprecated
+  // this->relPos = 0.0;
+  // this->copy = 0;
 }
 
 /*
@@ -110,47 +114,15 @@ Mutation::Mutation(char ref, char alt) {
   this->offset =  ((alt_nuc-ref_nuc) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
 }*/
 
-bool Mutation::operator< (const Mutation &other) const {
-  return (relPos + copy) < (other.relPos + other.copy);
-}
+// bool Mutation::operator< (const Mutation &other) const {
+//   return (relPos + copy) < (other.relPos + other.copy);
+// }
 
-vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
-  vector<Mutation> mutationsCopy = mutations;
-  sort(mutationsCopy.begin(), mutationsCopy.end());
-  return mutationsCopy;
-}
-
-void Mutation::apply(
-       Genome &genome,
-       GermlineSubstitutionModel model,
-       function<double()> &rng,
-       Variant &var,
-       Genotype &gt)
-{
-  Locus loc = genome.getAbsoluteLocusMasked(this->relPos);
-  Nuc nuc_ref = seqio::charToNuc(genome.records[loc.idx_record].seq[loc.start]);
-  Nuc nuc_alt = (Nuc)(evolution::MutateSite((short)nuc_ref, rng, model));
-
-  // initialize variant
-  var.id = str(format("m%u") % this->id);
-  var.chr = genome.records[loc.idx_record].id_ref;
-  var.pos = loc.start;
-  var.alleles.push_back(seqio::nucToString(nuc_ref));
-  var.alleles.push_back(seqio::nucToString(nuc_alt));
-  var.idx_mutation = this->id;
-  var.rel_pos = this->relPos;
-
-  // derive genotype from mutation
-  gt.id_variant = var.id;
-  gt.maternal = (this->copy==0 ? 1 : 0);
-  gt.paternal = (this->copy==1 ? 1 : 0);
-
-  // modify genomic sequence
-  unsigned targetSeqIndex = loc.idx_record + (genome.num_records * this->copy);
-  genome.records[targetSeqIndex].seq[loc.start] = seqio::nucToChar(nuc_alt);
-
-fprintf(stderr, "Mutated '%s:%u' (%s>%s)\n", genome.records[targetSeqIndex].id.c_str(), loc.start, var.alleles[0].c_str(), var.alleles[1].c_str());
-}
+// vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
+//   vector<Mutation> mutationsCopy = mutations;
+//   sort(mutationsCopy.begin(), mutationsCopy.end());
+//   return mutationsCopy;
+// }
 
 Variant::Variant() : id(""), chr(""), pos(0), alleles(0), idx_mutation(0), rel_pos(0.0), is_somatic(false) {}
 Variant::~Variant() {}
@@ -205,54 +177,30 @@ bool Variant::isSnv() {
 /*           Utility methods          */
 /*------------------------------------*/
 
-vector<Mutation> generateMutations(
-  const int num_mutations,
-  function<double()>& random)
+unsigned assignMutationType(
+  std::vector<Mutation>& vec_mutations,
+  const double ratio_cnv,
+  RandomNumberGenerator<>& rng)
 {
-  vector<Mutation> mutations(num_mutations);
-  unsigned i=0;
+  function<double()> random_double = rng.getRandomFunctionDouble(0.0, 1.0);
+  unsigned num_mut=0;
+  unsigned num_cnv=0;
 
-  for (vector<Mutation>::iterator m=mutations.begin(); m!=mutations.end(); ++m) {
-    float rel_pos = random();
-    short copy = random()*2;
+  for (auto &m : vec_mutations) {
+    double r_dbl = random_double();
 //fprintf(stderr, "<Mutation(id=%u;relPos=%f,copy=%d)>\n", i, rel_pos, copy);
-    m->id = i++;
-    m->relPos = rel_pos;
-    m->copy = copy;
+    m.id = num_mut++;
+    if (r_dbl < ratio_cnv) {
+      m.is_snv = false;
+      m.is_cnv = true;
+      num_cnv++;
+    } else {
+      m.is_snv = true;
+      m.is_cnv = false;
+    }
   }
 
-  return mutations;
-}
-
-/** Apply set of mutation to a given genomic sequence,
-    returning a set of Variant objects
-    (actual reference sequence is not changed) */
-void applyMutations(
-  const std::vector<Mutation> & mutations,
-  const Genome& genome,
-  GermlineSubstitutionModel model,
-  function<double()>& random,
-  vector<Variant> &variants)
-{
-  for (vector<Mutation>::const_iterator m=mutations.begin(); m!=mutations.end(); ++m) {
-    Locus loc = genome.getAbsoluteLocusMasked(m->relPos);
-    Nuc nuc_ref = seqio::charToNuc(genome.records[loc.idx_record].seq[loc.start]);
-    Nuc nuc_alt = (Nuc)(evolution::MutateSite((short)nuc_ref, random, model));
-
-    // initialize variant
-    Variant var = *(new Variant());
-    var.id = str(format("m%u") % m->id);
-    var.chr = genome.records[loc.idx_record].id_ref;
-    var.pos = loc.start;
-    var.alleles.push_back(seqio::nucToString(nuc_ref));
-    var.alleles.push_back(seqio::nucToString(nuc_alt));
-    var.idx_mutation = m->id;
-    var.rel_pos = m->relPos;
-    var.chr_copy = m->copy;
-
-    // append variant to output
-    variants.push_back(var);
-  }
+  return num_cnv;
 }
 
 /** Read mutation map (clone x mutation) from a CSV file. */
@@ -700,48 +648,48 @@ fprintf(stderr, "genotypes: %lu\n", genotypes.size());
   }
 }
 
-void applyVariantsStream(
-  const Genome &g,
-  const vector<Mutation> &mutations,
-  const vector<Variant> &variants,
-  ostream &outstream,
-  short len_line)
-{
-  // sort mutations according to (diploid) genomic position
-  vector<Mutation> vec_mut_sorted = Mutation::sortByPosition(mutations);
-  unsigned idx_mut = 0;
-  unsigned idx_chr = 0;
-  unsigned idx_nuc = 0;
-  short idx_char = 0;
-  bool chr_mutated = false;
-  Variant next_var = variants[vec_mut_sorted[idx_mut].id];
-  for (idx_chr=0; idx_chr<g.records.size(); ++idx_chr) {
-    chr_mutated = (g.records[idx_chr].id_ref == next_var.chr); // is this chromosome mutated?
-    chr_mutated = chr_mutated && (g.records[idx_chr].chr_copy == vec_mut_sorted[idx_mut].copy); // is this sequence the right copy?
-    // print header
-    outstream << ">" << g.records[idx_chr].id << endl;
-    idx_nuc = 0;
-    for (string::const_iterator nuc=g.records[idx_chr].seq.begin();
-         nuc!=g.records[idx_chr].seq.end(); ++nuc) {
-      if (chr_mutated && idx_nuc++ == next_var.pos) {
-        outstream << next_var.alleles[1]; // print variant nucleotide
-        if (++idx_mut<vec_mut_sorted.size())
-          next_var = variants[vec_mut_sorted[idx_mut].id];
-        else
-          chr_mutated = false;
-      }
-      else // print reference nucleotide
-        outstream << *nuc;
-      if (++idx_char == len_line) { // enforce fixed line width
-        outstream << endl;
-        idx_char = 0;
-      }
-    }
-    if (idx_char != 0) { // end of sequence
-      outstream << endl;
-      idx_char = 0;
-    }
-  }
-}
+// void applyVariantsStream(
+//   const Genome &g,
+//   const vector<Mutation> &mutations,
+//   const vector<Variant> &variants,
+//   ostream &outstream,
+//   short len_line)
+// {
+//   // sort mutations according to (diploid) genomic position
+//   vector<Mutation> vec_mut_sorted = Mutation::sortByPosition(mutations);
+//   unsigned idx_mut = 0;
+//   unsigned idx_chr = 0;
+//   unsigned idx_nuc = 0;
+//   short idx_char = 0;
+//   bool chr_mutated = false;
+//   Variant next_var = variants[vec_mut_sorted[idx_mut].id];
+//   for (idx_chr=0; idx_chr<g.records.size(); ++idx_chr) {
+//     chr_mutated = (g.records[idx_chr].id_ref == next_var.chr); // is this chromosome mutated?
+//     chr_mutated = chr_mutated && (g.records[idx_chr].chr_copy == vec_mut_sorted[idx_mut].copy); // is this sequence the right copy?
+//     // print header
+//     outstream << ">" << g.records[idx_chr].id << endl;
+//     idx_nuc = 0;
+//     for (string::const_iterator nuc=g.records[idx_chr].seq.begin();
+//          nuc!=g.records[idx_chr].seq.end(); ++nuc) {
+//       if (chr_mutated && idx_nuc++ == next_var.pos) {
+//         outstream << next_var.alleles[1]; // print variant nucleotide
+//         if (++idx_mut<vec_mut_sorted.size())
+//           next_var = variants[vec_mut_sorted[idx_mut].id];
+//         else
+//           chr_mutated = false;
+//       }
+//       else // print reference nucleotide
+//         outstream << *nuc;
+//       if (++idx_char == len_line) { // enforce fixed line width
+//         outstream << endl;
+//         idx_char = 0;
+//       }
+//     }
+//     if (idx_char != 0) { // end of sequence
+//       outstream << endl;
+//       idx_char = 0;
+//     }
+//   }
+// }
 
 } /* namespace vario */

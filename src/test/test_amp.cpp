@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE( mda ) {
   BOOST_TEST_MESSAGE( str(format("  amplicon len:\t%.0f (+/- %.0f)") % amp_size_mean % amp_size_sd) );
   BOOST_TEST_MESSAGE( str(format("  fold:\t%d") % fold) );
 
-  BOOST_TEST_MESSAGE( "\nchromosome copy 1..." );
+  BOOST_TEST_MESSAGE( "\nchromosome 1..." );
   simulateMda(cvg, seq_len, amp_size_mean, amp_size_sd, fold, rng);
   BOOST_TEST_MESSAGE( "  done." );
   BOOST_TEST_MESSAGE( "  writing results to file 'mda_cvg.dist.csv'..." );
@@ -58,6 +58,32 @@ BOOST_AUTO_TEST_CASE( mda ) {
     fs_cvg << c << endl;
   fs_cvg.close();
   */
+}
+
+BOOST_AUTO_TEST_CASE( mdadip ) {
+  boost::timer::auto_cpu_timer t;
+  string fn_out = "mdadip.cvg.csv";
+  unsigned long long seq_len = 10000000;
+  double amp_size_mean = 70000.0;
+  double amp_size_sd = 30000.0;
+  int fold = 500;
+  vector<vector<unsigned>> cvg;
+  ofstream fs_cvg;
+
+  BOOST_TEST_MESSAGE( "Simulating MDA..." );
+  BOOST_TEST_MESSAGE( str(format("  template len:\t%d") % seq_len) );
+  BOOST_TEST_MESSAGE( str(format("  amplicon len:\t%.0f (+/- %.0f)") % amp_size_mean % amp_size_sd) );
+  BOOST_TEST_MESSAGE( str(format("  fold:\t%d") % fold) );
+
+  BOOST_TEST_MESSAGE( "\nchromosome 1..." );
+  simulateMdaProcessDiploid(cvg, seq_len, amp_size_mean, amp_size_sd, fold, rng);
+  BOOST_TEST_MESSAGE( "  done." );
+  BOOST_TEST_MESSAGE( str(format("  writing results to file '%s'...") % fn_out) );
+  fs_cvg.open(fn_out);
+  fs_cvg << "A\tB" << endl;
+  for (auto i=0; i<seq_len; ++i)
+    fs_cvg << cvg[0][i] << "\t" << cvg[1][i] << endl;
+  fs_cvg.close();
 }
 
 BOOST_AUTO_TEST_CASE( art ) {

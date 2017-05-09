@@ -71,8 +71,11 @@ struct Tree
   void varyBranchLengths(std::function<double()>&);
   /** Assign random weights to visible nodes */
   void assignWeights(std::vector<double> w);
-  /** Drop random mutations on clones. */
-  virtual void evolve(int, int, RandomNumberGenerator<>&);
+  /** Distribute somatic mutations along tree branches */
+  virtual void dropSomaticMutations(
+    int n_mut_total,
+    int n_mut_trunk,
+    RandomNumberGenerator<>& rng);
   void printNewick(const std::string);
   void printNewick(std::ostream&);
   void printNewick(std::shared_ptr<TNodeType>, std::ostream&, bool first=true);

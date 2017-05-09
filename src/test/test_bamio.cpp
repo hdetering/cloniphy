@@ -72,7 +72,8 @@ BOOST_AUTO_TEST_CASE( bulk )
   tree.varyBranchLengths(random_gamma);
   int num_mutations = 1010;
   int num_transmuts =   10;
-  tree.evolve(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
+  // TODO: assignMutationType
 
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
@@ -153,7 +154,8 @@ BOOST_AUTO_TEST_CASE( multisample )
   tree.generateRandomTopologyLeafsOnly(random_dbl);
   tree.varyBranchLengths(random_gamma);
   // drop mutations on tree
-  tree.evolve(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
+  // TODO: assignMutationType
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
   BOOST_TEST_MESSAGE( "Writing clone tree to file\n\tmultisample.tree.dot" );

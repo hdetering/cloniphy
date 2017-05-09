@@ -103,38 +103,30 @@ struct Genotype
 struct Mutation
 {
   unsigned id;   /** unique identifier */
-  double relPos; /** relative position in genome [0..1] */
-  short copy;    /** which chromosome copy (0:maternal, 1:paternal) */
+  bool is_snv;   /** true: this Mutation is a single-nucleotide variant */
+  bool is_cnv;   /** true: this Mutation is a copy-number variant */
+
+  //TODO: deprecated
+  // double relPos; /** relative position in genome [0..1] */
+  // short copy;    /** which chromosome copy (0:maternal, 1:paternal) */
 
   Mutation();
   //Mutation(char ref, char alt); /** c'tor converts alleles to nucleotide shift. */
 
-  bool operator< (const Mutation&) const; /** make mutations sortable */
-  static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
-  /** Apply single mutation to a given genomic sequence, */
-  /** returning a Variant and Genotype object */
-  void apply(
-    Genome& genome,
-    GermlineSubstitutionModel model,
-    std::function<double()>& random,
-    Variant &var,
-    Genotype &gt);
+  // bool operator< (const Mutation&) const; /** make mutations sortable */
+  // static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
 };
 
-/** Generate random mutations out of thin air. */
-std::vector<Mutation> generateMutations(
-  const int num_mutations,
-  std::function<double()>&
-);
-/** Apply set of mutations to a given genomic sequence,
-    returning a set of Variant objects
-    (reference sequence is not changed) */
-void applyMutations(
-  const std::vector<Mutation> &,
-  const Genome& genome,
-  GermlineSubstitutionModel model,
-  std::function<double()>& random,
-  std::vector<Variant> &variants);
+/** Inititalize a list of mutations, assigning a type (single-nucleotide vs. copy-number).
+ *  \param vec_mutations list of (uninitialized) mutation objects
+ *  \param ratio_cnv fraction of mutations that should be assigned CNV type
+ *  \param rng RandomNumberGenerator object (reproducability)
+ *  \return number of CNV mutations
+ */
+unsigned assignMutationType(
+  std::vector<Mutation>& vec_mutations,
+  const double ratio_cnv,
+  RandomNumberGenerator<>& rng);
 
 /** Read VCF file and return list of variants. */
 void readVcf(
@@ -205,13 +197,15 @@ void applyVariants(
   Genome&,
   const std::vector<Variant>&,
   const std::vector<Genotype>&);
+
+// TODO: is this functionality still useful?
 /** Apply variants to a given reference sequence. streaming modified genome to output. */
-void applyVariantsStream(
-  const Genome &ref_genome,
-  const std::vector<Mutation> &mutations,
-  const std::vector<Variant> &variants,
-  std::ostream &outstream,
-  short len_line = 60);
+// void applyVariantsStream(
+//   const Genome &ref_genome,
+//   const std::vector<Mutation> &mutations,
+//   const std::vector<Variant> &variants,
+//   std::ostream &outstream,
+//   short len_line = 60);
 } /* namespace vario */
 
 #endif /* VARIO_H */
