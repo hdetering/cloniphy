@@ -4,6 +4,8 @@
 #include "random.hpp"
 #include "stringio.hpp"
 #include <algorithm>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 #include <cassert>
 #include <functional>
 #include <iostream>
@@ -87,6 +89,22 @@ struct Locus
   std::string id_ref;     // seq id in ref genome
   unsigned    start;      // local start position in sequence (0-based)
   unsigned    length;     // length of locus (e.g. =1 for single nucleotide)
+};
+
+/** Represents a copy of a reference sequence segment.
+ *
+ *  Inititally, each allele (n=2 in the normal, diploid case) is a copy of
+ *  the reference sequence. Further segment copies arise from CNV events.
+ */
+struct SegmentCopy {
+  /** Universally-unique identifier to globally refer to the object. */
+  boost::uuids::uuid id;
+  // TODO: add additional properties:
+  //  ref chromosome
+  //  ref start
+  //  ref end
+  //  previous SegmentCopy
+  //  next SegmentCopy
 };
 
 /** Stores a set of SeqRecords along with indexing information. */

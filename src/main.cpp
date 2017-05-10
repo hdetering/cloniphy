@@ -36,6 +36,7 @@ using seqio::Genome;
 using vario::Genotype;
 using vario::Variant;
 using vario::VariantSet;
+using vario::VariantStore;
 using evolution::GermlineSubstitutionModel;
 using evolution::SomaticSubstitutionModel;
 using evolution::SomaticCnvModel;
@@ -77,7 +78,6 @@ int main (int argc, char* argv[])
   long seed = config.getValue<long>("seed");
   string pfx_out = config.getValue<string>("out-pfx");
   double mut_som_cnv_ratio = config.getValue<double>("mut-som-cnv-ratio");
-  bool do_cnv_sim = (mut_som_cnv_ratio > 0.0); // should CNVs be simulated?
 
   //float ado_pct = 0.0; // TODO: make this a user parameter
   //int ado_frag_len = 10000; // TODO: make this a user parameter
@@ -87,6 +87,7 @@ int main (int argc, char* argv[])
   bool do_ref_reads = fn_bam_input.length() == 0;
   bool do_germline_vars = (fn_mut_gl_vcf.size() > 0) || (n_mut_germline > 0);
   bool do_somatic_vars = (fn_mut_som_vcf.size() == 0);
+  bool do_cnv_sim = (mut_som_cnv_ratio > 0.0);
 
   // output file names
   string fn_mm = str(format("%s.mm.csv") % pfx_out); // mutation map
@@ -113,10 +114,12 @@ int main (int argc, char* argv[])
   }
 
   vector<Mutation> vec_mut_gl; // germline mutations
-  vector<Mutation> vec_mut_som(n_mut_somatic); // somatic mutations
+  vector<Mutation> vec_mut_som = vector<Mutation>(n_mut_somatic); // somatic mutations
   vector<Variant> vec_var_gl; // germline variants
   VariantSet varset_gl; // germline variants
   VariantSet varset_sm; // somatic variants
+  // TODO: check previous variables, maybe consolidate functionality?
+  VariantStore var_store; // manages somatic variants
 
   // initialize random functions
   //seed = time(NULL) + clock();
@@ -285,7 +288,8 @@ int main (int argc, char* argv[])
   vector<Variant> vec_var_somatic;
   if (do_somatic_vars) {
     // generate point mutations (relative position + chr copy)
-    vec_var_somatic = vario::generateSomaticVariants(n_mut_somatic, ref_genome, model_sm, rng);
+    var_store.generateSomaticVariants(vec_mut_som, ref_genome, model_sm, model_cnv, rng);
+    vec_var_somatic = var_store.getSnvVector();
     varset_sm = VariantSet(vec_var_somatic);
 //fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
 //for (int i=0; i<n_mut_somatic; i++)

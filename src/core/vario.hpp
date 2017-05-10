@@ -5,6 +5,8 @@
 #include "seqio.hpp"
 #include "stringio.hpp"
 #include "evolution.hpp"
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -13,8 +15,10 @@
 
 using seqio::Genome;
 using seqio::SeqRecord;
+using seqio::SegmentCopy;
 using evolution::GermlineSubstitutionModel;
 using evolution::SomaticSubstitutionModel;
+using evolution::SomaticCnvModel;
 
 /**
  * Classes and methods for input/output and simulation of variants.
@@ -106,15 +110,51 @@ struct Mutation
   bool is_snv;   /** true: this Mutation is a single-nucleotide variant */
   bool is_cnv;   /** true: this Mutation is a copy-number variant */
 
-  //TODO: deprecated
-  // double relPos; /** relative position in genome [0..1] */
-  // short copy;    /** which chromosome copy (0:maternal, 1:paternal) */
-
   Mutation();
-  //Mutation(char ref, char alt); /** c'tor converts alleles to nucleotide shift. */
 
   // bool operator< (const Mutation&) const; /** make mutations sortable */
   // static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
+};
+
+/** CopyNumberVariants encapsulate CNV events with all of their properties */
+struct CopyNumberVariant
+{
+  unsigned    id;              /** unique identifier */
+  std::string ref_chr;         /** affected chromosome (reference ID) */
+  unsigned    ref_pos_begin;   /** start coordinate (in reference chr) */
+  unsigned    ref_pos_end;     /** end coordinate (in reference chr) */
+  bool        is_deletion;     /** true: CNV is deletion event */
+
+  /** default c'tor */
+  CopyNumberVariant();
+};
+
+/** Keeps somatic variants (SNVs, CNVs) as well as their association to
+ *  genomic segment copies.
+ */
+struct VariantStore
+{
+  /** map of single-nucleotide variants */
+  std::map<unsigned, Variant> map_id_snv;
+  /** map of copy-number variants */
+  std::map<unsigned, CopyNumberVariant> map_id_cnv;
+  /** remember SNVs affecting each SegmentCopy */
+  std::map<boost::uuids::uuid, std::vector<Variant>> map_seg_vars;
+
+  /** Generate variant loci in a given genome based on somatic mutation model.
+      Use context-dependent mutation signature to select loci. */
+  void generateSomaticVariants(
+    const std::vector<Mutation>& vec_mutations,
+    const Genome& genome,
+    SomaticSubstitutionModel& model_snv,
+    SomaticCnvModel& model_cnv,
+    RandomNumberGenerator<>& rng,
+    const bool infinite_sites = false
+  );
+  /** Get vector of SNVs. */
+  std::vector<Variant> getSnvVector();
+  /** Get VariantSet of SNVs. */
+  VariantSet getSnvSet();
 };
 
 /** Inititalize a list of mutations, assigning a type (single-nucleotide vs. copy-number).
@@ -167,15 +207,6 @@ std::vector<Variant> generateGermlineVariants(
   const int num_variants,
   const Genome& genome,
   GermlineSubstitutionModel& model,
-  RandomNumberGenerator<>&,
-  const bool infinite_sites = false
-);
-/** Generate variant loci in a given genome based on somatic mutation model.
-    Use context-dependent mutation signature to select loci. */
-std::vector<Variant> generateSomaticVariants(
-  const int num_variants,
-  const Genome& genome,
-  SomaticSubstitutionModel& model,
   RandomNumberGenerator<>&,
   const bool infinite_sites = false
 );

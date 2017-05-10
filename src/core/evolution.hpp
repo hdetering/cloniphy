@@ -3,6 +3,7 @@
 
 #include "matrix.hpp"
 #include "stringio.hpp"
+#include "seqio.hpp"
 #include <functional>
 
 /** Provides models of germline sequence evolution. */

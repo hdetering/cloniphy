@@ -124,8 +124,11 @@ Mutation::Mutation(char ref, char alt) {
 //   return mutationsCopy;
 // }
 
-Variant::Variant() : id(""), chr(""), pos(0), alleles(0), idx_mutation(0), rel_pos(0.0), is_somatic(false) {}
-Variant::~Variant() {}
+CopyNumberVariant::CopyNumberVariant ()
+  : id(0), ref_chr(""), ref_pos_begin(0), ref_pos_end(0), is_deletion(false) {}
+
+Variant::Variant () : id(""), chr(""), pos(0), alleles(0), idx_mutation(0), rel_pos(0.0), is_somatic(false) {}
+Variant::~Variant () {}
 
 bool Variant::operator< (const Variant &other) const {
   return rel_pos < other.rel_pos;
@@ -454,74 +457,85 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
 }
 
 /** Generate variant loci in a given genome based on somatic mutation model. */
-vector<Variant> generateSomaticVariants(
-  const int num_variants,
+void VariantStore::generateSomaticVariants(
+  const vector<Mutation>& vec_mutations,
   const Genome& genome,
-  SomaticSubstitutionModel& model,
+  SomaticSubstitutionModel& model_snv,
+  SomaticCnvModel& model_cnv,
   RandomNumberGenerator<>& rng,
   const bool inf_sites)
 {
-  vector<Variant> variants = vector<Variant>(num_variants);
-  boost::container::flat_set<int> var_pos; // keep track of variant positions (ISM)
-  vector<string> vec_ref_sites; // reference sites
-  vector<string> vec_alt_nucs;  // alternative nucleotides (matching vec_ref_sites)
-  vector<double> vec_mut_probs; // mutation probabilities (matching vec_ref_sites, vec_alt_nucs)
+  // SNV events
+  //------------
+  vector<Variant> variants;
+  // keep track of variant positions (ISM)
+  boost::container::flat_set<int> var_pos;
+  // random function, returns substitution index
+  function<int()> r_idx_sub = rng.getRandomIndexWeighted(model_snv.m_weight);
   function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
-
-  // determine trinuc mutation probs from model
-  for (auto i=0; i<model.m_site.size(); i++) {
-    string site = model.m_site[i];
-    string rc_site = seqio::rev_comp(site);
-    string alt = model.m_alt[i];
-    string rc_alt = seqio::rev_comp(model.m_alt[i]);
-    double p = model.m_weight[i];
-
-    vec_ref_sites.push_back(site);
-    vec_alt_nucs.push_back(alt);
-    vec_mut_probs.push_back(p);
-
-    vec_ref_sites.push_back(rc_site);
-    vec_alt_nucs.push_back(rc_alt);
-    vec_mut_probs.push_back(p);
-  }
-  assert(vec_ref_sites.size() == 192); // sanity check: are all possible mutations represented?
-  vector<double> vec_3mer_probs;
-  function<int()> r_ref_alt = rng.getRandomIndexWeighted(vec_mut_probs);
-
   unsigned long genome_len = genome.length; // haploid genome length
-  for (int i=0; i<num_variants; ++i) {
-    // pick random ref->alt substitution
-    int i_sub = r_ref_alt();
-    string ref_site = vec_ref_sites[i_sub];
-    string ref_nuc = ref_site.substr(1, 1);
-    string alt_nuc = vec_alt_nucs[i_sub];
-    // pick random position (+1 b/c second nucleotide in 3-mer is mutated)
-    long nuc_pos = selector(genome.map_3mer_pos.at(ref_site)) + 1;
-    if (inf_sites) {
-      while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
-// TODO: check verbosity setting
-fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated before, picking another one...\n", nuc_pos);
-        nuc_pos = selector(genome.map_3mer_pos.at(ref_site)) + 1;
-      }
-      var_pos.insert(nuc_pos);
-    }
-    Locus loc = genome.getLocusByGlobalPos(nuc_pos);
+  //------------
 
-    // init new Variant
-    Variant var;
-    var.id = str(format("s%d") % i);
-    var.chr = loc.id_ref;
-    var.chr_copy = random_copy();
-    var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
-    var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
-    var.pos = loc.start;
-    var.alleles.push_back(ref_nuc);
-    var.alleles.push_back(alt_nuc);
-    var.idx_mutation = i;
-    var.is_somatic = true;
-    variants[i] = var;
+  // CNV events
+  //------------
+  // random function, selects CNV event type
+  // random function, selects CNV event length (relative to CHR len)
+  // chromosome lengths (used to select affected chromosome by size)
+  //------------
+
+  for (auto m : vec_mutations) {
+    if (m.is_snv) {
+      // pick random ref->alt substitution
+      int i_sub = r_idx_sub();
+      string ref_site = model_snv.m_site[i_sub];
+      string alt_nuc = model_snv.m_alt[i_sub];
+      string ref_nuc = ref_site.substr(1, 1);
+      // pick random position (+1 b/c second nucleotide in 3-mer is mutated)
+      long nuc_pos = selector(genome.map_3mer_pos.at(ref_site)) + 1;
+      if (inf_sites) {
+        while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
+          // TODO: check verbosity setting
+          fprintf(stderr, "[INFO] Infinite sites model: locus %ld has been mutated before, picking another one...\n", nuc_pos);
+          nuc_pos = selector(genome.map_3mer_pos.at(ref_site)) + 1;
+        }
+        var_pos.insert(nuc_pos);
+      }
+      Locus loc = genome.getLocusByGlobalPos(nuc_pos);
+      // TODO: identify available segment copies in GenomeInstance, choose one
+
+      // init new Variant
+      Variant var;
+      var.id = str(format("s%d") % m.id);
+      var.chr = loc.id_ref;
+      var.chr_copy = random_copy();
+      var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+      // TODO: assign SegmentCopy
+      //var.reg_copy = 0;
+      var.pos = loc.start;
+      var.alleles.push_back(ref_nuc);
+      var.alleles.push_back(alt_nuc);
+      var.idx_mutation = m.id;
+      var.is_somatic = true;
+      this->map_id_snv[m.id] = var;
+      // TODO: add variant to map_seg_vars
+    }
+    else {
+      // TODO: simulate CNV events
+      // pick event type
+      // if WGD:
+
+      //
+    }
   }
+
+  //return variants;
+}
+
+vector<Variant> VariantStore::getSnvVector() {
+  vector<Variant> variants;
+  for (auto const & kv : this->map_id_snv)
+    variants.push_back(kv.second);
 
   return variants;
 }

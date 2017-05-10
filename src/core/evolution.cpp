@@ -360,10 +360,11 @@ int EigenREV (double Root[], double Cijk[])
 
 /** Parse TSV file with mutation profile and calculate cumulative frequencies */
 SomaticSubstitutionModel::SomaticSubstitutionModel(
-    const string &fn_mut_sig,
-    const map<string, double> &contrib) :
+    const string& fn_mut_sig,
+    const map<string, double>& contrib) :
   m_site(96), m_alt(96), m_weight(96)
 {
+  // read mutation profiles from files
   int n_lines_read = parseProfiles(fn_mut_sig, contrib);
 
   // sanity check: did we read complete profiles? expected: 96 probability values
@@ -371,6 +372,20 @@ SomaticSubstitutionModel::SomaticSubstitutionModel(
   if (n_lines_read != 96) {
     fprintf(stderr, "[ERROR] Somatic mutation profiles in file '%s' do not contain the expected number of rows (96)\n", fn_mut_sig.c_str());
   }
+
+  // determine trinuc mutation probs for reverse complement sites
+  for (auto i=0; i<this->m_site.size(); i++) {
+    string site = this->m_site[i];
+    string rc_site = seqio::rev_comp(site);
+    string alt = this->m_alt[i];
+    string rc_alt = seqio::rev_comp(this->m_alt[i]);
+    double p = this->m_weight[i];
+
+    this->m_site.push_back(rc_site);
+    this->m_alt.push_back(rc_alt);
+    this->m_weight.push_back(p);
+  }
+  assert(this->m_site.size() == 192); // sanity check: are all possible mutations represented?
 }
 
 /** Read mutation profiles from file and return mutation probabilities for signatures.

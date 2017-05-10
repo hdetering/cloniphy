@@ -48,6 +48,8 @@ struct FixtureBamio {
   RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
   GermlineSubstitutionModel model_gl;
   SomaticSubstitutionModel model_sm;
+  SomaticCnvModel model_cnv;
+  VariantStore var_store;
   config::ConfigStore config;
 };
 
@@ -115,7 +117,13 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateSomaticVariants(num_mutations, genome, model_sm, rng);
+  vector<Mutation> vec_mutations = vector<Mutation>(num_mutations);
+  for (auto &m : vec_mutations) {
+    m.is_snv = true;
+    m.is_cnv = false;
+  }
+  var_store.generateSomaticVariants(vec_mutations, genome, model_sm, model_cnv, rng);
+  vector<Variant> variants = var_store.getSnvVector();
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   auto fn_out = "pers.bulk.vcf";
   ofstream fs_out;
@@ -180,7 +188,13 @@ BOOST_AUTO_TEST_CASE( multisample )
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating somatic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateSomaticVariants(num_mutations, genome, model_sm, rng);
+  vector<Mutation> vec_mutations = vector<Mutation>(num_mutations);
+  for (auto &m : vec_mutations) {
+    m.is_snv = true;
+    m.is_cnv = false;
+  }
+  var_store.generateSomaticVariants(vec_mutations, genome, model_sm, model_cnv, rng);
+  vector<Variant> variants = var_store.getSnvVector();
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_idx;
