@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   tree.writeMutationMatrix(fn_mm);
 
   // read personal genome
-  Genome genome("pers.fa");
+  GenomeReference genome("pers.fa");
   genome.ploidy = 2;
   genome.indexRecords();
 
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE( multisample )
   tree.writeMutationMatrix(fn_mm);
 
   // read personal genome
-  Genome genome("pers.fa");
+  GenomeReference genome("pers.fa");
   genome.ploidy = 2;
   genome.indexRecords();
 

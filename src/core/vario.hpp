@@ -13,7 +13,8 @@
 #include <string>
 #include <vector>
 
-using seqio::Genome;
+using seqio::GenomeReference;
+using seqio::GenomeInstance;
 using seqio::SeqRecord;
 using seqio::SegmentCopy;
 using evolution::GermlineSubstitutionModel;
@@ -120,10 +121,15 @@ struct Mutation
 struct CopyNumberVariant
 {
   unsigned    id;              /** unique identifier */
-  std::string ref_chr;         /** affected chromosome (reference ID) */
+  bool        is_wgd;          /** true: CNV is Whole Genome Duplication */
+  bool        is_deletion;     /** true: CNV is deletion event */
+  bool        is_telomeric;    /** true: event coordinates include chromosome end */
+  bool        is_forward;      /** true: event at 3' side of start_rel; false: at 5' end */
+  double      len_rel;         /** length of affected region (fraction of chromsome length) */
+  double      start_rel;       /** start position of event (fraction of chromosome length) */
   unsigned    ref_pos_begin;   /** start coordinate (in reference chr) */
   unsigned    ref_pos_end;     /** end coordinate (in reference chr) */
-  bool        is_deletion;     /** true: CNV is deletion event */
+  std::string ref_chr;         /** affected chromosome (reference ID) */
 
   /** default c'tor */
   CopyNumberVariant();
@@ -139,22 +145,30 @@ struct VariantStore
   /** map of copy-number variants */
   std::map<unsigned, CopyNumberVariant> map_id_cnv;
   /** remember SNVs affecting each SegmentCopy */
-  std::map<boost::uuids::uuid, std::vector<Variant>> map_seg_vars;
+  std::map<boost::uuids::uuid, std::vector<unsigned>> map_seg_vars;
 
+  /** Get vector of SNVs. */
+  std::vector<Variant> getSnvVector();
+  /** Get VariantSet of SNVs. */
+  VariantSet getSnvSet();
   /** Generate variant loci in a given genome based on somatic mutation model.
       Use context-dependent mutation signature to select loci. */
   void generateSomaticVariants(
     const std::vector<Mutation>& vec_mutations,
-    const Genome& genome,
+    const GenomeReference& genome,
     SomaticSubstitutionModel& model_snv,
     SomaticCnvModel& model_cnv,
     RandomNumberGenerator<>& rng,
     const bool infinite_sites = false
   );
-  /** Get vector of SNVs. */
-  std::vector<Variant> getSnvVector();
-  /** Get VariantSet of SNVs. */
-  VariantSet getSnvSet();
+  /** Apply a mutation to a GenomeInstance.
+   *  - SNV: A SegmentCopy will be chosen from the affected ChromosomeInstance.
+   *  - CNV (gain): new SequenceCopies will be introduced
+   *  - CNV (loss): existing SequenceCopies will be split
+   */
+  void applyMutation(Mutation m, GenomeInstance& g, RandomNumberGenerator<>& r);
+  /** Transfer mutations from existing SegmentCopies to new ones. */
+  void transferMutations(std::vector<seqio::seg_mod_t> vec_seg_mod);
 };
 
 /** Inititalize a list of mutations, assigning a type (single-nucleotide vs. copy-number).
@@ -181,7 +195,7 @@ void readVcf(
 /** Generate VCF output for a reference genome and a set of mutations.
     (multiple samples) */
 void writeVcf(
-  const std::vector<SeqRecord>& seqs,
+  const std::vector<std::shared_ptr<SeqRecord>>& seqs,
   const std::vector<Variant>& vars,
   const std::vector<int>& id_samples,
   const std::vector<std::string>& labels,
@@ -190,7 +204,7 @@ void writeVcf(
 /** Generate VCF output from a reference genome and a set of variants.
     (single sample) */
 void writeVcf(
-  const std::vector<SeqRecord>& seqs,
+  const std::vector<std::shared_ptr<SeqRecord>>& seqs,
   const std::vector<Variant>& vars,
   const std::string label,
   const std::string filename);
@@ -205,7 +219,7 @@ int readMutMapFromCSV(
     Nucleotide substitution probabilities guide selection of loci. */
 std::vector<Variant> generateGermlineVariants(
   const int num_variants,
-  const Genome& genome,
+  const GenomeReference& genome,
   GermlineSubstitutionModel& model,
   RandomNumberGenerator<>&,
   const bool infinite_sites = false
@@ -214,18 +228,18 @@ std::vector<Variant> generateGermlineVariants(
     Loci are selected randomly. */
 std::vector<Variant> generateVariantsRandomPos(
   const int num_variants,
-  const Genome& genome,
+  const GenomeReference& genome,
   GermlineSubstitutionModel& model,
   RandomNumberGenerator<>&,
   const bool infinite_sites = false
 );
 /** Apply variants to a given reference sequence */
 void applyVariants(
-  Genome&,
+  GenomeReference&,
   const std::vector<Variant>&);
 /** Apply variants to a given reference sequence */
 void applyVariants(
-  Genome&,
+  GenomeReference&,
   const std::vector<Variant>&,
   const std::vector<Genotype>&);
 

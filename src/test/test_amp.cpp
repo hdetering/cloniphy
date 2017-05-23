@@ -102,10 +102,8 @@ BOOST_AUTO_TEST_CASE( art ) {
   ofstream fs_cvg;
 
   BOOST_TEST_MESSAGE( "generating random genome (" << seq_len << " bp)... ");
-  seqio::Genome ref_genome;
+  seqio::GenomeReference ref_genome;
   ref_genome.generate(num_ref_seq, seq_len, seq_len_sd, nuc_freqs, rng);
-  BOOST_TEST_MESSAGE( "  duplicating reference genome..." );
-  ref_genome.duplicate();
   auto fn_ref = "ref.100M.fa";
   BOOST_TEST_MESSAGE( "  writing reference genome to file '" << fn_ref << "'...\n" );
   ofstream fs_ref;
@@ -123,11 +121,11 @@ BOOST_AUTO_TEST_CASE( art ) {
   string fn_cvg = "mda_cvg.dist.cfa";
   fs_cvg.open(fn_cvg);
   for (auto rec : ref_genome.records) {
-    BOOST_TEST_MESSAGE( "\nchromosome '" << rec.id << "'..." );
+    BOOST_TEST_MESSAGE( "\nchromosome '" << rec->id << "'..." );
     simulateMda(cvg, seq_len, amp_size_mean, amp_size_sd, fold, rng);
     //simulateMdaProcess(cvg, seq_len, amp_size_mean, amp_size_sd, fold, rng);
     BOOST_TEST_MESSAGE( "  done." );
-    fs_cvg << ">" << rec.id << endl;
+    fs_cvg << ">" << rec->id << endl;
     for (auto c : cvg)
       fs_cvg << c << "#";
     fs_cvg << endl;

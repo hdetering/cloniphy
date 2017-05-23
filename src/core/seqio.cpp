@@ -3,11 +3,13 @@
 #include <boost/format.hpp>
 using boost::str;
 #include <boost/circular_buffer.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <cctype>
 #include <cmath>
 #include <fstream>
 #include <functional>
 //#include <numeric> // std::accumulate
+//#include <regex> // std::regex, std::smatch
 #include <sstream>
 #include <stdlib.h> // for system() calls
 
@@ -17,20 +19,52 @@ namespace seqio {
 
 SeqRecord::SeqRecord(const string id, const string desc, const string& seq)
   : id(id), description(desc), seq(seq), id_ref(id), chr_copy(0) {}
+SeqRecord::~SeqRecord() {}
 
-Genome::Genome() : length(0), masked_length(0), ploidy(1) {}
+GenomeReference::GenomeReference() : length(0), masked_length(0) {} //, ploidy(1) {}
 
-Genome::Genome(const char* filename) : length(0), masked_length(0) {
-  ploidy = 1;
+GenomeReference::GenomeReference(const char* filename) : length(0), masked_length(0) {
+  //ploidy = 1;
+  //regex rgx("$(\\w+):([0-9]+)-([0-9]+)"); // matches chromosome segment IDs
+  //smatch matches;
+  // initialize nucleotide freuquencies
   for (int i=0; i<4; i++)
     nuc_freq[i] = 0;
 
   // read records from file
-  readFasta(filename, records);
+  readFasta(filename, this->records);
+  // scan records for segmented sequence (naming convention: "CHR:START-END")
+  for (auto & rec : this->records) {
+    // TODO: does it make sense to expect genomic fragments in FASTA?
+    // if (regex_search(rec.id, matches, rgx)) { // segment found
+    //   string id_chr = matches[1];
+    //   unsigned long start = atoi(matches[2]);
+    //   unsigned long end = atoi(matches[3]);
+    //
+    //   // check if chromosome already exists
+    //   auto kv = chromosomes.find(id_chr);
+    //   if (kv == chromosomes.end()) { // entry not found
+    //     ChromosomeReference chr_ref;
+    //     chr_ref.id = rec.id;
+    //     chromosomes[id_chr] =
+    //   }
+    //   else { // entry exists
+    //   }
+    // }
+    // else { // treat sequence as chromosome
+    // }
+    shared_ptr<ChromosomeReference> p_chr_ref(new ChromosomeReference());
+    p_chr_ref->id = rec->id;
+    p_chr_ref->length = rec->seq.length();
+    p_chr_ref->records.push_back(rec);
+    // sanity check: chromosome IDs should be unique
+    assert(this->chromosomes.count(p_chr_ref->id) == 0);
+    this->chromosomes[p_chr_ref->id] = p_chr_ref;
+  }
   num_records = records.size();
 }
 
-void Genome::generate(
+void GenomeReference::generate(
   const unsigned long total_len,
   const vector<double> nuc_freqs,
   RandomNumberGenerator<> &rng
@@ -46,7 +80,7 @@ void Genome::generate(
  * \param nuc_freqs nucleotide frequencies (A,C,G,T)
  * \param object to generate random numbers
  */
-void Genome::generate(
+void GenomeReference::generate(
   const unsigned long total_len,
   const unsigned short num_chr,
   const vector<double> nuc_freqs,
@@ -70,7 +104,7 @@ void Genome::generate(
   }
   chr_ends.push_back(total_len);
 
-  // split genome into chromsome sequences
+  // split genome into chromosome sequences
   unsigned long cum_start = 0;
   string::iterator it_start = seq.begin();
   string::iterator it_end = seq.begin();
@@ -78,15 +112,21 @@ void Genome::generate(
     it_start = it_end;
     advance(it_end, chr_ends[i+1]-chr_ends[i]);
     string id_chr = (boost::format("chr%d") % i).str();
-    SeqRecord rec(id_chr, "random sequence", string(it_start, it_end));
-    this->records.push_back(rec);
+    shared_ptr<SeqRecord> sp_rec(new SeqRecord(id_chr, "random sequence", string(it_start, it_end)));
+    this->records.push_back(sp_rec);
+    // instantiate new referennce chromosome
+    shared_ptr<ChromosomeReference> sp_chr(new ChromosomeReference());
+    sp_chr->id = id_chr;
+    sp_chr->length = it_end - it_start;
+    sp_chr->records.push_back(sp_rec);
+    this->chromosomes[id_chr] = sp_chr;
   }
   this->num_records = num_chr;
   this->length = gen_len;
 }
 
 /** generate random genome by given number of fragments, mean len, sd len, nuc freqs */
-void Genome::generate(
+void GenomeReference::generate(
   const unsigned num_seqs,
   const unsigned long mean_len,
   const unsigned long sd_len,
@@ -110,9 +150,15 @@ void Genome::generate(
     string seq;
     generateRandomDnaSeq(seq, l, nuc_freqs, rng);
     string id_chr = (boost::format("chr%d") % idx_chr++).str();
-    SeqRecord rec(id_chr, "random sequence", seq);
-    rec.id_ref = rec.id;
-    this->records.push_back(rec);
+    shared_ptr<SeqRecord> sp_rec(new SeqRecord(id_chr, "random sequence", seq));
+    sp_rec->id_ref = sp_rec->id;
+    this->records.push_back(sp_rec);
+    // instantiate new referennce chromosome
+    shared_ptr<ChromosomeReference> sp_chr(new ChromosomeReference());
+    sp_chr->id = id_chr;
+    sp_chr->length = seq.length();
+    sp_chr->records.push_back(sp_rec);
+    this->chromosomes[id_chr] = sp_chr;
   }
   this->num_records = num_seqs;
 }
@@ -123,7 +169,7 @@ void Genome::generate(
   *  3) count nucleotide frequencies
   *  4) index bp positions into buckets by nucleotide
   */
-void Genome::indexRecords() {
+void GenomeReference::indexRecords() {
   // initialize data structures
   vector<unsigned> nuc_count(4, 0); // nucleotide counter
   nuc_pos = vector<vector<long> >(4); // nucleotide buckets
@@ -143,7 +189,7 @@ void Genome::indexRecords() {
   }
 
   vec_start_chr.push_back(cum_start);
-  for (vector<SeqRecord>::const_iterator rec=records.begin(); rec!=records.end(); ++rec) {
+  for (auto const & rec : records) {
     unsigned seq_len = rec->seq.length();
     // index unmasked regions (those that are not 'N')
     unsigned p = 0;
@@ -179,7 +225,10 @@ void Genome::indexRecords() {
     vec_start_chr.push_back(cum_start);
   }
   length = vec_start_chr[num_records];
-fprintf(stderr, "\nGenome stats:\n\trecords:\t%u\n\tlength:\t%u\n", num_records, length);
+fprintf(stderr, "\nGenome stats:\n");
+fprintf(stderr, "  records:\t\t%u\n", num_records);
+fprintf(stderr, "  length:\t\t%u\n", length);
+fprintf(stderr, "  length (masked):\t%u\n", masked_length);
 fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_count[0], nuc_count[1], nuc_count[2], nuc_count[3]);
   // calculate nucleotide frequencies (ACGT)
   double num_acgt = nuc_count[0] + nuc_count[1] + nuc_count[2] + nuc_count[3];
@@ -190,23 +239,29 @@ fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_coun
 fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n", nuc_freq[0], nuc_freq[1], nuc_freq[2], nuc_freq[3]);
 }
 
-/** Increase the genome's ploidy to double its current value */
-void Genome::duplicate() {
-  ploidy *= 2;
-  /* better to work with a haploid genome and store copy number in variants? */
-  /*for (unsigned i=0; i<num_records; ++i) {
-    SeqRecord orig = records[i];
-    SeqRecord *dupl = new SeqRecord(orig.id, orig.description, orig.seq);
-    dupl->id_ref = orig.id_ref;
-    dupl->chr_copy = orig.chr_copy+1;
-    records.push_back(*dupl);
-    records[i].id += "_0";
-    records[num_records+i].id += "_1";
+void GenomeInstance::duplicate(vector<seg_mod_t>& out_vec_seg_mod) {
+  vector<tuple<string, shared_ptr<ChromosomeInstance>>> vec_tpl_id_ci;
+  // loop over chromosome IDs in GenomeInstance
+  for (auto const & kv : this->map_id_chr) {
+    // copy all chromosomes under current chromosome ID
+    for (auto const & ci_old : kv.second) {
+      shared_ptr<ChromosomeInstance> ci_new(new ChromosomeInstance());
+      ci_new->copy(ci_old, out_vec_seg_mod);
+      vec_tpl_id_ci.push_back(make_tuple(kv.first, ci_new));
+    }
   }
-  num_records *= 2;*/
+  // add newly created ChromosomeInstances to GenomeInstance
+  for (auto tpl_id_chr : vec_tpl_id_ci) {
+    string id_chr;
+    shared_ptr<ChromosomeInstance> sp_chr;
+    tie(id_chr, sp_chr) = tpl_id_chr;
+    this->map_id_chr[id_chr].push_back(sp_chr);
+    this->vec_chr.push_back(sp_chr);
+    this->vec_chr_len.push_back(sp_chr->length);
+  }
 }
 
-Locus Genome::getLocusByGlobalPos(long global_pos) const {
+Locus GenomeReference::getLocusByGlobalPos(long global_pos) const {
   int idx_seq = 0;
   while (global_pos >= vec_start_chr[idx_seq+1])
     idx_seq++;
@@ -214,14 +269,14 @@ Locus Genome::getLocusByGlobalPos(long global_pos) const {
   // compile locus info
   Locus *loc = new Locus();
   loc->idx_record = idx_seq;
-  loc->id_ref = records[idx_seq].id_ref;
+  loc->id_ref = records[idx_seq]->id_ref;
   loc->start = global_pos - vec_start_chr[idx_seq];
   loc->length = 1;
 
   return *loc;
 }
 
-Locus Genome::getAbsoluteLocusMasked(double rel_pos) const {
+Locus GenomeReference::getAbsoluteLocusMasked(double rel_pos) const {
   unsigned abs_pos_masked = floor(rel_pos * masked_length);
   // identify genomic region
   int idx_region = 0;
@@ -245,18 +300,342 @@ Locus Genome::getAbsoluteLocusMasked(double rel_pos) const {
   return *loc;
 }
 
+ChromosomeReference::ChromosomeReference() : id(""), length(0) {}
+
+ChromosomeInstance::ChromosomeInstance() : length(0) {}
+
+ChromosomeInstance::ChromosomeInstance(ChromosomeReference ref)
+//: ref_chr(shared_ptr<ChromosomeReference>(&ref)), length(ref.length) {
+: length(ref.length) {
+  // inititally chromosome consists of a single SegmentCopy
+  SegmentCopy seg_copy(0, this->length);
+  this->lst_segments.push_back(seg_copy);
+}
+
+// TODO: implement SegmentCopy lookup
+vector<SegmentCopy> ChromosomeInstance::getSegmentCopiesAt(unsigned long ref_pos) {
+  vector<SegmentCopy> res_segments;
+  return res_segments;
+}
+
+vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
+  double start_rel,
+  double len_rel,
+  bool is_forward,
+  bool is_telomeric
+) {
+  vector<seg_mod_t> vec_seg_mod;
+  // iterators pointing to SegmentCopoe
+  list<SegmentCopy>::iterator it_seg_bkp_left, it_seg_bkp_right;
+  list<SegmentCopy> lst_seg_new;
+  bool is_left_bkp = false;
+  // perform some sanity checks
+  assert( len_rel > 0.0 && len_rel <= 1.0 );
+  assert( !is_telomeric &&  is_forward && (1.0-start_rel<=len_rel) );
+  assert( !is_telomeric && !is_forward && (start_rel>=len_rel) );
+  // physical start, length of event
+  unsigned long start_bp = start_rel * this->length;
+  unsigned long len_bp = len_rel * this->length;
+  // physical coordinates
+  unsigned long bkp_start, bkp_end;
+  if (is_forward) {
+    bkp_start = start_bp;
+    bkp_end = is_telomeric ? this->length : start_bp+len_bp;
+  } else { // !is_forward
+    bkp_end = start_bp;
+    bkp_start = is_telomeric ? 0 : bkp_end-len_bp;
+  }
+
+  // identify first affected SegmentCopy
+  unsigned long pos_bp = 0; // current position
+  unsigned long seg_len = 0; // length of current SegmentCopy
+  auto it_seg = this->lst_segments.begin();
+  // NOTE: after break, pos_bp stores the start coordinate of the current SegmentCopy
+  while (it_seg != this->lst_segments.end()) {
+    seg_len = it_seg->ref_end - it_seg->ref_start;
+    if (pos_bp+seg_len > bkp_start) break;
+    pos_bp += seg_len;
+    it_seg++;
+  }
+  assert( it_seg != this->lst_segments.end() );
+
+  // breakpoint after beginning of current SegmentCopy?
+  if (bkp_start >= pos_bp) {
+    is_left_bkp = true;
+    seg_len = it_seg->ref_end - it_seg->ref_start;
+    // create new SegmentCopy
+    unsigned long seg_new_start = it_seg->ref_start + (bkp_start - pos_bp);
+    unsigned long seg_new_end = pos_bp+seg_len <= bkp_end ? it_seg->ref_end : seg_new_start+len_bp;
+    SegmentCopy seg_new(seg_new_start, seg_new_end);
+    lst_seg_new.push_back(seg_new);
+    vec_seg_mod.push_back(make_tuple(seg_new.id, it_seg->id, seg_new_start, seg_new_end));
+
+    // will new SegmentCopies be inserted at first breakpoint?
+    if (!is_forward) { // split this SegmentCopy at breakpoint
+      // head of SegmentCopy
+      unsigned long head_len = bkp_start - pos_bp;
+      unsigned long head_start = it_seg->ref_start;
+      unsigned long head_end = it_seg->ref_start + head_len;
+      SegmentCopy seg_head(head_start, head_end);
+      vec_seg_mod.push_back(make_tuple(seg_head.id, it_seg->id, head_start, head_end));
+      // tail of SegmentCopy
+      unsigned long tail_start = head_end;
+      unsigned long tail_end = it_seg->ref_end;
+      SegmentCopy seg_tail(tail_start, tail_end);
+      vec_seg_mod.push_back(make_tuple(seg_tail.id, it_seg->id, tail_start, tail_end));
+
+      // replace existing SegmentCopy
+      it_seg = this->lst_segments.erase(it_seg);
+      this->lst_segments.insert(it_seg, seg_head);
+      it_seg_bkp_left = this->lst_segments.insert(it_seg, seg_tail);
+      pos_bp += seg_len; // since it_seg was advanced by erase() call
+      is_left_bkp = false;
+    }
+  }
+
+  // skip over SegmentCopies that are affected entirely
+  while (it_seg != this->lst_segments.end()) {
+    seg_len = it_seg->ref_end - it_seg->ref_start;
+    if (pos_bp+seg_len > bkp_end) break;
+    // right breakpoint is after end of SegmentCopy
+    if (!is_left_bkp) {
+      SegmentCopy seg_copy(it_seg->ref_start, it_seg->ref_end);
+      lst_seg_new.push_back(seg_copy);
+      vec_seg_mod.push_back(make_tuple(seg_copy.id, it_seg->id, it_seg->ref_start, it_seg->ref_end));
+    } else {
+      is_left_bkp = false;
+    }
+    // proceed to next SegmentCopy
+    pos_bp += seg_len;
+    it_seg++;
+  }
+
+  // breakpoint before end of current SegmentCopy?
+  if (bkp_end < pos_bp+seg_len) {
+    // new SegmentCopy needed only if this one does not contain left breakpoint
+    // (otherwise the whole duplication has already been handled)
+    if (!is_left_bkp) {
+      unsigned long seg_new_start = it_seg->ref_start;
+      unsigned long seg_new_end = seg_new_start + (bkp_end-pos_bp);
+      SegmentCopy seg_new(seg_new_start, seg_new_end);
+      lst_seg_new.push_back(seg_new);
+      vec_seg_mod.push_back(make_tuple(seg_new.id, it_seg->id, seg_new_start, seg_new_end));
+    }
+    if (is_forward) { // split this SegmentCopy at breakpoint
+      // head of SegmentCopy
+      unsigned long head_len = bkp_end - pos_bp;
+      unsigned long head_start = it_seg->ref_start;
+      unsigned long head_end = it_seg->ref_start + head_len;
+      SegmentCopy seg_head(head_start, head_end);
+      vec_seg_mod.push_back(make_tuple(seg_head.id, it_seg->id, head_start, head_end));
+
+      // tail of SegmentCopy
+      unsigned long tail_start = head_end;
+      unsigned long tail_end = it_seg->ref_end;
+      SegmentCopy seg_tail(tail_start, tail_end);
+      vec_seg_mod.push_back(make_tuple(seg_tail.id, it_seg->id, tail_start, tail_end));
+
+      // replace existing SegmentCopy
+      it_seg = this->lst_segments.erase(it_seg);
+      this->lst_segments.insert(it_seg, seg_head);
+      it_seg_bkp_right = this->lst_segments.insert(it_seg, seg_tail);
+    }
+  } else if (bkp_end == pos_bp+seg_len) { // amplification includes end of SegmentCopy
+    it_seg_bkp_right = ++it_seg;
+  }
+
+  // insert new SegmentCopies
+  if (is_forward) {
+    this->lst_segments.insert(it_seg_bkp_right, lst_seg_new.begin(), lst_seg_new.end());
+  } else {
+    this->lst_segments.insert(it_seg_bkp_left, lst_seg_new.begin(), lst_seg_new.end());
+  }
+
+  // update ChromosomeInstance length
+  this->length += len_bp;
+
+  return vec_seg_mod;
+}
+
+vector<seg_mod_t> ChromosomeInstance::deleteRegion(
+  double start_rel,
+  double len_rel,
+  bool is_forward,
+  bool is_telomeric
+) {
+  vector<seg_mod_t> vec_seg_mod;
+  // iterators pointing to SegmentCopoe
+  list<SegmentCopy>::iterator it_rm_from, it_rm_to;
+  list<SegmentCopy> lst_seg_new;
+  // perform some sanity checks
+  assert( len_rel > 0.0 && len_rel <= 1.0 );
+  assert( !is_telomeric &&  is_forward && (1.0-start_rel<=len_rel) );
+  assert( !is_telomeric && !is_forward && (start_rel>=len_rel) );
+  // physical start, length of event
+  unsigned long start_bp = start_rel * this->length;
+  unsigned long len_bp = len_rel * this->length;
+  // physical coordinates
+  unsigned long pos_start, pos_end;
+  if (is_forward) {
+    pos_start = start_bp;
+    pos_end = is_telomeric ? this->length : start_bp+len_bp;
+  } else { // !is_forward
+    pos_end = start_bp;
+    pos_start = is_telomeric ? 0 : pos_end-len_bp;
+  }
+
+  // identify first affected SegmentCopy
+  unsigned long pos_bp = 0; // current position
+  unsigned long seg_len = 0; // length of current SegmentCopy
+  auto it_seg = this->lst_segments.begin();
+  // NOTE: after break, pos_bp stores the start coordinate of the current SegmentCopy
+  while (it_seg != this->lst_segments.end()) {
+    seg_len = it_seg->ref_end - it_seg->ref_start;
+    if (pos_bp+seg_len >= pos_start) break;
+    pos_bp += seg_len;
+    it_seg++;
+  }
+  assert( it_seg != this->lst_segments.end() );
+
+  // current SegmentCopy will be removed
+  // (if only part of SegmentCopy is affected, a new SegmentCopy will be introduced)
+  it_rm_from = it_seg;
+
+  // does deletion start after beginning of current SegmentCopy?
+  if (pos_start >= pos_bp) {
+    // head of SegmentCopy will be conserved
+    unsigned long head_len = pos_start - pos_bp;
+    unsigned long head_start = it_seg->ref_start;
+    unsigned long head_end = it_seg->ref_start + head_len;
+    SegmentCopy seg_head(head_start, head_end);
+    lst_seg_new.push_back(seg_head);
+    vec_seg_mod.push_back(make_tuple(seg_head.id, it_seg->id, head_start, head_end));
+  }
+
+  // skip over SegmentCopies to be removed completely
+  while (it_seg != this->lst_segments.end()) {
+    seg_len = it_seg->ref_end - it_seg->ref_start;
+    if (pos_bp+seg_len >= pos_end) break;
+    pos_bp += seg_len;
+    it_seg++;
+  }
+
+  // does deletion end before end of current SegmentCopy?
+  if (pos_end <= pos_bp+seg_len) {
+    // tail of SegmentCopy will be conserved
+    unsigned long tail_len = pos_bp + seg_len - pos_end;
+    unsigned long tail_start = it_seg->ref_end - tail_len;
+    unsigned long tail_end = it_seg->ref_end;
+    SegmentCopy seg_tail(tail_start, tail_end);
+    lst_seg_new.push_back(seg_tail);
+    vec_seg_mod.push_back(make_tuple(seg_tail.id, it_seg->id, tail_start, tail_end));
+  }
+
+  // remove affected SegmentCopies [it_rm_from, it_rm_to)
+  it_rm_to = ++it_seg;
+  this->lst_segments.erase(it_rm_from, it_rm_to);
+  // insert new SegmentCopies
+  this->lst_segments.insert(it_rm_to, lst_seg_new.begin(), lst_seg_new.end());
+  // update ChromosomeInstance length
+  this->length -= len_bp;
+
+  return vec_seg_mod;
+}
+
+void ChromosomeInstance::copy(shared_ptr<ChromosomeInstance> ci_old, vector<seg_mod_t>& out_vec_seg_mod) {
+  this->length = ci_old->length;
+  for (auto const & seg_old : ci_old->lst_segments) {
+    SegmentCopy seg_new(seg_old.ref_start, seg_old.ref_end);
+    this->lst_segments.push_back(seg_new);
+    out_vec_seg_mod.push_back(make_tuple(seg_new.id, seg_old.id, seg_old.ref_start, seg_old.ref_end));
+  }
+}
+
+ostream& operator<<(ostream& lhs, const ChromosomeInstance& ci) {
+  lhs << "    ChromosomeInstance<length=" << ci.length << ">" << endl;
+  for (auto const & seg : ci.lst_segments) {
+    lhs << "      " << seg;
+  }
+  return lhs;
+}
+
+GenomeInstance::GenomeInstance() {}
+
+GenomeInstance::GenomeInstance(GenomeReference g_ref) {
+  for (auto const & kv : g_ref.chromosomes) {
+    ChromosomeReference chr_ref = *(kv.second);
+    // initial genome state is diploid -> generate two instances of each chromosome
+    shared_ptr<ChromosomeInstance> sp_chr_inst1(new ChromosomeInstance(chr_ref));
+    this->vec_chr.push_back(sp_chr_inst1);
+    this->vec_chr_len.push_back(sp_chr_inst1->length);
+    shared_ptr<ChromosomeInstance> sp_chr_inst2(new ChromosomeInstance(chr_ref));
+    this->vec_chr.push_back(sp_chr_inst2);
+    this->vec_chr_len.push_back(sp_chr_inst2->length);
+    // sanity check: chromsome IDs should be unique
+    assert(this->map_id_chr.count(chr_ref.id)==0);
+    // shared_ptr<ChromosomeInstance> sp_chr_inst1(up_chr_inst1);
+    // shared_ptr<ChromosomeInstance> sp_chr_inst2(up_chr_inst2);
+    this->map_id_chr[chr_ref.id] = { sp_chr_inst1, sp_chr_inst2 };
+  }
+}
+
+vector<SegmentCopy> GenomeInstance::getSegmentCopiesAt(
+  string id_chr, unsigned long ref_pos)
+{
+  vector<SegmentCopy> res_segments;
+  // perform sanity checks
+  assert( this->map_id_chr.count(id_chr) > 0 );
+
+  // get SegmentCopies from all ChromosomeInstances
+  for (auto const sp_chr : this->map_id_chr[id_chr]) {
+    vector<SegmentCopy> chr_segs = sp_chr->getSegmentCopiesAt(ref_pos);
+    res_segments.insert(res_segments.end(), chr_segs.begin(), chr_segs.end());
+  }
+
+  return res_segments;
+}
+
+ostream& operator<<(ostream& lhs, const GenomeInstance& gi) {
+  lhs << "GenomeInstance" << endl;
+  lhs << "--------------" << endl;
+  for (auto const & id_chr : gi.map_id_chr) {
+    unsigned num_ci = id_chr.second.size();
+    lhs << "  Chromosome \"" << id_chr.first << "\" (" << num_ci << " instances):" << endl;
+    for (auto const & ci : id_chr.second) {
+      lhs << *ci;
+    }
+  }
+  return lhs;
+}
+
+SegmentCopy::SegmentCopy()
+: id(boost::uuids::random_generator()()) {}
+
+SegmentCopy::~SegmentCopy() {}
+
+SegmentCopy::SegmentCopy(unsigned long start, unsigned long end)
+: id(boost::uuids::random_generator()()), ref_start(start), ref_end(end) {}
+
+ostream& operator<<(ostream& lhs, const SegmentCopy& seg) {
+  lhs << "SegmentCopy<uuid=" << seg.id << "> ";
+  lhs << "[" << seg.ref_start << ", " << seg.ref_end << ")";
+  lhs << endl;
+  return lhs;
+}
+
+
 /*------------------------------------*/
 /*           Utility methods          */
 /*------------------------------------*/
 
-void readFasta(const char *filename, vector<SeqRecord> &records) {
+void readFasta(const char *filename, vector<shared_ptr<SeqRecord>> &records) {
   ifstream inputFile;
   inputFile.open(filename, ios::in);
   readFasta(inputFile, records);
   inputFile.close();
 }
 
-void readFasta(istream &input, vector<SeqRecord> &records) {
+void readFasta(istream &input, vector<shared_ptr<SeqRecord>> &records) {
   string header;
   string seq;
   string line;
@@ -273,16 +652,16 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
       string seq_id = header.substr(1, space_pos-1);
       string seq_desc = header.substr(space_pos+1);
       //SeqRecord rec = {seq_id, seq_desc, seq};
-      SeqRecord rec(seq_id, seq_desc, seq);
+      shared_ptr<SeqRecord> sp_rec(new SeqRecord(seq_id, seq_desc, seq));
       // get properties from description
       vector<string> desc_parts = stringio::split(seq_desc, ';');
       for (string part : desc_parts) {
         vector<string> kv = stringio::split(part, '=');
         if (kv.size() == 2)
           if (kv[0] == "id_ref")
-            rec.id_ref = kv[1];
+            sp_rec->id_ref = kv[1];
       }
-      records.push_back(rec);
+      records.push_back(sp_rec);
       header = line;
       seq = "";
     }
@@ -294,8 +673,8 @@ void readFasta(istream &input, vector<SeqRecord> &records) {
 
 /** Write SeqRecords to FASTA file, using a defined line width. */
 int writeFasta(
-  const std::vector<SeqRecord>& sequences,
-  const std::string filename,
+  const vector<shared_ptr<SeqRecord>>& sequences,
+  const string filename,
   int line_width)
 {
   int num_records = 0;
@@ -308,15 +687,19 @@ int writeFasta(
 }
 
 /** Write SeqRecords to FASTA file, using a defined line width. */
-int writeFasta(const vector<SeqRecord> &seqs, ostream &output, int line_width) {
+int writeFasta(
+  const vector<shared_ptr<SeqRecord>>& seqs,
+  ostream &output,
+  int line_width)
+{
   int recCount = 0;
-  for (auto rec : seqs) {
+  for (auto const & rec : seqs) {
     // seq description confuses ART (mismatch of SAM header with REF field)
     //output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
-    output << str(boost::format(">%s\n") % rec.id);
-    string::const_iterator it_seq = rec.seq.begin();
-    while (it_seq != rec.seq.end()) {
-      for (int i=0; i<line_width && it_seq!=rec.seq.end(); ++i)
+    output << str(boost::format(">%s\n") % rec->id);
+    string::const_iterator it_seq = rec->seq.begin();
+    while (it_seq != rec->seq.end()) {
+      for (int i=0; i<line_width && it_seq!=rec->seq.end(); ++i)
         output << *it_seq++;
       output << endl;
     }
@@ -361,7 +744,7 @@ void simulateADO_old(const string fn_input,
                  function<double()>& random) {
 fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   // read input genome
-  Genome g = Genome(fn_input.c_str());
+  GenomeReference g = GenomeReference(fn_input.c_str());
 
   // calculate number of masked regions needed
   int num_frags = (int)(ceil((g.masked_length * percentage) / frag_len));
@@ -382,7 +765,7 @@ fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
     Locus loc = g.getAbsoluteLocusMasked(vec_pos_frag[i]);
 //fprintf(stderr, "\tmasking: %s:%u-%u\n", g.records[loc.idx_record].id.c_str(), loc.start, loc.start+1000);
     for (int p=0; p<frag_len; ++p)
-      g.records[loc.idx_record].seq[loc.start+p] = 'N';
+      g.records[loc.idx_record]->seq[loc.start+p] = 'N';
   }
 
   // create output filename
@@ -411,7 +794,7 @@ fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   // open genome input file
   //ifstream f_in;
   //f_in.open(fn_input);
-  Genome g = Genome(fn_input.c_str());
+  GenomeReference g = GenomeReference(fn_input.c_str());
 
   // create output filenames
   size_t pos_dot = fn_input.find_last_of(".");
@@ -433,18 +816,18 @@ fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
   bool is_fragment = false;
   int idx_char = 0;
   for (unsigned idx_chr=0; idx_chr<g.records.size(); ++idx_chr) {
-    unsigned seq_len = g.records[idx_chr].seq.length();
+    unsigned seq_len = g.records[idx_chr]->seq.length();
     for (unsigned idx_nuc=0; idx_nuc<seq_len; ++idx_nuc) {
       if (!is_fragment) {
         float r = random();
         if (r <= r_frag) {
           is_fragment = true;
-          f_bed << boost::format("%s\t%u\t%u\n") % g.records[idx_chr].id % idx_nuc % min(idx_nuc+frag_len, seq_len);
+          f_bed << boost::format("%s\t%u\t%u\n") % g.records[idx_chr]->id % idx_nuc % min(idx_nuc+frag_len, seq_len);
         }
       }
       if (is_fragment) {
         if (idx_char < frag_len) {
-          g.records[idx_chr].seq[idx_nuc] = 'N';
+          g.records[idx_chr]->seq[idx_nuc] = 'N';
           idx_char++;
         }
         else {

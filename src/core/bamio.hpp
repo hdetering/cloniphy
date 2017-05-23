@@ -3,12 +3,14 @@
 
 #include "clone.hpp"
 #include "random.hpp"
-//#include "vario.cpp"
+#include "vario.hpp"
 #include "stringio.hpp"
 #include <boost/format.hpp>
 #include <memory>
 #include <seqan/bam_io.h>
 #include <string>
+
+using vario::Variant;
 
 /**
  * Methods to support the input/output of SAM/BAM files

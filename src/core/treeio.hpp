@@ -1,6 +1,7 @@
 #ifndef TREEIO_H
 #define TREEIO_H
 
+#include "random.hpp"
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -61,6 +62,11 @@ struct Tree
   std::vector<std::shared_ptr<TNodeType>> getVisibleNodes();
   /** Return visible tree nodes' indices. */
   std::vector<int> getVisibleNodesIdx();
+  /** Return tree nodes as visited in preorder traversal. */
+  std::vector<std::shared_ptr<TNodeType>> getNodesPreOrder();
+  void getNodesPreOrderRec(
+    const std::shared_ptr<TNodeType> n,
+    std::vector<std::shared_ptr<TNodeType>>& nodes);
   /** Build random tree topology. */
   void generateRandomTopology(std::function<double()>&);
   /** Arrange nodes randomly (internal nodes are visible) */

@@ -32,8 +32,10 @@ using boost::format;
 using boost::str;
 using config::ConfigStore;
 using seqio::SeqRecord;
-using seqio::Genome;
+using seqio::GenomeReference;
+using seqio::GenomeInstance;
 using vario::Genotype;
+using vario::Mutation;
 using vario::Variant;
 using vario::VariantSet;
 using vario::VariantStore;
@@ -177,10 +179,10 @@ int main (int argc, char* argv[])
 
 
   // get reference genome
-  Genome ref_genome;
+  GenomeReference ref_genome;
   if (fn_ref_fa.length() > 0) {
     fprintf(stderr, "\nReading reference from file '%s'...\n", fn_ref_fa.c_str());
-    ref_genome = Genome(fn_ref_fa.c_str());
+    ref_genome = GenomeReference(fn_ref_fa.c_str());
   }
   else if (ref_nuc_freqs.size() > 0) {
     fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", ref_seq_num, ref_seq_len_mean, ref_seq_len_sd);
@@ -194,10 +196,6 @@ int main (int argc, char* argv[])
   }
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
-  // duplicate genome (all loci homozygous reference)
-  fprintf(stderr, "duplicating reference sequence (haploid -> diploid).\n");
-  ref_genome.duplicate();
-  //ref_genome.indexRecords(); // working with haploid reference, no re-indexing necessary
 
   string fn_ref_bam = "";
   if (do_ref_reads) {
@@ -294,6 +292,28 @@ int main (int argc, char* argv[])
 //fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
 //for (int i=0; i<n_mut_somatic; i++)
 //  fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
+  }
+
+  // get nodes from clone tree (in hierarchical order)
+  vector<shared_ptr<Clone>> nodes = tree.getNodesPreOrder();
+  // keep an individual GenomeInstance for each clone tree node
+  map<int, GenomeInstance> map_id_genome;
+  // generate initial GenomeInstance (diploid healthy)
+  GenomeInstance g_inst(ref_genome);
+  if (nodes.size() > 0) {
+    // root node corresponds to healthy genome
+    map_id_genome[nodes[0]->index] = GenomeInstance(ref_genome);
+    for (size_t i=1; i<nodes.size(); ++i) {
+      // copy parent's genome
+      GenomeInstance gi_node = map_id_genome[nodes[i]->parent->index];
+      // get mutations for clone tree branch
+      vector<int> node_mut = nodes[i]->m_vec_mutations;
+      // apply somatic mutations (SNVs + CNVs, in order)
+      for (auto const & mut : node_mut)
+        var_store.applyMutation(vec_mut_som[mut], gi_node, rng);
+      // store GenomeInstance for further use
+      map_id_genome[nodes[i]->index] = gi_node;
+    }
   }
 
   // setup mutation matrix

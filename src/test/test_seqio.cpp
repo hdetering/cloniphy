@@ -1,27 +1,43 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/timer/timer.hpp>
 
-#include <vector>
 #include "../core/random.hpp"
 #include "../core/seqio.hpp"
+#include <map>
+#include <memory>
+#include <vector>
 using namespace std;
 using namespace seqio;
 
 struct FixtureSeqio {
-  FixtureSeqio() : ref_genome( "data/Hg18.chr20-22.fa" ) {
+  FixtureSeqio() {
     BOOST_TEST_MESSAGE( "set up fixure" );
   }
   ~FixtureSeqio() {
     BOOST_TEST_MESSAGE( "teardown fixture" );
   }
 
-  Genome ref_genome;
+  GenomeReference ref_genome;
 };
 
 BOOST_FIXTURE_TEST_SUITE( seqio, FixtureSeqio )
 
+/* read reference genome from FASTA file */
+BOOST_AUTO_TEST_CASE( read )
+{
+  string fn_fasta = "data/ref/Hg18.chr20-22.fa";
+
+  BOOST_TEST_MESSAGE( "Reading genome from file: " << fn_fasta );
+  ref_genome = GenomeReference(fn_fasta.c_str());
+  BOOST_TEST_MESSAGE( "Read " << ref_genome.chromosomes.size() << " chromosomes." );
+  BOOST_TEST_MESSAGE( "Indexing sequence records..." );
+  ref_genome.indexRecords();
+
+  BOOST_CHECK( ref_genome.chromosomes.size() == 3 );
+}
+
 /* generate reference genome */
-BOOST_AUTO_TEST_CASE( ref )
+BOOST_AUTO_TEST_CASE( gen )
 {
   boost::timer::auto_cpu_timer t;
   //unsigned long len = 1000000; // genome length
@@ -33,7 +49,7 @@ BOOST_AUTO_TEST_CASE( ref )
   RandomNumberGenerator<> rng(seed);
 
   BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
-  ref_genome = Genome();
+  ref_genome = GenomeReference();
   ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
   BOOST_TEST_MESSAGE( "done." );
   //BOOST_CHECK( ref_genome.length == len );
@@ -69,7 +85,7 @@ BOOST_AUTO_TEST_CASE( exome )
   RandomNumberGenerator<> rng(seed);
 
   BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
-  ref_genome = Genome();
+  ref_genome = GenomeReference();
   ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
   BOOST_TEST_MESSAGE( "done." );
   //BOOST_CHECK( ref_genome.length == len );
@@ -101,6 +117,27 @@ BOOST_AUTO_TEST_CASE( index )
   BOOST_CHECK( ref_genome.nuc_pos[1].size() == 28451472 );
   BOOST_CHECK( ref_genome.nuc_pos[2].size() == 28496320 );
   BOOST_CHECK( ref_genome.nuc_pos[3].size() == 35829712 );
+}
+
+BOOST_AUTO_TEST_CASE( tmap )
+{
+  string fn_fasta = "data/ref/min.fa";
+  ref_genome = GenomeReference(fn_fasta.c_str());
+
+  map<int, GenomeInstance> m;
+
+  m[0] = GenomeInstance(ref_genome);
+  m[1] = m[0];
+  BOOST_TEST_MESSAGE( "m[0].vec_chr_len.size() : " << m[0].vec_chr_len.size() );
+  BOOST_TEST_MESSAGE( "m[1].vec_chr_len.size() : " << m[1].vec_chr_len.size() );
+  // BOOST_TEST_MESSAGE( "  m[1].vec_chr_len.push_back(42);" );
+  // m[1].vec_chr_len.push_back(42);
+  BOOST_TEST_MESSAGE( "  GenomeInstance gi = m[i];\n  gi.vec_chr_len.push_back(42);" );
+  GenomeInstance gi = m[1];
+  gi.vec_chr_len.push_back(42);
+  m[1] = gi;
+  BOOST_TEST_MESSAGE( "m[0].vec_chr_len.size() : " << m[0].vec_chr_len.size() );
+  BOOST_TEST_MESSAGE( "m[1].vec_chr_len.size() : " << m[1].vec_chr_len.size() );
 }
 
 BOOST_AUTO_TEST_SUITE_END()

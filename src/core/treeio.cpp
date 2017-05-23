@@ -165,6 +165,24 @@ vector<int> Tree<TNodeType>::getVisibleNodesIdx() {
   return vis_nodes_idx;
 }
 
+template<typename TNodeType>
+vector<shared_ptr<TNodeType>> Tree<TNodeType>::getNodesPreOrder() {
+  vector<shared_ptr<TNodeType>> nodes;
+  getNodesPreOrderRec(this->m_root, nodes);
+  return nodes;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::getNodesPreOrderRec (
+  const shared_ptr<TNodeType> n,
+  vector<shared_ptr<TNodeType>>& nodes)
+{
+  nodes.push_back(n);
+  for (auto const c : n->m_vecChildren) {
+    getNodesPreOrderRec(c, nodes);
+  }
+}
+
 
 template<typename TNodeType>
 void Tree<TNodeType>::generateRandomTopology(function<double()>& rng) {

@@ -1,29 +1,18 @@
 #ifndef CLONE_H
 #define CLONE_H
 
-#include "seqio.hpp"
 #include "treeio.hpp"
-#include "vario.hpp"
-#include "evolution.hpp"
 #include <functional>
 #include <map>
 #include <memory>
 #include <ostream>
 #include <vector>
 
-using seqio::Genome;
-using vario::Genotype;
-using vario::Mutation;
-using vario::Variant;
-using evolution::GermlineSubstitutionModel;
-
 struct Clone: public treeio::TreeNode
 {
-  float freq;
   bool is_healthy;
   std::vector<std::shared_ptr<Clone>> m_vecChildren;
   std::vector<int> m_vec_mutations;
-  std::vector<Genotype> m_vec_genotypes;
 
   Clone();
   virtual ~Clone();
