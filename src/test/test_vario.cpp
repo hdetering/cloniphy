@@ -221,13 +221,13 @@ BOOST_AUTO_TEST_CASE( cnv )
   // FOCAL DELETION
   //-------------------------------------
 
-  // BOOST_TEST_MESSAGE( "\nNow performing FOCAL DELETION..." );
-  // BOOST_TEST_MESSAGE( "--------------------------------\n" );
-  //
-  // BOOST_TEST_MESSAGE( "CNV: DEL<chr=" << var_cnv_del.ref_chr << ", start=" << var_cnv_del.start_rel << ", len=" << var_cnv_del.len_rel << ">" );
-  //
-  // var_store.applyMutation(mut_cnv_del, g_inst, rng);
-  // BOOST_TEST_MESSAGE( "Genome after focal deletion:\n" << g_inst );
+  BOOST_TEST_MESSAGE( "\nNow performing FOCAL DELETION..." );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+
+  BOOST_TEST_MESSAGE( "CNV: DEL<chr=" << var_cnv_del.ref_chr << ", start=" << var_cnv_del.start_rel << ", len=" << var_cnv_del.len_rel << ">" );
+
+  var_store.applyMutation(mut_cnv_del, g_inst, rng);
+  BOOST_TEST_MESSAGE( "Genome after focal deletion:\n" << g_inst );
 
   // FOCAL AMPLIFICATION
   //-------------------------------------

@@ -411,7 +411,7 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
   }
 
   // breakpoint before end of current SegmentCopy?
-  if (bkp_end < pos_bp+seg_len) {
+  if (it_seg != this->lst_segments.end() && bkp_end < pos_bp+seg_len) {
     // new SegmentCopy needed only if this one does not contain left breakpoint
     // (otherwise the whole duplication has already been handled)
     if (!is_left_bkp) {
