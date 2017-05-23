@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE( cnv )
   CopyNumberVariant var_cnv_amp;
   var_cnv_amp.is_deletion = false;
   var_cnv_amp.is_telomeric = false;
-  var_cnv_amp.is_forward = false;
+  var_cnv_amp.is_forward = true;
   var_cnv_amp.ref_chr = "chr0";
   var_cnv_amp.len_rel = 0.2;
   var_cnv_amp.start_rel = 0.6;
