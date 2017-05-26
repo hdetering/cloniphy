@@ -4,8 +4,8 @@
 # general parameters #
 #--------------------#
 
-# prefix for output files
-out-pfx: "bulk"
+# output folder
+out-dir: "cnvsim"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -105,7 +105,7 @@ mut-som-cnv-ratio: 0.05
 # minimum length (bp) of CNV events
 mut-som-cnv-len-min: 1000
 # rate parameter for power-law distribution
-mut-som-cnv-len-exp: -1
+mut-som-cnv-len-exp: 1
 # prior probability for a CNV event to be a gain (vs. loss)
 mut-som-cnv-gain-prob: 0.8
 

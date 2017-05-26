@@ -2,13 +2,16 @@
 #define RANDOM_H
 
 #include <algorithm>
-#include <functional>
 #include <boost/bind.hpp>
+#include <cassert>
+#include <cmath> // pow()
+#include <functional>
 #include <random>
 #include <vector>
 // Choosing the random number generator. (mt19937: Mersenne-Twister)
 //typedef boost::mt19937 base_generator_type;
 typedef std::mt19937 base_generator_type;
+using std::pow;
 
 template <typename GeneratorType = base_generator_type>
 struct RandomNumberGenerator {
@@ -20,6 +23,7 @@ struct RandomNumberGenerator {
 	}
 
 	std::function<double()> getRandomFunctionDouble(double min, double max) {
+		assert( max > min );
 		std::uniform_real_distribution<> dist(min, max);
 		return boost::bind(dist, boost::ref(generator));
 	}
@@ -102,6 +106,46 @@ struct RandomNumberGenerator {
 
 		return res;
 	}
+
+	/**
+	 *  Internally samples from a uniform distribution (U~Unif(0,1)) and transforms to
+	 *  Bounded Pareto by inverse-transform menthod:
+	 *   x = \left(-\frac{U H^\alpha - U L^\alpha - H^\alpha}{H^\alpha L^\alpha}\right)^{-\frac{1}{\alpha}}
+	 *
+	 *  \param a shape
+	 *  \param l minimum value (>0)
+	 *  \param h maximum value (>l)
+	 */
+	double getRandomParetoBounded(const double a, const double l, const double h) {
+		assert( a > 0 );
+		assert( l > 0 );
+		assert( h > l );
+		std::function<double()> r_unif = getRandomFunctionDouble(0, 1);
+		double u = r_unif();
+
+		double x = pow(-(u*pow(h,a)-u*pow(l,a)-pow(h,a))/(pow(h,a)*pow(l,a)),-1.0/a);
+		return x;
+	}
+
+	/** NOTE: Formula does not produce the expected results!
+	 * Returns a random value sampled from a power-law distribution.
+	 *  Transformation from a uniform variable \in [0.0,1.0] according to
+	 *  Wolfram: http://mathworld.wolfram.com/RandomNumber.html
+	 *
+	 *  \param min minimum value
+	 *  \param max maximum value
+	 *  \param r rate parameter (sensu P(x)=1/L^r)
+	 */
+	unsigned long getRandomPowerLaw (
+		const unsigned long min,
+		const unsigned long max,
+		const double r)
+	{
+		auto r_dbl_unif = getRandomFunctionDouble(0.0, 1.0);
+		double y = r_dbl_unif();
+		unsigned long x = pow(pow(min,r+1) - pow(min,r+1)*y + pow(min,r+1), 1/(r+1));
+		return x;
+	}
 };
 
 /** Selects random element from container */
@@ -132,6 +176,7 @@ struct random_selector
 	// and returns with a ref to the value type
 	template <typename Container>
 	auto operator()(const Container& c) -> decltype(*begin(c))& {
+		assert( c.size() > 0 );
 		return *select(begin(c), end(c));
 	}
 

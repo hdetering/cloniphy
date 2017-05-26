@@ -374,6 +374,9 @@ SomaticSubstitutionModel::SomaticSubstitutionModel(
   }
 
   // determine trinuc mutation probs for reverse complement sites
+  vector<string> vec_site;
+  vector<string> vec_alt;
+  vector<double> vec_weight;
   for (auto i=0; i<this->m_site.size(); i++) {
     string site = this->m_site[i];
     string rc_site = seqio::rev_comp(site);
@@ -381,10 +384,13 @@ SomaticSubstitutionModel::SomaticSubstitutionModel(
     string rc_alt = seqio::rev_comp(this->m_alt[i]);
     double p = this->m_weight[i];
 
-    this->m_site.push_back(rc_site);
-    this->m_alt.push_back(rc_alt);
-    this->m_weight.push_back(p);
+    vec_site.push_back(rc_site);
+    vec_alt.push_back(rc_alt);
+    vec_weight.push_back(p);
   }
+  this->m_site.insert(this->m_site.end(), vec_site.begin(), vec_site.end());
+  this->m_alt.insert(this->m_alt.end(), vec_alt.begin(), vec_alt.end());
+  this->m_weight.insert(this->m_weight.end(), vec_weight.begin(), vec_weight.end());
   assert(this->m_site.size() == 192); // sanity check: are all possible mutations represented?
 }
 

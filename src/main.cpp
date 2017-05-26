@@ -14,12 +14,14 @@
 #include "core/basicclonetree.hpp"
 #include "core/coalescentclonetree.hpp"
 
+#include <boost/filesystem.hpp> // absolute(),
 #include <boost/format.hpp>
 #include <cassert>
 #include <cstdio> // remove(), rename()
 #include <ctime>
 #include <exception>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <math.h>
 #include <memory>
@@ -28,6 +30,7 @@
 #include <string>
 
 using namespace std;
+using namespace boost::filesystem;
 using boost::format;
 using boost::str;
 using config::ConfigStore;
@@ -78,7 +81,8 @@ int main (int argc, char* argv[])
   bool seq_sam_out = config.getValue<bool>("seq-sam-out");
   int verbosity = config.getValue<int>("verbosity");
   long seed = config.getValue<long>("seed");
-  string pfx_out = config.getValue<string>("out-pfx");
+  //string pfx_out = config.getValue<string>("out-pfx");
+  string dir_out = config.getValue<string>("out-dir");
   double mut_som_cnv_ratio = config.getValue<double>("mut-som-cnv-ratio");
 
   //float ado_pct = 0.0; // TODO: make this a user parameter
@@ -90,9 +94,6 @@ int main (int argc, char* argv[])
   bool do_germline_vars = (fn_mut_gl_vcf.size() > 0) || (n_mut_germline > 0);
   bool do_somatic_vars = (fn_mut_som_vcf.size() == 0);
   bool do_cnv_sim = (mut_som_cnv_ratio > 0.0);
-
-  // output file names
-  string fn_mm = str(format("%s.mm.csv") % pfx_out); // mutation map
 
   // internal vars
   map<shared_ptr<Clone>, string> clone2fn; // stores genome file names for each clone
@@ -122,6 +123,27 @@ int main (int argc, char* argv[])
   VariantSet varset_sm; // somatic variants
   // TODO: check previous variables, maybe consolidate functionality?
   VariantStore var_store; // manages somatic variants
+
+  // create output directory if necessary
+  path path_out(dir_out);
+  path_out = absolute(path_out);
+  if (!exists(path_out)) {
+    if (!create_directories(path_out)) {
+      cerr << "[ERROR] (main) Could not create output directory: " << path_out << endl;
+      cerr << "[ERROR] (main) Bailing out..." << endl;
+      return EXIT_FAILURE;
+    }
+  } else {
+    cerr << "[INFO] (main) Output path already exists: " << path_out << "" << endl;
+    // cerr << "[ERROR] (main) Please change/remove it and restart." << endl;
+    // return EXIT_FAILURE;
+  }
+
+  // output file names
+  string fn_mm = str(format("%s/mm.csv") % path_out); // mutation map
+  string fn_newick = str(format("%s/clone.tree") % path_out); // clone tree
+  string fn_dot = str(format("%s/clone.tree.dot") % path_out); // DOT graph for clone tree
+  string fn_sampling_csv = str(format("%s/prevalences.csv") % path_out); // sampling scheme
 
   // initialize random functions
   //seed = time(NULL) + clock();
@@ -161,14 +183,10 @@ int main (int argc, char* argv[])
 
   // drop somatic mutations on clone tree
   tree.dropSomaticMutations(n_mut_somatic, n_mut_transforming, rng);
-  // assign mutation types (single-nucleotide vs. copy-number)
-  unsigned n_som_cnv = vario::assignMutationType(vec_mut_som, mut_som_cnv_ratio, rng);
 
-  string fn_newick = str(format("%s.tree") % pfx_out);
   fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
   tree.printNewick(fn_newick);
 
-  string fn_dot = str(format("%s.tree.dot") % pfx_out);
   fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
   tree.printDot(fn_dot);
 
@@ -189,7 +207,7 @@ int main (int argc, char* argv[])
     ref_genome.generate(ref_seq_num, ref_seq_len_mean, ref_seq_len_sd, ref_nuc_freqs, rng);
 
     // write generated genome to file
-    fn_ref_fa = str(format("%s.ref.fa") % pfx_out.c_str());
+    fn_ref_fa = (path_out / path("ref.fa")).string();
     fprintf(stderr, "writing reference genome to file: %s\n", fn_ref_fa.c_str());
     seqio::writeFasta(ref_genome.records, fn_ref_fa);
     clone2fn[tree.m_root] = fn_ref_fa;
@@ -211,17 +229,17 @@ int main (int argc, char* argv[])
     art.out_sam = seq_sam_out;
     //art.do_keep_fq = seq_fq_out; // do baseline FASTQs have any application=
     // generate reads using ART
-    string art_out_pfx = pfx_out + ".ref";
-    int res_art = art.run(art_out_pfx);
+    path art_out_pfx = path_out / path("ref");
+    int res_art = art.run(art_out_pfx.string());
     // Simulated read alignments can be found in the following SAM file
-    fn_ref_bam = art_out_pfx + ".sam";
+    fn_ref_bam = art_out_pfx.string() + ".sam";
 
     // simulate individual baseline reads for each sample if required
     if (!seq_reuse_reads) {
       fprintf(stderr, "---\nGenerating baseline sequencing reads for %ld samples...\n", mtx_sample.size());
       for (auto sample : mtx_sample) {
-        art_out_pfx = str(format("%s.%s.baseline") % pfx_out % sample.first);
-        res_art = art.run(art_out_pfx);
+        art_out_pfx = path_out / path(str(format("%s.baseline") % sample.first));
+        res_art = art.run(art_out_pfx.string());
       }
     }
   } else {
@@ -277,10 +295,13 @@ int main (int argc, char* argv[])
     vec_var_gl = vario::generateGermlineVariants(n_mut_germline, ref_genome, model_gl, rng);
     varset_gl = VariantSet(vec_var_gl);
 
-    fn_mut_gl_vcf = str(format("%s.germline.vcf") % pfx_out.c_str());
+    fn_mut_gl_vcf = str(format("%s/germline.vcf") % path_out.c_str());
     fprintf(stderr, "writing generated variants to file: %s\n", fn_mut_gl_vcf.c_str());
     vario::writeVcf(ref_genome.records, vec_var_gl, "germline", fn_mut_gl_vcf);
   }
+
+  // assign mutation types (single-nucleotide vs. copy-number)
+  unsigned n_som_cnv = vario::assignMutationType(vec_mut_som, mut_som_cnv_ratio, rng);
 
   // generate somatic mutations
   vector<Variant> vec_var_somatic;
@@ -289,6 +310,10 @@ int main (int argc, char* argv[])
     var_store.generateSomaticVariants(vec_mut_som, ref_genome, model_sm, model_cnv, rng);
     vec_var_somatic = var_store.getSnvVector();
     varset_sm = VariantSet(vec_var_somatic);
+
+    // export variants to output files
+    string fn_cnv = str(format("%s/somatic.cnv.tsv") % path_out.c_str());
+    var_store.writeCnvsToFile(fn_cnv);
 //fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
 //for (int i=0; i<n_mut_somatic; i++)
 //  fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
@@ -301,16 +326,20 @@ int main (int argc, char* argv[])
   // generate initial GenomeInstance (diploid healthy)
   GenomeInstance g_inst(ref_genome);
   if (nodes.size() > 0) {
+    fprintf(stderr, "applying somatic variants by traversing clone tree...\n");
     // root node corresponds to healthy genome
     map_id_genome[nodes[0]->index] = GenomeInstance(ref_genome);
     for (size_t i=1; i<nodes.size(); ++i) {
+      cerr << "\t" << *(nodes[i]) << endl;
       // copy parent's genome
       GenomeInstance gi_node = map_id_genome[nodes[i]->parent->index];
       // get mutations for clone tree branch
       vector<int> node_mut = nodes[i]->m_vec_mutations;
+      fprintf(stderr, "\t\t[%lu mutations...]\n", node_mut.size());
       // apply somatic mutations (SNVs + CNVs, in order)
-      for (auto const & mut : node_mut)
+      for (int mut : node_mut) {
         var_store.applyMutation(vec_mut_som[mut], gi_node, rng);
+      }
       // store GenomeInstance for further use
       map_id_genome[nodes[i]->index] = gi_node;
     }
@@ -329,7 +358,7 @@ int main (int argc, char* argv[])
   }
 
   // write somatic variants to VCF file
-  string fn_vcf = str(format("%s.somatic.vcf") % pfx_out);
+  string fn_vcf = str(format("%s/somatic.vcf") % path_out);
   fprintf(stderr, "\nWriting (sub)clonal mutations to file '%s'.\n", fn_vcf.c_str());
   ofstream f_vcf;
   f_vcf.open(fn_vcf);
@@ -351,8 +380,8 @@ int main (int argc, char* argv[])
   fprintf(stderr, "---\nGenerating sequencing reads for normal (healthy) sample...\n");
   if (do_germline_vars) {
     varset_spikein = varset_gl + varset_sm;
-    fn_normal_bam = str(format("%s.normal.sam") % pfx_out);
-    string fn_fqout = str(format("%s.normal.fastq") % pfx_out);
+    fn_normal_bam = str(format("%s/normal.sam") % path_out);
+    string fn_fqout = str(format("%s/normal.fastq") % path_out);
     string fn_baseline = str(format("build/%s") % fn_ref_bam.c_str());
     string id_sample("normal");
     vector<double> vec_freq(n_clones-1, 0.0);
@@ -369,18 +398,18 @@ int main (int argc, char* argv[])
     string fn_baseline;
     if (seq_reuse_reads) {
       // use normal sample reads as baseline for tumor samples
-      fn_baseline = str(format("build/%s") % fn_normal_bam.c_str());
+      fn_baseline = fn_normal_bam;
       // germline variants are already contained in baseline reads
       varset_spikein = varset_sm;
     }
     else  {
       // choose sample-specific baseline files
-      fn_baseline = str(format("build/%s.%s.baseline.sam") % pfx_out.c_str() % sample.first);
+      fn_baseline = str(format("%s/%s.baseline.sam") % path_out % sample.first);
       // include germline variants in spike-in variants
       varset_spikein = varset_gl + varset_sm;
     }
-    string fn_fqout = str(format("%s.%s.bulk.fq") % pfx_out % sample.first);;
-    string fn_samout = str(format("%s.%s.bulk.sam") % pfx_out % sample.first);;
+    string fn_fqout = str(format("%s/%s.bulk.fq") % path_out % sample.first);;
+    string fn_samout = str(format("%s/%s.bulk.sam") % path_out % sample.first);;
 
     //VariantSet varset_spikein(vec_var_spikein);
     vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
@@ -395,7 +424,6 @@ int main (int argc, char* argv[])
   */
 
   // output sampling scheme to CSV file
-  string fn_sampling_csv = str(format("%s.prevalences.csv") % pfx_out);
   stringio::writeCSV(mtx_sample, fn_sampling_csv);
   fprintf(stderr, "\nSampling scheme with clone prevalences written to file:\n  %s\n", fn_sampling_csv.c_str());
 

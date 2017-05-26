@@ -3,11 +3,16 @@
 
 #include "../core/random.hpp"
 #include "../core/seqio.hpp"
+#include <boost/icl/interval.hpp>
+#include <boost/icl/interval_map.hpp>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 using namespace std;
 using namespace seqio;
+using boost::icl::interval_map;
+using boost::icl::interval;
 
 struct FixtureSeqio {
   FixtureSeqio() {
@@ -106,7 +111,7 @@ BOOST_AUTO_TEST_CASE( exome )
 
 
 /* check if benchmark genome has been indexed correctly */
-BOOST_AUTO_TEST_CASE( index )
+BOOST_AUTO_TEST_CASE ( index )
 {
   boost::timer::auto_cpu_timer t;
   ref_genome.indexRecords();
@@ -119,7 +124,7 @@ BOOST_AUTO_TEST_CASE( index )
   BOOST_CHECK( ref_genome.nuc_pos[3].size() == 35829712 );
 }
 
-BOOST_AUTO_TEST_CASE( tmap )
+BOOST_AUTO_TEST_CASE ( tmap )
 {
   string fn_fasta = "data/ref/min.fa";
   ref_genome = GenomeReference(fn_fasta.c_str());
@@ -138,6 +143,37 @@ BOOST_AUTO_TEST_CASE( tmap )
   m[1] = gi;
   BOOST_TEST_MESSAGE( "m[0].vec_chr_len.size() : " << m[0].vec_chr_len.size() );
   BOOST_TEST_MESSAGE( "m[1].vec_chr_len.size() : " << m[1].vec_chr_len.size() );
+}
+
+/* tests related to the BOOST Interval Container Library (ICL)
+ * http://www.boost.org/doc/libs/1_64_0/libs/icl/doc/html/index.html */
+BOOST_AUTO_TEST_CASE ( icl ) {
+  BOOST_TEST_MESSAGE ( "----------------------------------------------" );
+  BOOST_TEST_MESSAGE ( "Testing Boost Interval Container Library (ICL)" );
+  BOOST_TEST_MESSAGE ( "----------------------------------------------" );
+
+  interval_map<unsigned long, int> imap_copies;
+
+  // insert a couple of intervals
+
+  auto i1 = interval<unsigned long>::right_open(1, 100);
+  imap_copies += make_pair(i1, 1);
+  BOOST_TEST_MESSAGE ( "\nadd: " << i1);
+
+  auto i2 = interval<unsigned long>::right_open(80, 120);
+  BOOST_TEST_MESSAGE ( "add: " << i2);
+  imap_copies += make_pair(i2, 1);
+
+  auto i3 = interval<unsigned long>::right_open(30, 60);
+  BOOST_TEST_MESSAGE ( "add: " << i3);
+  imap_copies += make_pair(i3, 1);
+
+  BOOST_TEST_MESSAGE ( "\nresult:\n" << imap_copies << "\n" );
+
+  BOOST_TEST_MESSAGE ( "\nintervals:" );
+  for (auto const & i : imap_copies) {
+    BOOST_TEST_MESSAGE ( "\t" << i.first << ", " << i.second );
+  }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

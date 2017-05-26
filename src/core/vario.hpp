@@ -123,6 +123,7 @@ struct CopyNumberVariant
   unsigned    id;              /** unique identifier */
   bool        is_wgd;          /** true: CNV is Whole Genome Duplication */
   bool        is_deletion;     /** true: CNV is deletion event */
+  bool        is_chr_wide;     /** true: event affects whole chromosome */
   bool        is_telomeric;    /** true: event coordinates include chromosome end */
   bool        is_forward;      /** true: event at 3' side of start_rel; false: at 5' end */
   double      len_rel;         /** length of affected region (fraction of chromsome length) */
@@ -149,8 +150,10 @@ struct VariantStore
 
   /** Get vector of SNVs. */
   std::vector<Variant> getSnvVector();
+
   /** Get VariantSet of SNVs. */
   VariantSet getSnvSet();
+
   /** Generate variant loci in a given genome based on somatic mutation model.
       Use context-dependent mutation signature to select loci. */
   void generateSomaticVariants(
@@ -161,14 +164,21 @@ struct VariantStore
     RandomNumberGenerator<>& rng,
     const bool infinite_sites = false
   );
+
   /** Apply a mutation to a GenomeInstance.
    *  - SNV: A SegmentCopy will be chosen from the affected ChromosomeInstance.
    *  - CNV (gain): new SequenceCopies will be introduced
    *  - CNV (loss): existing SequenceCopies will be split
    */
   void applyMutation(Mutation m, GenomeInstance& g, RandomNumberGenerator<>& r);
+
   /** Transfer mutations from existing SegmentCopies to new ones. */
   void transferMutations(std::vector<seqio::seg_mod_t> vec_seg_mod);
+
+  /** Write CNVs to output file.
+   *  \oaram filename file name
+   */
+  unsigned writeCnvsToFile(std::string filename);
 };
 
 /** Inititalize a list of mutations, assigning a type (single-nucleotide vs. copy-number).
@@ -251,6 +261,11 @@ void applyVariants(
 //   const std::vector<Variant> &variants,
 //   std::ostream &outstream,
 //   short len_line = 60);
+
+/** Print CopyNumberVariant details (BED format). */
+std::ostream& operator<<(std::ostream& lhs, const CopyNumberVariant& cnv);
+
+
 } /* namespace vario */
 
 #endif /* VARIO_H */

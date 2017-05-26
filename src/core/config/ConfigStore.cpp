@@ -28,6 +28,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_mut_gl = 0;
   double mut_som_cnv_ratio = 0.0;
   string model = "JC";
+  string dir_out = "output";
   string fn_bam_input = "";
   string fn_mut_gl_vcf = "";
   string fn_mut_som_vcf = "";
@@ -37,7 +38,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   bool do_reuse_reads = false;
   bool do_fq_out = true;
   bool do_sam_out = true;
-  string pfx_out = "clonesim";
   int verb = 1;
   long seed = time(NULL) + clock();
 
@@ -59,7 +59,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("mut-gl-vcf,v", po::value<string>(&fn_mut_gl_vcf), "germline variants")
     ("mut-som-trunk,i", po::value<int>(&n_mut_trunk), "number of transforming mutations (separating healthy genome from first cancer genome)")
     ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
-    ("out-pfx,o", po::value<string>(&pfx_out), "prefix for output files")
+    ("out-dir,o", po::value<string>(&dir_out), "output directory")
     ("verbosity,v", po::value<int>(&verb), "detail level of console output")
     ("seed,s", po::value<long>(&seed), "random seed")
   ;
@@ -152,10 +152,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
   fn_tree = _config["tree"].as<string>();
   // prefix to use for output files
-  if (var_map.count("out-pfx") || !_config["out-pfx"]) {
-    _config["out-pfx"] = pfx_out;
+  if (var_map.count("out-dir") || !_config["out-dir"]) {
+    _config["out-dir"] = dir_out;
   }
-  pfx_out = _config["out-pfx"].as<string>();
+  dir_out = _config["out-dir"].as<string>();
   // how chatty should status messages be?
   if (var_map.count("verbosity") || !_config["verbosity"]) {
     _config["verbosity"] = verb;
