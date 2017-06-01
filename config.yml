@@ -56,12 +56,12 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # germline variants (to generate personal genome from reference)
 #mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-gl : 1000
+mut-gl-num : 1000
 
 # evolutionary model
 # choices: 'JC', 'F81', 'K80', 'HKY', 'matrix', 'matrixFromVcf'
-model: matrix
-model-params:
+mut-gl-model: matrix
+mut-gl-model-params:
   # nucleotide frequencies:
   nucFreq : [ 0.25, 0.25, 0.25, 0.25 ]
   # transition-transversion ratio:
@@ -77,7 +77,7 @@ model-params:
 #------------------------------#
 
 # number of total mutations to simulate
-mut-som: 10000
+mut-som-num: 10000
 # number of transforming mutations shared by all clones
 # (included in total mutations)
 mut-som-trunk: 100

@@ -27,7 +27,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_mut_trunk = 0;
   int n_mut_gl = 0;
   double mut_som_cnv_ratio = 0.0;
-  string model = "JC";
+  string mut_gl_model = "JC";
   string dir_out = "output";
   string fn_bam_input = "";
   string fn_mut_gl_vcf = "";
@@ -54,7 +54,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("help,h", "print help message")
     ("config,c", po::value<string>(), "config file")
     ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
-    ("mut-somatic,m", po::value<int>(&n_mut_somatic), "total number of mutations")
+    ("mut-som-num,m", po::value<int>(&n_mut_somatic), "total number of mutations")
     ("reference,r", po::value<string>(&fn_ref_fa), "reference sequence")
     ("mut-gl-vcf,v", po::value<string>(&fn_mut_gl_vcf), "germline variants")
     ("mut-som-trunk,i", po::value<int>(&n_mut_trunk), "number of transforming mutations (separating healthy genome from first cancer genome)")
@@ -101,10 +101,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
   n_clones = _config["clones"].as<int>();
   // number of somatic mutations
-  if (var_map.count("mut-som") || !_config["mut-som"]) {
-    _config["mut-som"] = n_mut_somatic;
+  if (var_map.count("mut-som-num") || !_config["mut-som-num"]) {
+    _config["mut-som-num"] = n_mut_somatic;
   }
-  n_mut_somatic = _config["mut-som"].as<int>();
+  n_mut_somatic = _config["mut-som-num"].as<int>();
   // number of somatic mutations assigned to trunk of clone tree
   if (var_map.count("mut-som-trunk") || !_config["mut-som-trunk"]) {
     _config["mut-som-trunk"] = n_mut_trunk;
@@ -127,10 +127,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["bam-input"] = fn_bam_input;
   }
   // number of germline mutations
-  if (!_config["mut-gl"]) {
-    _config["mut-gl"] = n_mut_gl;
+  if (!_config["mut-gl-num"]) {
+    _config["mut-gl-num"] = n_mut_gl;
   }
-  n_mut_gl = _config["mut-gl"].as<int>();
+  n_mut_gl = _config["mut-gl-num"].as<int>();
   // path to germline variants input VCF
   if (var_map.count("mut-gl-vcf") || !_config["mut-gl-vcf"]) {
     _config["mut-gl-vcf"] = fn_mut_gl_vcf;
@@ -236,42 +236,42 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
 
   // check germline evolutionary model params
-  if (!_config["model"]) {
+  if (!_config["mut-gl-model"]) {
     //fprintf(stderr, "\n[INFO] Missing evolutionary model - assuming '%s'.\n", model.c_str());
-    YAML::Node node = YAML::Load(model);
-    _config["model"] = node;
+    YAML::Node node = YAML::Load(mut_gl_model);
+    _config["mut-gl-model"] = node;
   } else {
-    model = _config["model"].as<string>();
+    mut_gl_model = _config["mut-gl-model"].as<string>();
   }
-  if (model != "JC" && !_config["model-params"]) {
-    fprintf(stderr, "\nArgumentError: Evolutionary models other than 'JC' require parameters (set param 'model-params' in config file.)\n");
+  if (mut_gl_model != "JC" && !_config["mut-gl-model-params"]) {
+    fprintf(stderr, "\nArgumentError: Evolutionary models other than 'JC' require parameters (set param 'mut-gl-model-params' in config file.)\n");
     return false;
   }
-  if (model == "F81" || model == "HKY") {
-    if (!_config["model-params"]["nucFreq"]) {
-      fprintf(stderr, "\nArgumentError: Model '%s' requires nucleotide frequencies (set param 'model-params':'nucFreq' in config file.)\n", model.c_str());
+  if (mut_gl_model == "F81" || mut_gl_model == "HKY") {
+    if (!_config["mut-gl-model-params"]["nucFreq"]) {
+      fprintf(stderr, "\nArgumentError: Model '%s' requires nucleotide frequencies (set param 'mut-gl-model-params':'nucFreq' in config file.)\n", mut_gl_model.c_str());
       return false;
-    } else if (_config["model-params"]["nucFreq"].size() != 4) {
-      fprintf(stderr, "\nArgumentError: Parameter 'model-params':'nucFreq' must contain exactly 4 values.\n");
-      return false;
-    }
-  }
-  if (model == "K80" || model == "HKY") {
-    if (!_config["model-params"]["kappa"]) {
-      fprintf(stderr, "\nArgumentError: Model '%s' requires transition-transversion ratio (set param 'model-params':'kappa' in config file.)\n", model.c_str());
+    } else if (_config["mut-gl-model-params"]["nucFreq"].size() != 4) {
+      fprintf(stderr, "\nArgumentError: Parameter 'mut-gl-model-params':'nucFreq' must contain exactly 4 values.\n");
       return false;
     }
   }
-  if (model == "matrix") {
+  if (mut_gl_model == "K80" || mut_gl_model == "HKY") {
+    if (!_config["mut-gl-model-params"]["kappa"]) {
+      fprintf(stderr, "\nArgumentError: Model '%s' requires transition-transversion ratio (set param 'mut-gl-model-params':'kappa' in config file.)\n", mut_gl_model.c_str());
+      return false;
+    }
+  }
+  if (mut_gl_model == "matrix") {
     vector<string> names = { "Qa", "Qc", "Qg", "Qt" };
     for (string n : names) {
-      if (!_config["model-params"][n] ) {
-        fprintf(stderr, "\nArgumentError: Model 'matrix' requires substitution frequencies (set param 'model-params':'Qa','Qc','Qg','Qt' in config file.)");
+      if (!_config["mut-gl-model-params"][n] ) {
+        fprintf(stderr, "\nArgumentError: Model 'matrix' requires substitution frequencies (set param 'mut-gl-model-params':'Qa','Qc','Qg','Qt' in config file.)");
         fprintf(stderr, "\n               Missing parameter: '%s'.)\n", n.c_str());
         return false;
-      } else if (_config["model-params"][n].as<vector<double>>().size() != 4 ) {
+      } else if (_config["mut-gl-model-params"][n].as<vector<double>>().size() != 4 ) {
         fprintf(stderr, "\nArgumentError: Substitution frequencies vectors must contain exactly 4 real values.");
-        fprintf(stderr, "\n               Violating parameter: 'model-params':'%s'.)\n", n.c_str());
+        fprintf(stderr, "\n               Violating parameter: 'mut-gl-model-params':'%s'.)\n", n.c_str());
         return false;
       }
     }
@@ -339,7 +339,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     } else {
       // TODO: print germline mutation params
       fprintf(stderr, "  number of mutations: %d\n", n_mut_gl);
-      fprintf(stderr, "  evolutionary model:\t%s\n", model.c_str());
+      fprintf(stderr, "  evolutionary model:\t%s\n", mut_gl_model.c_str());
     }
     fprintf(stderr, "--------------------------------------------------------------------\n");
     fprintf(stderr, "Sequencing data\n");

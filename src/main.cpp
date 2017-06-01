@@ -57,16 +57,16 @@ int main (int argc, char* argv[])
   // params specified by user (in config file or command line)
   string fn_bam_input = config.getValue<string>("bam-input");
   int n_clones = config.getValue<int>("clones");
-  int n_mut_somatic = config.getValue<int>("mut-som");
+  int n_mut_somatic = config.getValue<int>("mut-som-num");
   int n_mut_transforming = config.getValue<int>("mut-som-trunk");
-  int n_mut_germline = config.getValue<int>("mut-gl");
+  int n_mut_germline = config.getValue<int>("mut-gl-num");
   unsigned ref_seq_num = config.getValue<int>("ref-seq-num");
   unsigned long ref_seq_len_mean = config.getValue<unsigned long>("ref-seq-len-mean");
   unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref_fa = config.getValue<string>("reference");
   string fn_mut_gl_vcf = config.getValue<string>("mut-gl-vcf");
-  string str_model_gl = config.getValue<string>("model");
+  string str_model_gl = config.getValue<string>("mut-gl-model");
   string fn_tree = config.getValue<string>("tree");
   string fn_mut_som_vcf = config.getValue<string>("mut-som-vcf");
   string fn_mut_som_sig = config.getValue<string>("mut-som-sig-file");
@@ -100,6 +100,30 @@ int main (int argc, char* argv[])
   treeio::Tree<Clone> tree; // contains clone genealogy
   GermlineSubstitutionModel model_gl; // model of germline seq evolution
   SomaticSubstitutionModel model_sm; // model of somatic seq evolution
+  vector<Mutation> vec_mut_gl; // germline mutations
+  vector<Mutation> vec_mut_som = vector<Mutation>(n_mut_somatic); // somatic mutations
+  vector<Variant> vec_var_gl; // germline variants
+  VariantSet varset_gl; // germline variants
+  VariantSet varset_sm; // somatic variants
+  // TODO: check previous variables, maybe consolidate functionality?
+  VariantStore var_store; // manages somatic variants
+
+  // inititalize germline model of sequence evolution
+  if (str_model_gl == "JC") {
+    model_gl.init_JC();
+  } else if (str_model_gl == "F81") {
+    vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
+    model_gl.init_F81(&vec_freqs[0]);
+  } else if (str_model_gl == "K80") {
+    double kappa = config.getValue<double>("mut-gl-model-params:kappa");
+    model_gl.init_K80(kappa);
+  } else if (str_model_gl == "HKY") {
+    vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
+    double kappa = config.getValue<double>("mut-gl-model-params:kappa");
+    model_gl.init_HKY(&vec_freqs[0], kappa);
+  }
+
+  // initialize somatic model of sequence evolution
   if (do_somatic_vars) {
     map<string, double> map_mut_som_sig_mix = config.getMap<double>("mut-som-sig-mix");
     model_sm = SomaticSubstitutionModel(fn_mut_som_sig, map_mut_som_sig_mix);
@@ -115,14 +139,6 @@ int main (int argc, char* argv[])
     model_cnv.rate_tel = config.getValue<double>("mut-som-cnv-rate-tel");
     model_cnv.rate_foc = config.getValue<double>("mut-som-cnv-rate-foc");
   }
-
-  vector<Mutation> vec_mut_gl; // germline mutations
-  vector<Mutation> vec_mut_som = vector<Mutation>(n_mut_somatic); // somatic mutations
-  vector<Variant> vec_var_gl; // germline variants
-  VariantSet varset_gl; // germline variants
-  VariantSet varset_sm; // somatic variants
-  // TODO: check previous variables, maybe consolidate functionality?
-  VariantStore var_store; // manages somatic variants
 
   // create output directory if necessary
   path path_out(dir_out);
@@ -268,21 +284,6 @@ int main (int argc, char* argv[])
     }
   }
   */
-
-  // inititalize model of sequence evolution
-  if (str_model_gl == "JC") {
-    model_gl.init_JC();
-  } else if (str_model_gl == "F81") {
-    vector<double> vec_freqs = config.getValue<vector<double>>("model-params:nucFreq");
-    model_gl.init_F81(&vec_freqs[0]);
-  } else if (str_model_gl == "K80") {
-    double kappa = config.getValue<double>("model-params:kappa");
-    model_gl.init_K80(kappa);
-  } else if (str_model_gl == "HKY") {
-    vector<double> vec_freqs = config.getValue<vector<double>>("model-params:nucFreq");
-    double kappa = config.getValue<double>("model-params:kappa");
-    model_gl.init_HKY(&vec_freqs[0], kappa);
-  }
 
   // if a VCF file was provided, read germline variants from file, otherwise simulate variants
   if (fn_mut_gl_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
