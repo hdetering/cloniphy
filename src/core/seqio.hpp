@@ -366,7 +366,8 @@ struct GenomeInstance {
   void
   addChromosome(
     std::shared_ptr<ChromosomeInstance> sp_chr,
-    std::string id_chr);
+    std::string id_chr
+  );
 
   /** Remove a ChromosomeInstance from this GenomeInstance.
    *  \param sp_chr shared pointer to ChromosomeInstance
@@ -375,7 +376,8 @@ struct GenomeInstance {
   void
   deleteChromosome(
     std::shared_ptr<ChromosomeInstance> sp_chr,
-    std::string id_chr);
+    std::string id_chr
+  );
 
   /**
    * Perform Whole Genome Duplication.
@@ -390,14 +392,29 @@ struct GenomeInstance {
   std::vector<SegmentCopy>
   getSegmentCopiesAt(
     std::string id_chromosome,
-    unsigned long ref_pos);
+    unsigned long ref_pos
+  );
 
   /** Map genomic regions to their absolute copy number states.
    *  \param out_map_cn_loci map storing for each copy number state a collection of genomic loci.
    */
   void
   getCopyNumberStates(
-    std::map<unsigned, std::vector<std::shared_ptr<Locus>>>& out_map_cn_loci);
+    std::map<unsigned, std::vector<std::shared_ptr<Locus>>>& out_map_cn_loci
+  );
+
+  /** Write genome to FASTA files, tiled by copy number state.
+   *  \param reference GenomeReference containing the actual DNA sequences.
+   *  \param fn_pfx filename prefix. Output files will be named <fn_pfx>_<cn>n.fa
+   *                (cn: copy number state).
+   *  \param padding The number of basepairs to add up- and downstream of each segment.
+   */
+  void
+  writeFastaTiled(
+    GenomeReference ref,
+    std::string fn_pfx,
+    int padding
+  );
 };
 
 /** Print GenomeInstance substructure (for debugging purposes). */

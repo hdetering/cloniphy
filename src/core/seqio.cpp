@@ -302,6 +302,58 @@ GenomeInstance::duplicate(
   }
 }
 
+void
+GenomeInstance::writeFastaTiled (
+  GenomeReference reference,
+  string fn_pfx,
+  int padding )
+{
+  // infer copy number state segments
+  // for each chromosome id, build an interval map
+  map<string, interval_map<ulong, int>> map_chr_segments;
+  for ( auto const & id_chr : this->map_id_chr ) {
+    map_chr_segments[id_chr.first] = interval_map<ulong, int>();
+    // infer segment-wise copy number for each ChromosomeInstance
+    for ( auto const chr : id_chr.second ) {
+      // each SegmentCopy increases the CN state for the corresponding region
+      for ( auto const & seg : chr->lst_segments ) {
+        // NOTE: if this ever fails: switch start and end coordinates (or can interval_map deal with that?)
+        assert( seg.ref_start < seg.ref_end );
+        auto i = interval<ulong>::right_open(seg.ref_start, seg.ref_end);
+        // add interval with value 1 to interval map (copy number increases by 1)
+        map_chr_segments[id_chr.first] += make_pair(i, 1);
+      }
+    }
+  }
+
+  // export genomic fragments to corresponding output files
+  map<int, shared_ptr<ofstream>> map_cn_file;
+  for ( auto const & chr_seg : map_chr_segments ) {
+    string id_chr = chr_seg.first;
+    for ( auto const & seg : chr_seg.second ) {
+      auto i = seg.first;
+      ulong ref_start = i.lower();
+      ulong ref_end = i.upper();
+      int cn_state = seg.second;
+      // create output file for CN state if not exists
+      if ( map_cn_file.count(cn_state) == 0 ) {
+        string filename = str(boost::format("%s.%d.fa") % fn_pfx % cn_state);
+        shared_ptr<ofstream> ofs(new ofstream(filename, ofstream::out));
+        map_cn_file[cn_state] = ofs;
+      }
+      shared_ptr<ofstream> ofs = map_cn_file[cn_state];
+      // TODO: extract region from reference genome and write record to file
+      *ofs << str(boost::format("%s\t%lu\t%lu\n") % id_chr % ref_start % ref_end);
+      //num_records = writeFasta(sequences, ofs, line_width);
+    }
+  }
+  // close output file streams
+  for (auto cn_file : map_cn_file) {
+    assert( cn_file.second->is_open() );
+    cn_file.second->close();
+  }
+}
+
 Locus GenomeReference::getLocusByGlobalPos(long global_pos) const {
   int idx_seq = 0;
   while (global_pos >= vec_start_chr[idx_seq+1])

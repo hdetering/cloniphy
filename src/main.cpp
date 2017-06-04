@@ -262,29 +262,6 @@ int main (int argc, char* argv[])
     fn_ref_bam = fn_bam_input;
   }
 
-  /* CNV simulation will be performed further down the line
-  if (do_cnv_sim) { // need to generate baseline reads respecting copy number states
-    for (auto sample : mtx_sample) {
-      // TODO: will need to be updated to support CNVs (non-uniform coverage)
-      art_cmd += str(format(" -o %s.%s_reads") % pfx_out % sample.first);
-      fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
-      int res_art = system(art_cmd.c_str());
-      if (res_art != 0) {
-        fprintf(stderr, "[ERROR] ART call had non-zero return value:\n        %s\n", art_cmd.c_str());
-        return EXIT_FAILURE;
-      }
-    }
-  } else { // no CNVs: joint baseline read set for all samples
-    art_cmd += str(format(" -o %s_reads") % pfx_out);
-    fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
-    int res_art = system(art_cmd.c_str());
-    if (res_art != 0) {
-      fprintf(stderr, "[ERROR] ART call had non-zero return value:\n        %s\n", art_cmd.c_str());
-      return EXIT_FAILURE;
-    }
-  }
-  */
-
   // if a VCF file was provided, read germline variants from file, otherwise simulate variants
   if (fn_mut_gl_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
     fprintf(stderr, "applying germline variants (from %s).\n", fn_mut_gl_vcf.c_str());

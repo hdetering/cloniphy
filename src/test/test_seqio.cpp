@@ -176,4 +176,74 @@ BOOST_AUTO_TEST_CASE ( icl ) {
   }
 }
 
+/* generate reference genome, introduce CNVs and write CN state-tiled output */
+BOOST_AUTO_TEST_CASE( tile )
+{
+  boost::timer::auto_cpu_timer t;
+  unsigned short num_chr = 3; // number of chromosomes
+  unsigned long frag_len_mean = 100000; // mean chromosome length
+  unsigned long frag_len_sd = 0;
+  vector<double> nuc_freqs = {0.3, 0.2, 0.2, 0.3};
+  long seed = 42;
+  RandomNumberGenerator<> rng(seed);
+
+  BOOST_TEST_MESSAGE( "--------------------------------" );
+  BOOST_TEST_MESSAGE( " Generate genome:" );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+  BOOST_TEST_MESSAGE( "chromosomes:\t" << num_chr );
+  BOOST_TEST_MESSAGE( "chr length:\t" << frag_len_mean << " (+/- " << frag_len_sd << ")\n");
+  ref_genome = GenomeReference();
+  ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
+  GenomeInstance genome(ref_genome);
+  BOOST_TEST_MESSAGE( genome );
+
+  BOOST_TEST_MESSAGE( "--------------------------------" );
+  BOOST_TEST_MESSAGE( " Introduce CNVs:" );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+
+  string id_chr;
+  shared_ptr<ChromosomeInstance> chr_copy;
+  double start_rel = 0.0;
+  double len_rel = 0.0;
+  bool is_forward = true;
+  bool is_telomeric = false;
+
+  BOOST_TEST_MESSAGE( "Delete second copy of chromosome 1" );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+  id_chr = "chr1";
+  chr_copy = genome.map_id_chr[id_chr][1];
+  genome.deleteChromosome(chr_copy, id_chr);
+  BOOST_TEST_MESSAGE( "result:\n" << genome );
+
+  BOOST_TEST_MESSAGE( "" );
+  BOOST_TEST_MESSAGE( "Amplifiy region on chromosome 0" );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+  id_chr = "chr0";
+  chr_copy = genome.map_id_chr[id_chr][0];
+  start_rel = 0.5;
+  len_rel = 0.5;
+  is_forward = true;
+  is_telomeric = true;
+  chr_copy->amplifyRegion(start_rel, len_rel, is_forward, is_telomeric);
+  BOOST_TEST_MESSAGE( "result:\n" << genome );
+
+  BOOST_TEST_MESSAGE( "Delete region on chromosome 2" );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+  id_chr = "chr2";
+  chr_copy = genome.map_id_chr[id_chr][1];
+  start_rel = 0.25;
+  len_rel = 0.5;
+  is_forward = true;
+  is_telomeric = false;
+  chr_copy->deleteRegion(start_rel, len_rel, is_forward, is_telomeric);
+  BOOST_TEST_MESSAGE( "result:\n" << genome );
+
+  BOOST_TEST_MESSAGE( "--------------------------------" );
+  BOOST_TEST_MESSAGE( " Write tiled genome to files" );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+
+  string fn_pfx = "test.segio_tile";
+  genome.writeFastaTiled(ref_genome, fn_pfx, 0);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
