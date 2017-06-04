@@ -56,7 +56,7 @@ GenomeReference::GenomeReference(const char* filename) : length(0), masked_lengt
     shared_ptr<ChromosomeReference> p_chr_ref(new ChromosomeReference());
     p_chr_ref->id = rec->id;
     p_chr_ref->length = rec->seq.length();
-    p_chr_ref->records.push_back(rec);
+    p_chr_ref->map_start_rec[0] = rec;
     // sanity check: chromosome IDs should be unique
     assert(this->chromosomes.count(p_chr_ref->id) == 0);
     this->addChromosome(p_chr_ref);
@@ -124,7 +124,7 @@ void GenomeReference::generate(
     shared_ptr<ChromosomeReference> sp_chr(new ChromosomeReference());
     sp_chr->id = id_chr;
     sp_chr->length = it_end - it_start;
-    sp_chr->records.push_back(sp_rec);
+    sp_chr->map_start_rec[0] = sp_rec;
     this->addChromosome(sp_chr);
   }
   this->num_records = num_chr;
@@ -163,7 +163,7 @@ void GenomeReference::generate(
     shared_ptr<ChromosomeReference> sp_chr(new ChromosomeReference());
     sp_chr->id = id_chr;
     sp_chr->length = seq.length();
-    sp_chr->records.push_back(sp_rec);
+    sp_chr->map_start_rec[0] = sp_rec;
     this->addChromosome(sp_chr);
   }
   this->num_records = num_seqs;
@@ -243,6 +243,29 @@ fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_coun
   nuc_freq[2] = nuc_count[2]/num_acgt;
   nuc_freq[3] = nuc_count[3]/num_acgt;
 fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n", nuc_freq[0], nuc_freq[1], nuc_freq[2], nuc_freq[3]);
+}
+
+void GenomeReference::getSequence(
+  string id_chr,
+  ulong start,
+  ulong end,
+  map<ulong, string> seqs
+) {
+  shared_ptr<ChromosomeReference> chr = this->chromosomes[id_chr];
+  // sanity check: do coordinates exceed chromosome limits? (should not happen)
+  assert( (start >= 0) && (end <= chr->length) );
+  // identify first SeqRecord located within target range
+  auto it_start_rec = chr->map_start_rec.begin();
+  while ( (it_start_rec != chr->map_start_rec.end()) &&
+          (it_start_rec->first+it_start_rec->second->seq.length() < end) )
+    ++it_start_rec;
+  // was a sequence found within target range?
+  if (it_start_rec != chr->map_start_rec.end()) {
+    ulong rec_start = it_start_rec->first;
+    // determine local start and end (within current suequence)
+    ulong loc_start = start-rec_start;
+    ulong loc_end = min(end, rec_start+it_start_rec->second->seq.length());
+  }
 }
 
 void
@@ -343,6 +366,9 @@ GenomeInstance::writeFastaTiled (
       }
       shared_ptr<ofstream> ofs = map_cn_file[cn_state];
       // TODO: extract region from reference genome and write record to file
+      // get sequence for target region from reference genome
+      map<ulong, string> map_start_seq;
+      reference.getSequence(id_chr, ref_start, ref_end, map_start_seq);
       *ofs << str(boost::format("%s\t%lu\t%lu\n") % id_chr % ref_start % ref_end);
       //num_records = writeFasta(sequences, ofs, line_width);
     }

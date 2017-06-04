@@ -137,8 +137,8 @@ struct SegmentCopy {
    std::string id;
    /** total length */
    unsigned long length;
-   /** sequence records belonging to this chromosome */
-   std::vector<std::shared_ptr<SeqRecord>> records;
+   /** sequence records belonging to this chromosome, indexed by start position */
+   std::map<ulong, std::shared_ptr<SeqRecord>> map_start_rec;
 
    /** default c'tor */
    ChromosomeReference();
@@ -305,6 +305,21 @@ struct GenomeReference
    * Get absolute coordinates for a relative position in unmasked part of the genome
    */
   Locus getAbsoluteLocusMasked(double) const;
+
+  /** Get DNA sequence for a genomic region.
+   *  In the case of discontinuous reference (e.g. exome, targeted seq),
+   *  the output may be shorter than coordinates indicate.
+   *  \param id_chr  reference chromosome id
+   *  \param start   start coordinate
+   *  \param end     end coordinate
+   *  \param seqs    output parameter, sequences located within given coordinates
+   */
+   void getSequence(
+     std::string id_chr,
+     ulong start,
+     ulong end,
+     std::map<ulong, std::string> seqs
+   );
 };
 
 /** Reads sequences from file. */
