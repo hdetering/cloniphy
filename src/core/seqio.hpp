@@ -318,7 +318,7 @@ struct GenomeReference
      std::string id_chr,
      ulong start,
      ulong end,
-     std::map<ulong, std::string> seqs
+     std::map<ulong, std::string>& seqs
    );
 };
 

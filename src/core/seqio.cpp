@@ -249,22 +249,32 @@ void GenomeReference::getSequence(
   string id_chr,
   ulong start,
   ulong end,
-  map<ulong, string> seqs
+  map<ulong, string>& seqs
 ) {
+  // perform sanity checks
+  assert( this->chromosomes.count(id_chr) > 0 ); // chromosome exists
+  assert( start < end );
+
   shared_ptr<ChromosomeReference> chr = this->chromosomes[id_chr];
-  // sanity check: do coordinates exceed chromosome limits? (should not happen)
+  // do coordinates exceed chromosome limits? (should not happen)
   assert( (start >= 0) && (end <= chr->length) );
-  // identify first SeqRecord located within target range
+
+  // skip over SeqRecords located upstream of target range
   auto it_start_rec = chr->map_start_rec.begin();
   while ( (it_start_rec != chr->map_start_rec.end()) &&
-          (it_start_rec->first+it_start_rec->second->seq.length() < end) )
+          (it_start_rec->first+it_start_rec->second->seq.length() < start) )
     ++it_start_rec;
-  // was a sequence found within target range?
-  if (it_start_rec != chr->map_start_rec.end()) {
+
+  // add SeqRecords within target range
+  while ( (it_start_rec != chr->map_start_rec.end()) &&
+          (it_start_rec->first < end) ) {
     ulong rec_start = it_start_rec->first;
-    // determine local start and end (within current suequence)
+    // determine local start and end (within current sequence)
     ulong loc_start = start-rec_start;
-    ulong loc_end = min(end, rec_start+it_start_rec->second->seq.length());
+    ulong loc_len_max = it_start_rec->second->seq.length();
+    ulong loc_len = min(end-max(rec_start, start), loc_len_max);
+    seqs[loc_start] = it_start_rec->second->seq.substr(loc_start, loc_len);
+    ++it_start_rec;
   }
 }
 
@@ -331,6 +341,8 @@ GenomeInstance::writeFastaTiled (
   string fn_pfx,
   int padding )
 {
+  int line_width = 60; // TODO: should this be a parameter?
+
   // infer copy number state segments
   // for each chromosome id, build an interval map
   map<string, interval_map<ulong, int>> map_chr_segments;
@@ -369,8 +381,17 @@ GenomeInstance::writeFastaTiled (
       // get sequence for target region from reference genome
       map<ulong, string> map_start_seq;
       reference.getSequence(id_chr, ref_start, ref_end, map_start_seq);
-      *ofs << str(boost::format("%s\t%lu\t%lu\n") % id_chr % ref_start % ref_end);
-      //num_records = writeFasta(sequences, ofs, line_width);
+      vector<shared_ptr<SeqRecord>> sequences;
+      for (auto const & start_seq : map_start_seq) {
+        ulong start = start_seq.first;
+        ulong end = start + start_seq.second.length();
+        string id_seq = str( boost::format("%s_%s_%s") % id_chr % start % end );
+        shared_ptr<SeqRecord> seq(new SeqRecord(id_seq, "", start_seq.second));
+        sequences.push_back(seq);
+        //*ofs << str(boost::format("%s\t%lu\t%lu\n") % id_chr % ref_start % ref_end);
+      }
+      //num_records = writeFasta(sequences, *ofs, line_width);
+      writeFasta(sequences, *ofs, line_width);
     }
   }
   // close output file streams
