@@ -1,7 +1,8 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/timer/timer.hpp>
 
-#include "../core/bamio.cpp"
+#include "../core/bamio.hpp"
+#include "../bamio/BulkSampleGenerator.hpp"
 using namespace vario;
 #include "../core/clone.hpp"
 #include "../core/config/ConfigStore.hpp"
@@ -48,6 +49,8 @@ struct FixtureBamio {
   RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
   GermlineSubstitutionModel model_gl;
   SomaticSubstitutionModel model_sm;
+  SomaticCnvModel model_cnv;
+  VariantStore var_store;
   config::ConfigStore config;
 };
 
@@ -72,7 +75,8 @@ BOOST_AUTO_TEST_CASE( bulk )
   tree.varyBranchLengths(random_gamma);
   int num_mutations = 1010;
   int num_transmuts =   10;
-  tree.evolve(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
+  // TODO: assignMutationType
 
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
@@ -108,13 +112,19 @@ BOOST_AUTO_TEST_CASE( bulk )
   tree.writeMutationMatrix(fn_mm);
 
   // read personal genome
-  Genome genome("pers.fa");
+  GenomeReference genome("pers.fa");
   genome.ploidy = 2;
   genome.indexRecords();
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateSomaticVariants(num_mutations, genome, model_sm, rng);
+  vector<Mutation> vec_mutations = vector<Mutation>(num_mutations);
+  for (auto &m : vec_mutations) {
+    m.is_snv = true;
+    m.is_cnv = false;
+  }
+  var_store.generateSomaticVariants(vec_mutations, genome, model_sm, model_cnv, rng);
+  vector<Variant> variants = var_store.getSomaticSnvVector();
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   auto fn_out = "pers.bulk.vcf";
   ofstream fs_out;
@@ -153,7 +163,8 @@ BOOST_AUTO_TEST_CASE( multisample )
   tree.generateRandomTopologyLeafsOnly(random_dbl);
   tree.varyBranchLengths(random_gamma);
   // drop mutations on tree
-  tree.evolve(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
+  // TODO: assignMutationType
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
   BOOST_TEST_MESSAGE( "Writing clone tree to file\n\tmultisample.tree.dot" );
@@ -172,13 +183,19 @@ BOOST_AUTO_TEST_CASE( multisample )
   tree.writeMutationMatrix(fn_mm);
 
   // read personal genome
-  Genome genome("pers.fa");
+  GenomeReference genome("pers.fa");
   genome.ploidy = 2;
   genome.indexRecords();
 
   // generate (sub)clonal variants
   BOOST_TEST_MESSAGE( "generating somatic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateSomaticVariants(num_mutations, genome, model_sm, rng);
+  vector<Mutation> vec_mutations = vector<Mutation>(num_mutations);
+  for (auto &m : vec_mutations) {
+    m.is_snv = true;
+    m.is_cnv = false;
+  }
+  var_store.generateSomaticVariants(vec_mutations, genome, model_sm, model_cnv, rng);
+  vector<Variant> variants = var_store.getSomaticSnvVector();
   vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_idx;
@@ -235,6 +252,81 @@ BOOST_AUTO_TEST_CASE( crc )
 
   mutateReads(fn_fq_out, fn_sam_out, fn_sam_in, varset, vec_clones, mm,
               weights, id_sample, ploidy, rng, do_write_fastq);
+}
+
+/* Test BulkSampleGenerator */
+BOOST_AUTO_TEST_CASE ( bsg )
+{
+  using boost::filesystem::path;
+  path workdir = "/home/harry/code/cloniphy/build/cnvsim";
+  path fn_ref = workdir/"ref.fa";
+  path path_bam = workdir/"bam";
+  
+  // 1. read reference genome
+  BOOST_MESSAGE( "\nReading reference genome from file:\n" << fn_ref );
+  GenomeReference ref_genome(fn_ref.c_str());
+  BOOST_MESSAGE( "Read " << ref_genome.num_records << "records:\n" );
+  BOOST_MESSAGE( ref_genome );
+
+  // 2. generate germline variants
+  vario::VariantStore var_store;
+  
+
+  // 2. initialize BulkSampleGenerator
+  BOOST_MESSAGE( "\nInitializing BulkSampleGenerator.\n" );
+  BulkSampleGenerator bulk_gen;
+  bulk_gen.initializeRefSeqs(ref_genome);
+
+  // 3. generate read groups to assign read pairs to clones
+  BOOST_MESSAGE( "\nGenerating Read Groups.\n" );
+  vector<seqan::BamHeaderRecord> vec_rg;
+  vector<string> vec_tag_id = {"A","B","C","D"};
+  bulk_gen.generateReadGroups(vec_rg, "sample1", vec_tag_id, "Illumina", "HiSeq2500");
+
+  // 4. merge existing reads (won't work without BAM files in path_bam)
+  BOOST_MESSAGE( "\nNow merging BAM files...\n" );
+  bulk_gen.mergeBulkSeqReads(path_bam, "sample1", vec_rg, var_store, rng);
+}
+
+/* Test BOOST interval container library */
+BOOST_AUTO_TEST_CASE ( icl )
+{
+  typedef set<string> SegmentsT;
+  typedef boost::icl::interval_map<int, SegmentsT> SegMapT;
+  typedef boost::icl::interval_set<int> SegSetT;
+
+  // interval map will store sequence segments [start, end)
+  SegMapT imap;
+  // add intervals [0,10), [0,4), [2,6)
+  imap += make_pair(interval<int>::right_open(0,10), SegmentsT({"seg.1"}));
+  imap += make_pair(interval<int>::right_open(0,4), SegmentsT({"seg.1.1"}));
+  imap += make_pair(interval<int>::right_open(2,6), SegmentsT({"seg.1.2"}));
+
+  cout << "Interval map content:" << endl;
+  cout << imap << endl << endl;
+
+  // look for intervals in the map which overlap different interval sets
+
+  // first set: should overlap with {"seg.1"}
+  SegSetT iset1;
+  iset1.add(interval<int>::right_open(7,8));
+  SegMapT isect1 = imap & iset1;
+  cout << "Overlap with [7,8):" << endl;
+  cout << isect1 << endl;
+
+  // second set: should overlap with {"seg.1", "seg.1.1", "seg.1.2"}
+  SegSetT iset2;
+  iset2.add(interval<int>::right_open(3,4));
+  SegMapT isect2 = imap & iset2;
+  cout << "Overlap with [3,4):" << endl;
+  cout << isect2 << endl;
+
+  // third set: should overlap with {"seg.1", "seg.1.1"}
+  SegSetT iset3;
+  iset3.add(interval<int>::right_open(1,2));
+  SegMapT isect3 = imap & iset3;
+  cout << "Overlap with [1,2):" << endl;
+  cout << isect3 << endl;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

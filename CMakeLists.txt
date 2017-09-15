@@ -1,5 +1,11 @@
+include(CMakeToolsHelpers)
 cmake_minimum_required(VERSION 3.5.1)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
+
+# make sure local libraries are added to linker search path
+if(COMMAND cmake_policy)
+  cmake_policy(SET CMP0003 NEW)
+endif(COMMAND cmake_policy)
 
 project(cloniphy CXX)
 add_subdirectory(src)

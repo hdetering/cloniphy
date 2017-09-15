@@ -5,6 +5,7 @@
 using boost::str;
 using namespace std;
 using namespace seqan;
+namespace fs = boost::filesystem;
 
 namespace bamio {
 
@@ -14,6 +15,7 @@ ArtWrapper::ArtWrapper(string path) : bin_path(path) {
   frag_len_mean = 500;
   frag_len_sd = 20;
   fold_cvg = 50;
+  num_reads = 0;
   out_pfx = "art_sim";
   out_sam = true;
   out_aln = false;
@@ -29,7 +31,9 @@ int ArtWrapper::run(string out_pfx) {
   string art_cmd = bin_path;
   art_cmd += str(boost::format(" -l %d") % read_len);
   art_cmd += str(boost::format(" -p -m %d -s %d") % frag_len_mean % frag_len_sd);
-  art_cmd += str(boost::format(" -f %.2f") % fold_cvg);
+  art_cmd += num_reads > 0 ? 
+               str(boost::format(" -c %u") % num_reads) : 
+               str(boost::format(" -f %.2f") % fold_cvg);
   art_cmd += " -ss " + seq_sys;
   art_cmd += " -i " + fn_ref_fa;
   art_cmd += " -o " + out_pfx;
@@ -205,10 +209,10 @@ void mutateReads(
 
 /** Spike in subclonal mutations to SAM input. */
 // TODO: Ploidy could be clone-dependent.
-void mutateReads(
-  string fn_fq_out,
-  string fn_sam_out,
-  string fn_sam_in,
+void mutateReads (
+  fs::path fn_fq_out,
+  fs::path fn_sam_out,
+  fs::path fn_sam_in,
   vario::VariantSet &variants,
   vector<shared_ptr<Clone>> vec_vis_clones,
   map<string, vector<bool>> mm,
@@ -218,7 +222,15 @@ void mutateReads(
   RandomNumberGenerator<> &rng,
   bool do_write_fastq)
 {
-  //sort clones by label
+  // sanity check: make sure input files exist
+  assert( fs::exists(fn_sam_in) );
+  assert( fs::is_directory(fn_sam_out.parent_path()) );
+  assert( do_write_fastq && fs::is_directory(fn_fq_out.parent_path()) );
+
+  // only set phase info if ploidy was provided
+  bool do_phase = ploidy > 0;
+
+  // sort clones by label
   size_t num_clones = vec_vis_clones.size();
   sort(vec_vis_clones.begin(), vec_vis_clones.end(),
        [](shared_ptr<Clone> a, shared_ptr<Clone> b) {
@@ -268,7 +280,8 @@ void mutateReads(
    *------------------*/
 
   function<int()> rand_idx = rng.getRandomIndexWeighted(vec_clone_weight);
-  CharString bamFileName = getAbsolutePath(fn_sam_in.c_str());
+  //CharString bamFileName = getAbsolutePath(fn_sam_in.c_str());
+  CharString bamFileName(fn_sam_in.c_str());
   BamFileIn bamFileIn;
   if (!open(bamFileIn, toCString(bamFileName))) {
     std::cerr << "ERROR: Could not open " << bamFileName << std::endl;
@@ -295,7 +308,7 @@ void mutateReads(
 
   ofstream fs_fq, fs_log;
   if (do_write_fastq) {
-    fs_fq.open(fn_fq_out);
+    fs_fq.open(fn_fq_out.string());
   }
   fs_log.open("bamio_bulk.log");
   BamAlignmentRecord read1, read2;
@@ -334,7 +347,7 @@ void mutateReads(
       extractTagValue(char_phase, tags, idx_tag_xp);
       phase = char_phase - '0';
     }
-    else { // add custom field
+    else if (do_phase) { // add custom field
       phase = rphase(); // pick random phase for read pair
       CharString tagXP = str(boost::format("XP:A:%s") % phase);
       appendTagsSamToBam(read1.tags, tagXP);
@@ -381,7 +394,7 @@ void mutateReads(
       for (auto var : vec_vars) {
         // germline or applicable clone mutation?
         is_mutated = (!var.is_somatic) || mm[c_lbl][var.idx_mutation];
-        is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
+        // is_mutated = is_mutated && (var.chr_copy == phase); // does variant phase match read pair phase?
 
         int r1_var_pos = var.pos - r1_begin;
         if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant

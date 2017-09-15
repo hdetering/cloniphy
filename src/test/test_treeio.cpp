@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE( random_clone_tree )
   tree.varyBranchLengths(random_gamma);
   int num_mutations = 1010;
   int num_transmuts =   10;
-  tree.evolve(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
 
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE( random_sample_tree )
   tree.varyBranchLengths(random_gamma);
   int num_mutations = 1010;
   int num_transmuts =   10;
-  tree.evolve(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
 
   BOOST_CHECK( tree.m_numVisibleNodes == num_samples+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );

@@ -165,6 +165,24 @@ vector<int> Tree<TNodeType>::getVisibleNodesIdx() {
   return vis_nodes_idx;
 }
 
+template<typename TNodeType>
+vector<shared_ptr<TNodeType>> Tree<TNodeType>::getNodesPreOrder() {
+  vector<shared_ptr<TNodeType>> nodes;
+  getNodesPreOrderRec(this->m_root, nodes);
+  return nodes;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::getNodesPreOrderRec (
+  const shared_ptr<TNodeType> n,
+  vector<shared_ptr<TNodeType>>& nodes)
+{
+  nodes.push_back(n);
+  for (auto const c : n->m_vecChildren) {
+    getNodesPreOrderRec(c, nodes);
+  }
+}
+
 
 template<typename TNodeType>
 void Tree<TNodeType>::generateRandomTopology(function<double()>& rng) {
@@ -361,11 +379,17 @@ void Tree<TNodeType>::_assignWeightsRec(
 }
 
 /** Place mutations randomly on the tree.
- * A set of mandatory mutations need to exist between clones,
- * otherwise they cannot be distinguished.
+ * Relative branch lengths are used as prior probabilities during assignment,
+ * so longer branches receive more mutations, compared to shorter ones.
+ *
+ * After dropping mutations, branch lengths are reassigned as number of mutations.
  */
 template<typename TNodeType>
-void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGenerator<> &rng) {
+void Tree<TNodeType>::dropSomaticMutations(
+  int n_mutations,
+  int n_transforming,
+  RandomNumberGenerator<> &rng)
+{
   this->m_numMutations = n_mutations;
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
@@ -373,7 +397,7 @@ void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGe
   dropTransformingMutations(n_transforming);
   int next_mut_id = n_transforming; // identifier for next mutation
 #ifdef DEBUG
-  fprintf(stderr, "Now dropping mandatory mutations...\n");
+  //fprintf(stderr, "Now dropping mandatory mutations...\n");
 #endif
   /* TODO: this makes it difficult to have internal clones
     (represented by zero-branch from "dummy" internal node) */
@@ -395,6 +419,9 @@ void Tree<TNodeType>::evolve(int n_mutations, int n_transforming, RandomNumberGe
   for (auto node : m_vecNodes) {
     node->length = node->m_vec_mutations.size();
   }
+
+  // assign mutation type (single nucleotide vs. copy number)
+
 }
 
 /** Drop transforming mutations on immediate children of root node. */

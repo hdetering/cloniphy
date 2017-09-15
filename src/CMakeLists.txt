@@ -28,7 +28,7 @@ find_package (ZLIB)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED OFF)
 set(Boost_USE_STATIC_RUNTIME OFF)
-find_package(Boost 1.58.0 REQUIRED COMPONENTS program_options)
+find_package(Boost 1.58.0 REQUIRED COMPONENTS program_options filesystem)
 
 # ----------------------------------------------------------------------------
 # Build Setup

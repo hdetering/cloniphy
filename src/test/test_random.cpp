@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE( gamma )
   fs.close();
 }
 
-/* genetate random Dirichlet-distributed values */
+/* generate random Dirichlet-distributed values */
 BOOST_AUTO_TEST_CASE( dirichlet )
 {
   vector<double> a, q;
@@ -102,5 +102,52 @@ BOOST_AUTO_TEST_CASE( dirichlet )
     BOOST_TEST_MESSAGE( str(format("  %d: [ %.4g, %.4g, %.4g ]") % i % q[0] % q[1] % q[2]) );
   }
 }
+
+/* generate random numbers following a power-law distribution */
+BOOST_AUTO_TEST_CASE( power )
+{
+  unsigned long min = 1000;
+  unsigned long max = 1000000;
+  double rate = 1.0;
+
+  vector<unsigned long> vec_values;
+  for (int i=0; i<100000; ++i) {
+    vec_values.push_back(gen.getRandomPowerLaw(min, max, rate));
+  }
+
+  auto fn = "random_pow_r1.csv";
+  BOOST_TEST_MESSAGE( "Writing results to output file" );
+  BOOST_TEST_MESSAGE( str(format("  %s") % fn) );
+  ofstream fs;
+  fs.open(fn);
+  for (double v : vec_values) {
+    fs << format("%f") % v << endl;
+  }
+  fs.close();
+}
+
+/* generate random numbers following a Bounded Pareto distribution */
+BOOST_AUTO_TEST_CASE( pareto )
+{
+  unsigned long min = 1000;
+  unsigned long max = 1000000;
+  double shape = 1.0;
+
+  vector<double> vec_values;
+  for (int i=0; i<100000; ++i) {
+    vec_values.push_back(gen.getRandomParetoBounded(shape, double(min)/max, 1));
+  }
+
+  auto fn = "random_bp_r1.csv";
+  BOOST_TEST_MESSAGE( "Writing results to output file" );
+  BOOST_TEST_MESSAGE( str(format("  %s") % fn) );
+  ofstream fs;
+  fs.open(fn);
+  for (double v : vec_values) {
+    fs << format("%f") % v << endl;
+  }
+  fs.close();
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()

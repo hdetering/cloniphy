@@ -5,16 +5,21 @@
 #include "seqio.hpp"
 #include "stringio.hpp"
 #include "evolution.hpp"
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
 
-using seqio::Genome;
+using seqio::GenomeReference;
+using seqio::GenomeInstance;
 using seqio::SeqRecord;
+using seqio::SegmentCopy;
 using evolution::GermlineSubstitutionModel;
 using evolution::SomaticSubstitutionModel;
+using evolution::SomaticCnvModel;
 
 /**
  * Classes and methods for input/output and simulation of variants.
@@ -28,11 +33,12 @@ struct Variant
   std::string chr;    /** reference chromosome id */
   short chr_copy;     /** chromosome phase (0: maternal, 1: paternal, ...[hyperdiploid]) */
   short reg_copy;     /** affected copy of chr region (0: original, 1: first copy, ...) */
-  unsigned long pos;  /** reference basepair position */
+  seqio::TCoord pos;  /** reference basepair position */
   std::vector<std::string> alleles; /** observed alleles */
-  unsigned idx_mutation; /** reference to mutation that gave rise to this variant */
+  int idx_mutation;   /** reference to mutation that gave rise to this variant */
   double rel_pos;     /** relative position in genome (use for sorting) */
   bool is_somatic;    /** is this Variant somatic or germline? (different output channels) */
+  bool is_het;        /** true: Variant is heterozygous; false: homozygous (only applies if not is_somatic) */
 
   Variant();
   Variant(std::string id, std::string chr, unsigned long pos);
@@ -56,7 +62,6 @@ struct VariantSet
 {
   unsigned long num_variants = 0;
   std::vector<Variant> vec_variants; /** all variants that belong to the set */
-  // TODO: a position must be able to store more than one variable! (-> CNVs, homoplasy)
   std::map<std::string, std::map<unsigned long, std::vector<Variant>>> map_chr2pos2var; /** variants stored by chromosome id */
 
   /** summary statistics */
@@ -102,39 +107,165 @@ struct Genotype
  */
 struct Mutation
 {
-  unsigned id;   /** unique identifier */
-  double relPos; /** relative position in genome [0..1] */
-  short copy;    /** which chromosome copy (0:maternal, 1:paternal) */
+  /** unique identifier */
+  int id;
+  /** true: this Mutation is a single-nucleotide variant */
+  bool is_snv;
+  /** true: this Mutation is a copy-number variant */
+  bool is_cnv;
 
   Mutation();
-  //Mutation(char ref, char alt); /** c'tor converts alleles to nucleotide shift. */
 
-  bool operator< (const Mutation&) const; /** make mutations sortable */
-  static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
-  /** Apply single mutation to a given genomic sequence, */
-  /** returning a Variant and Genotype object */
-  void apply(
-    Genome& genome,
-    GermlineSubstitutionModel model,
-    std::function<double()>& random,
-    Variant &var,
-    Genotype &gt);
+  // bool operator< (const Mutation&) const; /** make mutations sortable */
+  // static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
 };
 
-/** Generate random mutations out of thin air. */
-std::vector<Mutation> generateMutations(
-  const int num_mutations,
-  std::function<double()>&
-);
-/** Apply set of mutations to a given genomic sequence,
-    returning a set of Variant objects
-    (reference sequence is not changed) */
-void applyMutations(
-  const std::vector<Mutation> &,
-  const Genome& genome,
-  GermlineSubstitutionModel model,
-  std::function<double()>& random,
-  std::vector<Variant> &variants);
+/** CopyNumberVariants encapsulate CNV events with all of their properties */
+struct CopyNumberVariant
+{
+  unsigned    id;              /** unique identifier */
+  bool        is_wgd;          /** true: CNV is Whole Genome Duplication */
+  bool        is_deletion;     /** true: CNV is deletion event */
+  bool        is_chr_wide;     /** true: event affects whole chromosome */
+  bool        is_telomeric;    /** true: event coordinates include chromosome end */
+  bool        is_forward;      /** true: event at 3' side of start_rel; false: at 5' end */
+  double      len_rel;         /** length of affected region (fraction of chromsome length) */
+  double      start_rel;       /** start position of event (fraction of chromosome length) */
+  unsigned    ref_pos_begin;   /** start coordinate (in reference chr) */
+  unsigned    ref_pos_end;     /** end coordinate (in reference chr) */
+  std::string ref_chr;         /** affected chromosome (reference ID) */
+
+  /** default c'tor */
+  CopyNumberVariant();
+};
+
+/** Keeps somatic variants (SNVs, CNVs) as well as their association to
+ *  genomic segment copies.
+ */
+struct VariantStore
+{
+  /** map of single-nucleotide variants */
+  std::map<int, Variant> map_id_snv;
+  /** map of somatic copy-number variants */
+  std::map<int, CopyNumberVariant> map_id_cnv;
+  /** remember SNVs affecting each SegmentCopy */
+  std::map<boost::uuids::uuid, std::vector<int>> map_seg_vars;
+  /** index SNVs by chromosome and ref position for fast lookup during spike-in. */
+  std::map<std::string, std::map<seqio::TCoord, std::vector<int>>> map_chr_pos_snvs;
+
+  /** Index variants by chromosome and position. 
+   *  \returns Number of indexed SNVs.
+   */
+  unsigned indexSnvs ();
+
+  /** Get vector of germline SNVs. */
+  std::vector<Variant> getGermlineSnvVector ();
+
+  /** Get vector of somatic SNVs. */
+  std::vector<Variant> getSomaticSnvVector ();
+
+  /** Get VariantSet of SNVs. */
+  VariantSet getSnvSet ();
+
+  /** Get Variants associated with SegmentCopy. 
+    * \param map_vars  Output param: Variants indexed by position.
+    * \param id_seg    SegmentCopy id for which to retrieve variants.
+    * \returns         Number of variants returned.
+    */
+  int
+  getSnvsForSegmentCopy (
+    std::map<seqio::TCoord, std::vector<Variant>>& map_vars,
+    boost::uuids::uuid id_seg
+  ) const;
+
+  /** Import germline variants from outside source.
+   *  \returns true on success, false on error.
+   */
+  bool
+  importGermlineVariants (
+    VariantSet variants
+  );
+
+  /** Generate variants for a reference genome based on an evolutionary model.
+   *  Nucleotide substitution probabilities guide selection of loci.
+   *  \param num_variants Number of germline variants to generate.
+   *  \param genome_ref   Reference genome containing DNA sequences to be mutated.
+   *  \param model        Sequence subtitution model to generate mutations.
+   *  \param rate_hom     Ratio of homozygous germline variants to generate.
+   *  \param rng          Random number generator.
+   *  \param inf_sites    Should infinite sites assumption be enforced?
+   *  \returns            True on success, false on error.
+   */
+  bool
+  generateGermlineVariants (
+    const int num_variants,
+    const GenomeReference& genome_ref,
+    GermlineSubstitutionModel& model,
+    const double rate_hom,
+    RandomNumberGenerator<>& rng,
+    const bool inf_sites = true
+  );
+
+  /** Generate variant loci in a given genome based on somatic mutation model.
+      Use context-dependent mutation signature to select loci. */
+  bool
+  generateSomaticVariants (
+    const std::vector<Mutation>& vec_mutations,
+    const GenomeReference& genome,
+    SomaticSubstitutionModel& model_snv,
+    SomaticCnvModel& model_cnv,
+    RandomNumberGenerator<>& rng,
+    const bool infinite_sites = false
+  );
+
+  /** Loop over variants and for each germline variant, pick affected segment copies in genome instance.
+   *  \param genome  Genome instance to which to apply germline variants.
+   *  \param rng     Random number generator (used to pick segment copies to mutate).
+   *  \returns       true on success, false on error.
+   */
+  bool
+  applyGermlineVariants (
+    GenomeInstance& genome,
+    RandomNumberGenerator<>& rng
+  );
+
+  /** Apply a mutation to a GenomeInstance.
+   *  - SNV: A SegmentCopy will be chosen from the affected ChromosomeInstance.
+   *  - CNV (gain): new SequenceCopies will be introduced
+   *  - CNV (loss): existing SequenceCopies will be split
+   */
+  void applyMutation(Mutation m, GenomeInstance& g, RandomNumberGenerator<>& r);
+
+  /** Transfer mutations from existing SegmentCopies to new ones. */
+  void transferMutations(std::vector<seqio::seg_mod_t> vec_seg_mod);
+
+  /** Write somatic SNVs to VCF file.
+   *  \param filename  Output file name.
+   *  \param genome    Reference genome (contains lengths of ref seqs).
+   *  \returns         Number of exported variants.
+   */
+  unsigned 
+  writeGermlineSnvsToVcf (
+    const std::string filename,
+    const GenomeReference& genome
+  );
+
+  /** Write CNVs to output file.
+   *  \param filename Output file name.
+   */
+  unsigned writeCnvsToFile(std::string filename);
+};
+
+/** Inititalize a list of mutations, assigning a type (single-nucleotide vs. copy-number).
+ *  \param vec_mutations list of (uninitialized) mutation objects
+ *  \param ratio_cnv fraction of mutations that should be assigned CNV type
+ *  \param rng RandomNumberGenerator object (reproducability)
+ *  \return number of CNV mutations
+ */
+unsigned assignSomaticMutationType(
+  std::vector<Mutation>& vec_mutations,
+  const double ratio_cnv,
+  RandomNumberGenerator<>& rng);
 
 /** Read VCF file and return list of variants. */
 void readVcf(
@@ -149,19 +280,41 @@ void readVcf(
 /** Generate VCF output for a reference genome and a set of mutations.
     (multiple samples) */
 void writeVcf(
-  const std::vector<SeqRecord>& seqs,
+  const std::vector<std::shared_ptr<SeqRecord>>& seqs,
   const std::vector<Variant>& vars,
   const std::vector<int>& id_samples,
   const std::vector<std::string>& labels,
   const std::vector<std::vector<bool> >& mutMatrix,
   std::ostream&);
-/** Generate VCF output from a reference genome and a set of variants.
-    (single sample) */
-void writeVcf(
-  const std::vector<SeqRecord>& seqs,
+
+/** Generate VCF output from a reference genome and a set of variants (single sample).
+  * \param seqs      Reference sequences (IDs and lengths are reported in VCF header).
+  * \param vars      Variants to be output.
+  * \param label     Header for the genotype column.
+  * \param filename  Output file name.
+  */
+void 
+writeVcf (
+  const std::vector<std::shared_ptr<SeqRecord>>& seqs,
   const std::vector<Variant>& vars,
   const std::string label,
-  const std::string filename);
+  const std::string filename
+);
+
+/** Generate VCF output from a reference genome and a set of variants (single sample).
+  * \param filename  Output file name.
+  * \param genome    Genome containing ref sequences (IDs and lengths are reported in VCF header).
+  * \param vars      Variants to be output.
+  * \param label     Header for the genotype column.
+  * \returns         Number of exported variants.
+  */
+unsigned 
+writeVcf (
+  const std::string filename,
+  const GenomeReference& genome,
+  const std::vector<Variant>& vars,
+  const std::string label
+);
 
 /** Read mutation map (clone x mutation) from a CSV file. */
 int readMutMapFromCSV(
@@ -169,49 +322,49 @@ int readMutMapFromCSV(
   const std::string &filename
 );
 
-/** Generate variant loci in a given genome based on evolutionary model.
+/** DEPRECATED! Functionality shifted to vario::VariantStore::generateGermlineVariants
+    Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */
-std::vector<Variant> generateGermlineVariants(
-  const int num_variants,
-  const Genome& genome,
-  GermlineSubstitutionModel& model,
-  RandomNumberGenerator<>&,
-  const bool infinite_sites = false
-);
-/** Generate variant loci in a given genome based on somatic mutation model.
-    Use context-dependent mutation signature to select loci. */
-std::vector<Variant> generateSomaticVariants(
-  const int num_variants,
-  const Genome& genome,
-  SomaticSubstitutionModel& model,
-  RandomNumberGenerator<>&,
-  const bool infinite_sites = false
-);
+// std::vector<Variant> generateGermlineVariants(
+//   const int num_variants,
+//   const GenomeReference& genome,
+//   GermlineSubstitutionModel& model,
+//   RandomNumberGenerator<>&,
+//   const bool infinite_sites = false
+// );
+
 /** Generate variant loci in a given genome based on evolutionary model.
     Loci are selected randomly. */
 std::vector<Variant> generateVariantsRandomPos(
   const int num_variants,
-  const Genome& genome,
+  const GenomeReference& genome,
   GermlineSubstitutionModel& model,
   RandomNumberGenerator<>&,
   const bool infinite_sites = false
 );
 /** Apply variants to a given reference sequence */
 void applyVariants(
-  Genome&,
+  GenomeReference&,
   const std::vector<Variant>&);
 /** Apply variants to a given reference sequence */
 void applyVariants(
-  Genome&,
+  GenomeReference&,
   const std::vector<Variant>&,
   const std::vector<Genotype>&);
+
+// TODO: is this functionality still useful?
 /** Apply variants to a given reference sequence. streaming modified genome to output. */
-void applyVariantsStream(
-  const Genome &ref_genome,
-  const std::vector<Mutation> &mutations,
-  const std::vector<Variant> &variants,
-  std::ostream &outstream,
-  short len_line = 60);
+// void applyVariantsStream(
+//   const Genome &ref_genome,
+//   const std::vector<Mutation> &mutations,
+//   const std::vector<Variant> &variants,
+//   std::ostream &outstream,
+//   short len_line = 60);
+
+/** Print CopyNumberVariant details (BED format). */
+std::ostream& operator<<(std::ostream& lhs, const CopyNumberVariant& cnv);
+
+
 } /* namespace vario */
 
 #endif /* VARIO_H */

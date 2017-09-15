@@ -12,6 +12,7 @@ using namespace boost::icl;
 using boost::format;
 using evolution::GermlineSubstitutionModel;
 using namespace std;
+using namespace seqio;
 using namespace vario;
 
 struct FixtureVario {
@@ -20,9 +21,12 @@ struct FixtureVario {
     fn_vcf = "data/germline.vcf";
 
     unsigned long ref_genome_len = 1000000;
-    int num_ref_seq = 10;
+    // int num_ref_seq = 10;
+    // int seq_len_mean = 100000;
+    // int seq_len_sd = 10000;
+    int num_ref_seq = 1;
     int seq_len_mean = 100000;
-    int seq_len_sd = 10000;
+    int seq_len_sd = 0;
     vector<double> nuc_freqs = { 0.3, 0.2, 0.2, 0.3 };
     // initialize random number generator
 
@@ -52,7 +56,7 @@ struct FixtureVario {
 
   string fn_vcf;
   GermlineSubstitutionModel model;
-  seqio::Genome ref_genome;
+  seqio::GenomeReference ref_genome;
   long seed = 123456789;
   RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
 };
@@ -89,11 +93,12 @@ BOOST_AUTO_TEST_CASE( germline )
 {
   int num_vars = 1000;
   boost::timer::auto_cpu_timer t;
-  BOOST_TEST_MESSAGE( "duplicating reference genome..." );
-  ref_genome.duplicate();
+  VariantStore var_store;
 
   BOOST_TEST_MESSAGE( "generating genomic variants (using substitution frequencies)..." );
-  vector<Variant> variants = generateGermlineVariants(num_vars, ref_genome, model, rng);
+  var_store.generateGermlineVariants(num_vars, ref_genome, model, 0.1, rng);
+  vector<Variant> variants = var_store.getGermlineSnvVector();
+
   BOOST_TEST_MESSAGE( "done generating 1000 variants, here are the first 10: " );
   BOOST_TEST_MESSAGE( "  id, chr, bp, ref, alt, copy" );
   for (int i=0; i<10; ++i) {
@@ -130,8 +135,13 @@ BOOST_AUTO_TEST_CASE( germline )
 BOOST_AUTO_TEST_CASE( var_dist )
 {
   boost::timer::auto_cpu_timer t;
+  VariantStore var_store;
+
+  double mut_gl_hom = 0.1; // ratio of homozygous variants
+
   BOOST_TEST_MESSAGE( "generating 10000 genomic variants (using substitution frequencies)..." );
-  vector<Variant> vars_model = generateGermlineVariants(10000, ref_genome, model, rng);
+  var_store.generateGermlineVariants(10000, ref_genome, model, mut_gl_hom, rng);
+  vector<Variant> vars_model = var_store.getGermlineSnvVector();
   VariantSet varset_model;
   varset_model.vec_variants = vars_model;
   varset_model.calculateSumstats();
@@ -161,10 +171,103 @@ BOOST_AUTO_TEST_CASE( var_dist )
 BOOST_AUTO_TEST_CASE( cnv )
 {
   // NOTE: reference genome generated in FixtureVario()
+  unsigned n_ref_chr = ref_genome.num_records;
+  GenomeInstance g_inst(ref_genome);
+  BOOST_TEST_MESSAGE( "Number of chromosomes in GenomeInstance: " << g_inst.map_id_chr.size() );
+  // check: does genome instance have same number of chromomsomes as reference?
+  BOOST_CHECK( g_inst.map_id_chr.size() == n_ref_chr );
+  BOOST_CHECK( g_inst.vec_chr.size() == 2*n_ref_chr );
+  BOOST_CHECK( g_inst.vec_chr_len.size() == 2*n_ref_chr );
 
-  // build interval map for chromosomes
-  // TODO: create method in seqio::Genome for this
-  // imap_chrom;
+  VariantStore var_store;
+
+  // Initialize mutations
+  Mutation mut_cnv_del;
+  mut_cnv_del.id = 0;
+  mut_cnv_del.is_cnv = true;
+  CopyNumberVariant var_cnv_del;
+  var_cnv_del.is_deletion = true;
+  var_cnv_del.is_telomeric = false;
+  var_cnv_del.is_forward = true;
+  var_cnv_del.ref_chr = "chr0";
+  var_cnv_del.len_rel = 0.5;
+  var_cnv_del.start_rel = 0.25;
+
+  Mutation mut_cnv_amp;
+  mut_cnv_amp.id = 1;
+  mut_cnv_amp.is_cnv = true;
+  CopyNumberVariant var_cnv_amp;
+  var_cnv_amp.is_deletion = false;
+  var_cnv_amp.is_telomeric = false;
+  var_cnv_amp.is_forward = true;
+  var_cnv_amp.ref_chr = "chr0";
+  var_cnv_amp.len_rel = 0.2;
+  var_cnv_amp.start_rel = 0.6;
+
+  Mutation mut_cnv_wgd;
+  mut_cnv_wgd.id = 2;
+  mut_cnv_wgd.is_cnv = true;
+  CopyNumberVariant var_cnv_wgd;
+  var_cnv_wgd.is_wgd = true;
+
+  Mutation mut_snv_1;
+  mut_snv_1.id = 3;
+  mut_snv_1.is_snv = true;
+  Variant var_snv_1("snv1", "chr0", 100);
+
+  // register variants in VariantStore
+  var_store.map_id_cnv[mut_cnv_del.id] = var_cnv_del;
+  var_store.map_id_cnv[mut_cnv_amp.id] = var_cnv_amp;
+  var_store.map_id_cnv[mut_cnv_wgd.id] = var_cnv_wgd;
+  var_store.map_id_snv[mut_snv_1.id] = var_snv_1;
+  shared_ptr<ChromosomeInstance> chr_src = g_inst.map_id_chr[var_snv_1.chr][0];
+  SegmentCopy seg_src = chr_src->lst_segments.front();
+  var_store.map_seg_vars[seg_src.id] = { mut_snv_1.id };
+
+  BOOST_TEST_MESSAGE( "Genome initially:\n" << g_inst );
+
+  // FOCAL DELETION
+  //-------------------------------------
+
+  BOOST_TEST_MESSAGE( "\nNow performing FOCAL DELETION..." );
+  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+
+  BOOST_TEST_MESSAGE( "CNV: DEL<chr=" << var_cnv_del.ref_chr << ", start=" << var_cnv_del.start_rel << ", len=" << var_cnv_del.len_rel << ">" );
+
+  var_store.applyMutation(mut_cnv_del, g_inst, rng);
+  BOOST_TEST_MESSAGE( "Genome after focal deletion:\n" << g_inst );
+
+  // FOCAL AMPLIFICATION
+  //-------------------------------------
+
+  BOOST_TEST_MESSAGE( "\nNow performing FOCAL AMPLIFICATION..." );
+  BOOST_TEST_MESSAGE( "-------------------------------------\n" );
+
+  BOOST_TEST_MESSAGE( "CNV: CPY<chr=" << var_cnv_amp.ref_chr << ", start=" << var_cnv_amp.start_rel << ", len=" << var_cnv_amp.len_rel << ">" );
+
+  var_store.applyMutation(mut_cnv_amp, g_inst, rng);
+  BOOST_TEST_MESSAGE( "Genome after focal amplification:\n" << g_inst );
+
+
+  // WHOLE GENOME DUPLICATION (WGD)
+  //-------------------------------------
+
+  BOOST_TEST_MESSAGE( "\nNow performing WHOLE GENOME DUPLICATION..." );
+
+  var_store.applyMutation(mut_cnv_wgd, g_inst, rng);
+  BOOST_TEST_MESSAGE( "Genome after WGD:\n" << g_inst );
+
+  // where chromosomes duplicated?
+  BOOST_CHECK( g_inst.map_id_chr.size() == n_ref_chr );
+  BOOST_CHECK( g_inst.vec_chr.size() == 4*n_ref_chr );
+  BOOST_CHECK( g_inst.vec_chr_len.size() == 4*n_ref_chr );
+
+  // were variants duplicated correctly?
+  shared_ptr<ChromosomeInstance> chr_copy = g_inst.map_id_chr[var_snv_1.chr][2];
+  SegmentCopy seg_copy = chr_copy->lst_segments.front();
+  BOOST_CHECK( var_store.map_seg_vars.count(seg_copy.id) == 1 );
+  auto v_mut_copy = var_store.map_seg_vars[seg_copy.id];
+  BOOST_CHECK( find(v_mut_copy.begin(), v_mut_copy.end(), mut_snv_1.id) != v_mut_copy.end() );
 }
 
 BOOST_AUTO_TEST_SUITE_END()

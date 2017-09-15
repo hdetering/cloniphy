@@ -4,16 +4,34 @@
 #include "random.hpp"
 #include "stringio.hpp"
 #include <algorithm>
+#include <boost/circular_buffer.hpp>
+#include <boost/format.hpp>
+#include <boost/icl/interval.hpp>
+#include <boost/icl/interval_map.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <cassert>
+#include <fstream>
 #include <functional>
 #include <iostream>
+#include <list>
 #include <map>
+#include <memory> // unique_ptr, shared_ptr, weak_ptr
+#include <sstream>
 #include <string>
 #include <vector>
 
 /** Handles sequence files (read, write, index). */
 namespace seqio {
 
+/** DEPRECATED! Use TCoord instead. */
+typedef unsigned long ulong;
+/** Represents genomic coordinates. */
+typedef unsigned long TCoord;
+/** Represents genomic regions (chromosome, start, end). */
+typedef std::tuple<std::string, ulong, ulong> TRegion;
+/** Set of valid nucleotides. */
 enum Nuc { A, C, G, T, N };
 
 /**
@@ -78,26 +96,180 @@ struct SeqRecord
   std::string id_ref;      /** identifier in reference genome (ploidy) */
   short chr_copy;          /** chromosome copy (0 for haploid) */
   SeqRecord(const std::string, const std::string, const std::string&);
+  ~SeqRecord();
 };
 
 /** Represents a genomic location */
 struct Locus
 {
-  unsigned    idx_record; // index of genomic sequence
+  ulong       idx_record; // index of genomic sequence
+  ulong       start;      // global start position in sequence (0-based, inclusive)
+  ulong       end;        // global end position in sequence (0-based, exclusive)
   std::string id_ref;     // seq id in ref genome
-  unsigned    start;      // local start position in sequence (0-based)
-  unsigned    length;     // length of locus (e.g. =1 for single nucleotide)
+
+  Locus();
+  Locus(std::string id, ulong start, ulong end);
+  ~Locus();
+};
+
+/** Represents a copy of a reference sequence segment.
+ *
+ *  Inititally, each allele (n=2 in the normal, diploid case) is a copy of
+ *  the reference sequence. Further segment copies arise from CNV events.
+ */
+struct SegmentCopy {
+  /** Universally-unique identifier to globally refer to the object. */
+  boost::uuids::uuid id;
+  /** Start position (0-based, inclusive) in reference chromosome */
+  TCoord ref_start;
+  /** End position (0-based, exclusive) in reference chromosome */
+  TCoord ref_end;
+
+  /** default c'tor */
+  SegmentCopy();
+  /** default d'tor */
+  ~SegmentCopy();
+  /** Create SegmentCopy for given coordinates */
+  SegmentCopy(TCoord start, TCoord end);
+};
+
+/** Compare two segment copies (equality).
+ *  If IDs match, segment copies are identical.
+ */
+bool operator==(const SegmentCopy& lhs, const SegmentCopy& rhs);
+
+/** Compare two segment copies (order).
+ *  Order by UUID (necessary to avoid collisions in boost::icl::set).
+ */
+bool operator<(const SegmentCopy& lhs, const SegmentCopy& rhs);
+
+/** Stores SegmentCopies overlapping genomic intervals. */
+typedef boost::icl::interval_map<TCoord, std::set<SegmentCopy>> TSegMap;
+/** Stores SegmentCopies as interval set */
+typedef boost::icl::interval_set<TCoord> TSegSet;
+
+/** Represents the reference genome version of a chromosome.
+ *
+ *  Structurally a ChromosomeReference need not be a contiguous sequence,
+ *  but may be composed of shorter elements (e.g., exons, targets).
+ */
+struct ChromosomeReference {
+   /** chromosome identifier in reference genome. */
+   std::string id;
+   /** total length */
+   unsigned long length;
+   /** sequence records belonging to this chromosome, indexed by start position */
+   std::map<ulong, std::shared_ptr<SeqRecord>> map_start_rec;
+
+   /** default c'tor */
+   ChromosomeReference();
+
+   /** Get nucleotide at position */
+   char getNucAt(unsigned long pos);
+ };
+
+/** Documents a modification introduced to a SegmentCopy.
+ *  Structure: (new, old, start, end)
+ *   - new: UUID of newly created SegmentCopy
+ *   - old: UUID of existing SegmentCopy to be replaced
+ *   - start: start coordinate within old SegmentCopy covered by the new one
+ *   - end: end coordinate within old SegmentCopy covered by the new one
+ */
+typedef std::tuple<boost::uuids::uuid, boost::uuids::uuid, unsigned long, unsigned long> seg_mod_t;
+
+/** Represents a physical representation of a chromosome.
+ *
+ *  Structurally a ChromosomeInstance is a chain of SegmentCopies,
+ *  which represent regions of the reference sequence.
+ */
+struct ChromosomeInstance {
+  /** Back-pointer to ChromosomeReference */
+  //std::shared_ptr<ChromosomeReference> ref_chr;
+  /** Real length (in bp) of ChromosomeInstance */
+  unsigned long length;
+  /** SegmentCopies that are associated with this ChromosomeInstance */
+  std::list<SegmentCopy> lst_segments;
+  /** default c'tor */
+  ChromosomeInstance();
+  /** Generate ChromsomeInstance from reference chromsome.
+   *  A single SegmentCopy will be created comprising the whole chromosome. */
+  ChromosomeInstance(ChromosomeReference);
+
+  /** Identify SegmentCopies overlapping a given locus. */
+  std::vector<SegmentCopy> 
+  getSegmentCopiesAt (
+    unsigned long ref_pos
+  );
+
+  /** Amplify a region of this ChromosomeInstance by creating new SegmentCopies
+   *  \param start_rel    Relative start coordinate of deletion (fraction of chromosome length).
+   *  \param len_rel      Relative length of region to delete (fraction of chromosome length).
+   *  \param is_forward   true: Deletion affects region towards 3' end from start_rel; false: towards 5' end.
+   *  \param is_telomeric true: Deletion includes chromosome end (facilitates end coordinate calculation)
+   *  \param is_deletion  true: Deletion event; false: Amplification event
+   */
+  std::vector<seg_mod_t> 
+  amplifyRegion (
+    double start_rel,
+    double len_rel,
+    bool is_forward,
+    bool is_telomeric
+  );
+
+  /** Delete a region of this ChromosomeInstance by creating new SegmentCopies.
+   *  \param start_rel    Relative start coordinate of deletion (fraction of chromosome length).
+   *  \param len_rel      Relative length of region to delete (fraction of chromosome length).
+   *  \param is_forward   true: Deletion affects region towards 3' end from start_rel; false: towards 5' end.
+   *  \param is_telomeric true: Deletion includes chromosome end (facilitates end coordinate calculation)
+   */
+  std::vector<seg_mod_t> 
+  deleteRegion (
+    double start_rel,
+    double len_rel,
+    bool is_forward,
+    bool is_telomeric
+  );
+
+  /** Create a copy of an existing ChromosomeInstance.
+   *
+   *  Copies each SegmentCopy comprising the existing ChromosomeInstance.
+   *  \param ci_old Existing ChromosomeInstance to be copied
+   *  \param out_seg_mods Output parameter: Tuples of modifications to SegmentCopies (id_new, id_old, start_old, end_old)
+   */
+  void 
+  copy (
+    std::shared_ptr<ChromosomeInstance> ci_old, 
+    std::vector<seg_mod_t>& out_seg_mods
+  );
+
+  /** Build interval map of SegmentCopies.
+   *  Used to answer questions like: 
+   *    "Which SegmentCopies overlap interval 'chr1:10,000-10,500'?"
+   *  \param imap_segments output param: interval map of SegmentCopies
+   *  \returns true on success, false on error
+   */
+   bool
+   indexSegmentCopies (
+     TSegMap& imap_segments
+  ) const;
 };
 
 /** Stores a set of SeqRecords along with indexing information. */
-struct Genome
+struct GenomeReference
 {
   unsigned num_records;
   unsigned length;                        /** total length of all sequences */
   unsigned masked_length;                 /** length of unmasked (non-'N') positions */
-  // TODO: make ploidy a feature of each sequence (?)
+  // TODO: remove ploidy (modeled on SegmentCopy level)
   short ploidy;                           /** number of copies for each chromosome */
-  std::vector<SeqRecord> records;
+  // TODO: move SeqRecords below ChromosomeReference level
+  std::vector<std::shared_ptr<SeqRecord>> records;
+  /** Reference chromosomes that make up the genome */
+  std::map<std::string, std::shared_ptr<ChromosomeReference>> chromosomes;
+  /** Vector of chromosome IDs (paired with length vector) */
+  std::vector<std::string> vec_chr_id;
+  /** Vector of chromosome lengths (paired with chromosome ID vector) */
+  std::vector<TCoord> vec_chr_len;
 
   std::vector<unsigned> vec_start_chr;    /** cumulative start positions of sequences */
   std::vector<unsigned> vec_start_masked; /** cumulative start positions of unmasked regions */
@@ -109,8 +281,14 @@ struct Genome
   /** absolute bp positions indexed by tri-nucleotides */
   std::map<std::string, std::vector<long> > map_3mer_pos;
 
-  Genome();
-  Genome(const char*);
+  /** default c'tor */
+  GenomeReference();
+  /** load reference sequences from FASTA file */
+  GenomeReference(const char* fn_fasta);
+
+  /** Adds a ChromosomeReference to this GenomeReference. */
+  void addChromosome(std::shared_ptr<ChromosomeReference> sp_chr);
+
   /** Simulate DNA seq of given length and nuc freqs. */
   void generate (
     const unsigned long,
@@ -162,11 +340,6 @@ struct Genome
   void indexRecords();
 
   /**
-   * Increase the ploidy of the whole genome by a factor of two.
-   */
-  void duplicate();
-
-  /**
    * Get chromosome and local position for global position
    */
   Locus getLocusByGlobalPos(long) const;
@@ -175,16 +348,31 @@ struct Genome
    * Get absolute coordinates for a relative position in unmasked part of the genome
    */
   Locus getAbsoluteLocusMasked(double) const;
+
+  /** Get DNA sequence for a genomic region.
+   *  In the case of discontinuous reference (e.g. exome, targeted seq),
+   *  the output may be shorter than coordinates indicate.
+   *  \param id_chr  reference chromosome id
+   *  \param start   start coordinate
+   *  \param end     end coordinate
+   *  \param seqs    output parameter, sequences located within given coordinates
+   */
+   void getSequence(
+     std::string id_chr,
+     ulong start,
+     ulong end,
+     std::map<ulong, std::string>& seqs
+   ) const;
 };
 
 /** Reads sequences from file. */
-void readFasta(const char*, std::vector<SeqRecord>&);
+void readFasta(const char*, std::vector<std::shared_ptr<SeqRecord>>&);
 /** Reads sequences from istream. */
-void readFasta(std::istream&, std::vector<SeqRecord>&);
+void readFasta(std::istream&, std::vector<std::shared_ptr<SeqRecord>>&);
 /** Writes sequences to file. */
-int writeFasta(const std::vector<SeqRecord>&, const std::string fn, int len_line = 60);
+int writeFasta(const std::vector<std::shared_ptr<SeqRecord>>&, const std::string fn, int len_line = 60);
 /** Writes sequences to ostream. */
-int writeFasta(const std::vector<SeqRecord>&, std::ostream& os, int len_line = 60);
+int writeFasta(const std::vector<std::shared_ptr<SeqRecord>>&, std::ostream& os, int len_line = 60);
 /** Generate an index for a FASTA file containing multiple sequences */
 void indexFasta(const char*);
 /** Generate random DNA sequence */
@@ -205,6 +393,112 @@ char nucToChar(const Nuc);
 std::string nucToString(const Nuc);
 /** Mutate a nucleotide by an offset. */
 char shiftNucleotide(const char, const int);
+
+/** Represents the incarnation of a reference genome.
+ *
+ *  A GenomeInstance consists of a set of ChromosomeInstances,
+ *  which in turn consist of SegmentCopies.
+ */
+struct GenomeInstance {
+  /** Stores the ChromosomeInstances that make up this GenomeInstance. */
+  std::vector<std::shared_ptr<ChromosomeInstance>> vec_chr;
+  /** Stores for each ChromosomeInstance its real length. Used to randomly select a chromosome by length. */
+  std::vector<unsigned long> vec_chr_len;
+  /** ChromosomeInstances indexed by reference id. */
+  std::map<std::string, std::vector<std::shared_ptr<ChromosomeInstance>>> map_id_chr;
+  /** SegmentCopy interval maps indexed by chromosome id. */
+  std::map<std::string, TSegMap> map_chr_seg;
+
+  /** default c'tor */
+  GenomeInstance();
+
+  /** Create GenomeInstance from GenomeReference object
+   *
+   *  Create a diploid genome by initializing 2 ChromosomeInstances
+   *  for each ChromosomeReference.
+   */
+  GenomeInstance(const GenomeReference& g_ref);
+
+  /**
+   * Create GenomeInstance as copy of existing object.
+   * \param g_inst          Existing GenomeInstance to be copied.
+   * \param out_vec_seg_mod Output param: mapping from original to new segment copy IDs.
+   */
+  GenomeInstance(
+    const GenomeInstance& g_inst,
+    std::vector<seg_mod_t>& out_vec_seg_mod
+  );
+
+  /** Adds a ChromosomeInstance to this GenomeInstance.
+   *  \param sp_chr shared pointer to ChromosomeInstance
+   *  \param id_chr reference ID under which to index ChromsomeInstance
+   */
+  void
+  addChromosome(
+    std::shared_ptr<ChromosomeInstance> sp_chr,
+    std::string id_chr
+  );
+
+  /** Remove a ChromosomeInstance from this GenomeInstance.
+   *  \param sp_chr shared pointer to ChromosomeInstance
+   *  \param id_chr reference ID under which to index ChromsomeInstance
+   */
+  void
+  deleteChromosome(
+    std::shared_ptr<ChromosomeInstance> sp_chr,
+    std::string id_chr
+  );
+
+  /**
+   * Perform Whole Genome Duplication.
+   *
+   * Duplication is carried out by duplicating all ChromosomeInstances.
+   * \param out_vec_seg_mod Output parameter: vector of SegmentCopy modifications (id_new, id_old, start_old, end_old)
+   */
+  void
+  duplicate(std::vector<seg_mod_t>& out_vec_seg_mod);
+
+  /** Identify SequenceCopies overlapping a given locus. */
+  std::vector<SegmentCopy>
+  getSegmentCopiesAt (
+    std::string id_chromosome,
+    unsigned long ref_pos
+  );
+
+  /**DEPRECATED!
+   * Map genomic regions to their absolute copy number states.
+   *  \param out_map_cn_loci map storing for each copy number state a collection of genomic loci.
+   */
+  void
+  getCopyNumberStates (
+    std::map<unsigned, std::vector<std::shared_ptr<Locus>>>& out_map_cn_loci
+  );
+
+  /** Map genomic regions for each chromosome to their absolute copy number states.
+   *  \param map_chr_seg map storing for genomic segment its copy number state.
+   *  \param scale       factor by which each segment increases CN (default: 1).
+   */
+  void
+  getCopyNumberStateByChr (
+    std::map<std::string, boost::icl::interval_map<TCoord, double>>& map_chr_seg,
+    const double scale = 1.0
+  ) const;
+
+  /** Build interval map of SegmentCopies for each chromosome.
+   *  Used to answer questions like: 
+   *    "Which SegmentCopies overlap interval 'chr1:10,000-10,500'?"
+   *  \returns true on success, false on error
+   */
+   bool
+   indexSegmentCopies ();
+};
+
+/** Print GenomeInstance substructure (for debugging purposes). */
+std::ostream& operator<<(std::ostream& lhs, const GenomeInstance& gi);
+/** Print ChromosomeInstance substructure (for debugging purposes). */
+std::ostream& operator<<(std::ostream& lhs, const ChromosomeInstance& ci);
+/** Print SegmentCopy info (for debugging purposes). */
+std::ostream& operator<<(std::ostream& lhs, const SegmentCopy& seg);
 
 } /* namespace seqio */
 
