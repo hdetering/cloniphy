@@ -18,7 +18,7 @@ set_property(TARGET run_tests PROPERTY CXX_STANDARD_REQUIRED ON)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED OFF)
 set(Boost_USE_STATIC_RUNTIME OFF)
-find_package(Boost 1.58.0 REQUIRED COMPONENTS program_options system timer)
+find_package(Boost 1.58.0 REQUIRED COMPONENTS program_options filesystem system timer)
 
 if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})

@@ -12,14 +12,40 @@ using boost::str;
 
 namespace seqio {
 
+/*---------------
+      Locus
+  ---------------*/
+
 Locus::Locus() {}
 Locus::Locus(string id, ulong start, ulong end)
 : id_ref(id), start(start), end(end), idx_record(0) {}
 Locus::~Locus() {}
 
+/*---------------
+     SeqRecord
+  ---------------*/
+
 SeqRecord::SeqRecord(const string id, const string desc, const string& seq)
   : id(id), description(desc), seq(seq), id_ref(id), chr_copy(0) {}
 SeqRecord::~SeqRecord() {}
+
+/*---------------
+    SegmentCopy
+  ---------------*/
+
+bool
+operator==(const SegmentCopy& lhs, const SegmentCopy& rhs) {
+  return lhs.id == rhs.id;
+}
+
+bool
+operator<(const SegmentCopy& lhs, const SegmentCopy& rhs) {
+  return lhs.id < rhs.id;
+}
+
+/*---------------
+  GenomeReference
+  ---------------*/
 
 GenomeReference::GenomeReference() : length(0), masked_length(0) {} //, ploidy(1) {}
 
@@ -151,7 +177,7 @@ void GenomeReference::generate(
   }
 
   // simulate sequences
-  unsigned idx_chr = 0;
+  unsigned idx_chr = 1;
   for (auto l : vec_seq_len) {
     string seq;
     generateRandomDnaSeq(seq, l, nuc_freqs, rng);
@@ -250,12 +276,13 @@ void GenomeReference::getSequence(
   ulong start,
   ulong end,
   map<ulong, string>& seqs
-) {
+) const
+{
   // perform sanity checks
-  assert( this->chromosomes.count(id_chr) > 0 ); // chromosome exists
+  assert( chromosomes.count(id_chr) > 0 ); // chromosome exists
   assert( start < end );
 
-  shared_ptr<ChromosomeReference> chr = this->chromosomes[id_chr];
+  shared_ptr<ChromosomeReference> chr = chromosomes.at(id_chr);
   // do coordinates exceed chromosome limits? (should not happen)
   assert( (start >= 0) && (end <= chr->length) );
 
@@ -277,6 +304,10 @@ void GenomeReference::getSequence(
     ++it_start_rec;
   }
 }
+
+/*---------------
+  GenomeInstance
+  ---------------*/
 
 void
 GenomeInstance::addChromosome(
@@ -313,8 +344,9 @@ GenomeInstance::deleteChromosome(
 }
 
 void
-GenomeInstance::duplicate(
-  vector<seg_mod_t>& out_vec_seg_mod)
+GenomeInstance::duplicate (
+  vector<seg_mod_t>& out_vec_seg_mod
+)
 {
   vector<tuple<string, shared_ptr<ChromosomeInstance>>> vec_tpl_id_ci;
   // loop over chromosome IDs in GenomeInstance
@@ -332,72 +364,6 @@ GenomeInstance::duplicate(
     shared_ptr<ChromosomeInstance> sp_chr;
     tie(id_chr, sp_chr) = tpl_id_chr;
     this->addChromosome(sp_chr, id_chr);
-  }
-}
-
-void
-GenomeInstance::writeFastaTiled (
-  GenomeReference reference,
-  string fn_pfx,
-  int padding )
-{
-  int line_width = 60; // TODO: should this be a parameter?
-
-  // infer copy number state segments
-  // for each chromosome id, build an interval map
-  map<string, interval_map<ulong, int>> map_chr_segments;
-  for ( auto const & id_chr : this->map_id_chr ) {
-    map_chr_segments[id_chr.first] = interval_map<ulong, int>();
-    // infer segment-wise copy number for each ChromosomeInstance
-    for ( auto const chr : id_chr.second ) {
-      // each SegmentCopy increases the CN state for the corresponding region
-      for ( auto const & seg : chr->lst_segments ) {
-        // NOTE: if this ever fails: switch start and end coordinates (or can interval_map deal with that?)
-        assert( seg.ref_start < seg.ref_end );
-        auto i = interval<ulong>::right_open(seg.ref_start, seg.ref_end);
-        // add interval with value 1 to interval map (copy number increases by 1)
-        map_chr_segments[id_chr.first] += make_pair(i, 1);
-      }
-    }
-  }
-
-  // export genomic fragments to corresponding output files
-  map<int, shared_ptr<ofstream>> map_cn_file;
-  for ( auto const & chr_seg : map_chr_segments ) {
-    string id_chr = chr_seg.first;
-    for ( auto const & seg : chr_seg.second ) {
-      auto i = seg.first;
-      ulong ref_start = i.lower();
-      ulong ref_end = i.upper();
-      int cn_state = seg.second;
-      // create output file for CN state if not exists
-      if ( map_cn_file.count(cn_state) == 0 ) {
-        string filename = str(boost::format("%s.%d.fa") % fn_pfx % cn_state);
-        shared_ptr<ofstream> ofs(new ofstream(filename, ofstream::out));
-        map_cn_file[cn_state] = ofs;
-      }
-      shared_ptr<ofstream> ofs = map_cn_file[cn_state];
-      // TODO: extract region from reference genome and write record to file
-      // get sequence for target region from reference genome
-      map<ulong, string> map_start_seq;
-      reference.getSequence(id_chr, ref_start, ref_end, map_start_seq);
-      vector<shared_ptr<SeqRecord>> sequences;
-      for (auto const & start_seq : map_start_seq) {
-        ulong start = start_seq.first;
-        ulong end = start + start_seq.second.length();
-        string id_seq = str( boost::format("%s_%s_%s") % id_chr % start % end );
-        shared_ptr<SeqRecord> seq(new SeqRecord(id_seq, "", start_seq.second));
-        sequences.push_back(seq);
-        //*ofs << str(boost::format("%s\t%lu\t%lu\n") % id_chr % ref_start % ref_end);
-      }
-      //num_records = writeFasta(sequences, *ofs, line_width);
-      writeFasta(sequences, *ofs, line_width);
-    }
-  }
-  // close output file streams
-  for (auto cn_file : map_cn_file) {
-    assert( cn_file.second->is_open() );
-    cn_file.second->close();
   }
 }
 
@@ -440,7 +406,15 @@ Locus GenomeReference::getAbsoluteLocusMasked(double rel_pos) const {
   return *loc;
 }
 
+/*---------------------
+   ChromosomeReference
+  ---------------------*/
+
 ChromosomeReference::ChromosomeReference() : id(""), length(0) {}
+
+/*---------------------
+   ChromosomeIntance
+  ---------------------*/
 
 ChromosomeInstance::ChromosomeInstance() : length(0) {}
 
@@ -473,6 +447,7 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
   list<SegmentCopy>::iterator it_seg_bkp_left, it_seg_bkp_right;
   list<SegmentCopy> lst_seg_new;
   bool is_left_bkp = false;
+  //bool is_right_bkp = false; // has the end of insertion been reached?
   // NOTE: start_rel value may be changed to match other parameters
   //len_rel = min(len_rel, is_forward ? 1.0-start_rel : start_rel);
   // perform some sanity checks
@@ -493,6 +468,8 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
     bkp_end = start_bp;
     bkp_start = is_telomeric ? 0 : bkp_end-len_bp;
   }
+  // make sure insert length is exact
+  len_bp = (bkp_end - bkp_start);
 
   // identify first affected SegmentCopy
   unsigned long pos_bp = 0; // current position
@@ -511,6 +488,7 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
   if (bkp_start >= pos_bp) {
     is_left_bkp = true;
     seg_len = it_seg->ref_end - it_seg->ref_start;
+    //is_right_bkp = (bkp_end <= pos_bp+seg_len);
     // create new SegmentCopy
     unsigned long seg_new_start = it_seg->ref_start + (bkp_start - pos_bp);
     unsigned long seg_new_end = pos_bp+seg_len <= bkp_end ? it_seg->ref_end : seg_new_start+len_bp;
@@ -541,7 +519,6 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
         // continue processing with new tail SegmentCopy
         it_seg = it_seg_bkp_left;
         pos_bp += head_len;
-        is_left_bkp = false;
       } else { // start of SegmentCopy coincides with first breakpoint, no need to split
         // new SegmentCopies will be inserted before current one
         it_seg_bkp_left = it_seg;
@@ -644,6 +621,8 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
     bkp_end = start_bp;
     bkp_start = is_telomeric ? 0 : bkp_end-len_bp;
   }
+  // make sure insert length is exact
+  len_bp = (bkp_end - bkp_start);
 
   // identify first affected SegmentCopy
   unsigned long pos_bp = 0; // current position
@@ -722,9 +701,25 @@ ostream& operator<<(ostream& lhs, const ChromosomeInstance& ci) {
   return lhs;
 }
 
+bool
+ChromosomeInstance::indexSegmentCopies (
+  TSegMap& imap_segments
+) const
+{
+  typedef set<SegmentCopy> TSegSet;
+  for (const SegmentCopy seg : lst_segments) {
+    TCoord p1 = seg.ref_start;
+    TCoord p2 = seg.ref_end;
+    imap_segments += make_pair(interval<TCoord>::right_open(p1,p2), TSegSet({seg}));
+  }
+}
+
 GenomeInstance::GenomeInstance() {}
 
-GenomeInstance::GenomeInstance(GenomeReference g_ref) {
+GenomeInstance::GenomeInstance (
+  const GenomeReference& g_ref
+)
+{
   for (auto const & kv : g_ref.chromosomes) {
     ChromosomeReference chr_ref = *(kv.second);
     // initial genome state is diploid -> generate two instances of each chromosome
@@ -739,6 +734,30 @@ GenomeInstance::GenomeInstance(GenomeReference g_ref) {
     // shared_ptr<ChromosomeInstance> sp_chr_inst1(up_chr_inst1);
     // shared_ptr<ChromosomeInstance> sp_chr_inst2(up_chr_inst2);
     this->map_id_chr[chr_ref.id] = { sp_chr_inst1, sp_chr_inst2 };
+  }
+}
+
+GenomeInstance::GenomeInstance (
+  const GenomeInstance& g_inst, 
+  vector<seg_mod_t>& out_vec_seg_mod
+)
+{
+  // copy chromosome lengths
+  this->vec_chr_len = g_inst.vec_chr_len;
+
+  // copy chromosome instances and index by name
+  for (auto const & id_chr : g_inst.map_id_chr) {
+    string id = id_chr.first;
+    
+    // update chromosome name index
+    this->map_id_chr[id] = vector<shared_ptr<ChromosomeInstance>>();
+
+    for (const shared_ptr<ChromosomeInstance> ci_old : id_chr.second) {
+      ChromosomeInstance ci_new;
+      ci_new.copy(ci_old, out_vec_seg_mod);
+      this->vec_chr.push_back(make_shared<ChromosomeInstance>(ci_new));
+      this->map_id_chr[id].push_back(make_shared<ChromosomeInstance>(ci_new));
+    }
   }
 }
 
@@ -788,6 +807,47 @@ GenomeInstance::getCopyNumberStates(
   }
 }
 
+void
+GenomeInstance::getCopyNumberStateByChr (
+  map<string, interval_map<TCoord, double>>& map_chr_segments,
+  const double scale
+) const
+{
+  // infer copy number state segments
+  // for each chromosome id, build an interval map
+  for ( auto const & id_chr : map_id_chr ) {
+    map_chr_segments[id_chr.first] = interval_map<TCoord, double>();
+    // infer segment-wise copy number for each ChromosomeInstance
+    for ( auto const chr : id_chr.second ) {
+      // each SegmentCopy increases the CN state for the corresponding region
+      for ( auto const & seg : chr->lst_segments ) {
+        // NOTE: if this ever fails: switch start and end coordinates (or can interval_map deal with that?)
+        assert( seg.ref_start < seg.ref_end );
+        auto i = interval<TCoord>::right_open(seg.ref_start, seg.ref_end);
+        // add interval with value 1 to interval map (copy number increases by 1)
+        map_chr_segments[id_chr.first] += make_pair(i, scale);
+      }
+    }
+  }
+}
+
+bool
+GenomeInstance::indexSegmentCopies ()
+{
+  for (auto const id_chr : this->map_id_chr) {
+    string id = id_chr.first;
+    vector<shared_ptr<ChromosomeInstance>> vec_chr = id_chr.second;
+
+    TSegMap imap_segments;
+    for (const shared_ptr<ChromosomeInstance> sp_chr : vec_chr) {
+      sp_chr->indexSegmentCopies(imap_segments);
+    }
+    this->map_chr_seg[id] = imap_segments;
+  }
+
+  return true;
+}
+
 ostream& operator<<(ostream& lhs, const GenomeInstance& gi) {
   lhs << "GenomeInstance" << endl;
   lhs << "--------------" << endl;
@@ -807,7 +867,10 @@ SegmentCopy::SegmentCopy()
 SegmentCopy::~SegmentCopy() {}
 
 SegmentCopy::SegmentCopy(unsigned long start, unsigned long end)
-: id(boost::uuids::random_generator()()), ref_start(start), ref_end(end) {}
+: id(boost::uuids::random_generator()()), 
+  ref_start(start), 
+  ref_end(end)
+{}
 
 ostream& operator<<(ostream& lhs, const SegmentCopy& seg) {
   lhs << "SegmentCopy<uuid=" << seg.id << "> ";

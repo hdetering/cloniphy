@@ -13,6 +13,7 @@ using boost::uuids::uuid;
 using seqio::ChromosomeInstance;
 using seqio::Locus;
 using seqio::Nuc;
+using seqio::TCoord;
 
 namespace vario {
 
@@ -99,32 +100,11 @@ long VariantSet::calculateSumstats() {
   return num_substitutions;
 }
 
-Mutation::Mutation() {
-  this->id = 0;
-  this->is_snv = false;
-  this->is_cnv = false;
-
-  //TODO: deprecated
-  // this->relPos = 0.0;
-  // this->copy = 0;
-}
-
-/*
-Mutation::Mutation(char ref, char alt) {
-  short ref_nuc = seqio::charToNuc(ref);
-  short alt_nuc = seqio::charToNuc(alt);
-  this->offset =  ((alt_nuc-ref_nuc) % 4); // TODO: this could be more generic (get rid of the hard-coded 4)
-}*/
-
-// bool Mutation::operator< (const Mutation &other) const {
-//   return (relPos + copy) < (other.relPos + other.copy);
-// }
-
-// vector<Mutation> Mutation::sortByPosition(const vector<Mutation> &mutations) {
-//   vector<Mutation> mutationsCopy = mutations;
-//   sort(mutationsCopy.begin(), mutationsCopy.end());
-//   return mutationsCopy;
-// }
+Mutation::Mutation ()
+: id(0), 
+  is_snv(false),
+  is_cnv(false)
+{}
 
 CopyNumberVariant::CopyNumberVariant ()
 : id(0),
@@ -159,7 +139,8 @@ Variant::Variant ()
   alleles(0),
   idx_mutation(0),
   rel_pos(0.0),
-  is_somatic(false)
+  is_somatic(false),
+  is_het(true)
 {}
 Variant::~Variant () {}
 
@@ -213,7 +194,7 @@ bool Variant::isSnv() {
 /*           Utility methods          */
 /*------------------------------------*/
 
-unsigned assignMutationType(
+unsigned assignSomaticMutationType(
   std::vector<Mutation>& vec_mutations,
   const double ratio_cnv,
   RandomNumberGenerator<>& rng)
@@ -348,6 +329,99 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
   variants.calculateSumstats();
 }
 
+void 
+writeVcfHeader (
+  ostream& out,
+  vector<string> vec_seq_id,
+  vector<TCoord> vec_seq_len,
+  vector<string> vec_lbl
+)
+{
+  // sanity check: do seq ids match seq lengths?
+  assert ( vec_seq_id.size() == vec_seq_len.size() );
+
+  out << "##fileformat=VCFv4.1" << endl;
+  time_t timer = time(NULL);
+  tm* t = localtime(&timer);
+  out << format("##fileDate=%d-%d-%d") % (1900+t->tm_year) % t->tm_mon % t->tm_mday << endl;
+  out << "##source=CloniPhy v0.1" << endl;
+  //out << "##reference=" << std::endl; # TODO: include ref filename
+  vector<string> vec_ref_ids;
+  for (size_t i=0; i<vec_seq_id.size(); i++) {
+    string seq_id = vec_seq_id[i];
+    TCoord seq_len = vec_seq_len[i];
+    out << format("##contig=<ID=%d, length=%lu>") % seq_id % seq_len << endl;
+  }
+  //out << "##phasing=complete" << endl;
+  out << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples With Data\">" << endl;
+  out << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+  out << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << endl;
+  
+  // add column header
+  out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
+  for (auto lbl : vec_lbl) out << '\t' << lbl;
+  out << endl;
+}
+
+/** Write multi-sample VCF (requires mutation matrix) */
+void
+writeVcfRecords (
+  ostream& out,
+  const vector<Variant>& vec_vars,
+  const vector<vector<bool>>& mtx_mut, // binary mutation matrix (sample x var)
+  const vector<int> vec_id_samples
+)
+{
+  int num_samples = vec_id_samples.size();
+
+  // defaults (introduce more params if necessary)
+  string var_qual = "."; // QUAL column
+  string var_info = (format("NS=%d") % num_samples).str(); // INFO column
+  string var_fmt  = "GT:GQ"; // FORMAT column
+  short  gt_qual  = 60; // genotype quality (global)
+
+  vector<Variant> sorted_vars = Variant::sortByPositionLex(vec_vars);
+  for (Variant var : sorted_vars) {
+    string ref = var.alleles[0];
+    string alt = var.alleles[1];
+    out << format("%s\t%d\t%d\t%s\t%s\t%s\tPASS\t%d\t%s")
+                  % (var.chr) % (var.pos+1) % (var.id)
+                  % ref % alt % var_qual % var_info % var_fmt;
+    for (auto sid : vec_id_samples) {
+      string genotype = mtx_mut[sid][var.idx_mutation] ? "0/1" : "0/0";
+      out << format("\t%s:%d") % genotype % gt_qual;
+    }
+    out << endl;
+  }
+}
+
+/** Write single-sample VCF (e.g., germline vars) */
+void
+writeVcfRecords (
+  ostream& out,
+  const vector<Variant>& vec_vars
+)
+{
+  // defaults (introduce more params if necessary)
+  string var_qual = "."; // QUAL column
+  string var_info = "NS=1"; // INFO column
+  string var_fmt  = "GT:GQ"; // FORMAT column
+  short  gt_qual  = 60; // genotype quality (global)
+
+  vector<Variant> sorted_vars = Variant::sortByPositionLex(vec_vars);
+  for (Variant var : sorted_vars) {
+    string ref = var.alleles[0];
+    string alt = var.alleles[1];
+    string var_geno = (var.is_het ? "0/1" : "1/1");
+    out << format("%s\t%d\t%d\t%s\t%s\t%s\tPASS\t%d\t%s\t%s:%d")
+                  % (var.chr) % (var.pos+1) % (var.id)
+                  % ref % alt % var_qual % var_info % var_fmt
+                  % var_geno % gt_qual;
+    out << endl;
+  }
+}
+
+
 void writeVcf(
   const vector<shared_ptr<SeqRecord>>& seqs,
   const vector<Variant>& vars,
@@ -362,29 +436,16 @@ void writeVcf(
   string var_fmt  = "GT:GQ"; // FORMAT column
   short  gt_qual  = 60; // genotype quality (global)
 
-  // write header
-  out << "##fileformat=VCFv4.1" << endl;
-  time_t timer = time(NULL);
-  tm* t = localtime(&timer);
-  out << format("##fileDate=%d-%d-%d") % (1900+t->tm_year) % t->tm_mon % t->tm_mday << endl;
-  out << "##source=CloniPhy v0.01" << endl;
-  //out << "##reference=" << std::endl; # TODO: include ref filename
+  // prepare ref seq ids and lengths
   vector<string> vec_ref_ids;
+  vector<TCoord> vec_ref_len;
   for (auto rec : seqs) {
-    if (find(vec_ref_ids.begin(), vec_ref_ids.end(), rec->id_ref) == vec_ref_ids.end()) {
-      vec_ref_ids.push_back(rec->id_ref);
-      out << format("##contig=<ID=%d, length=%u>") % rec->id_ref % rec->seq.size() << endl;
-    }
+    vec_ref_ids.push_back(rec->id_ref);
+    vec_ref_len.push_back(rec->seq.size());
   }
-  out << "##phasing=complete" << endl;
-  out << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples With Data\">" << endl;
-  out << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
-  out << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << endl;
-  out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
-  //out << "\thealthy";
-  for (auto lbl : labels)
-    out << '\t' << lbl;
-  out << endl;
+
+  // write header
+  writeVcfHeader(out, vec_ref_ids, vec_ref_len, labels);
 
   // write variants
   vector<Variant> sorted_vars = Variant::sortByPositionLex(vars);
@@ -406,8 +467,6 @@ void writeVcf(
   }
 }
 
-/** Generate VCF output from a reference genome and a set of variants.
-    (single sample) */
 void writeVcf(
   const vector<shared_ptr<SeqRecord>>& seqs,
   const vector<Variant>& vars,
@@ -424,6 +483,36 @@ void writeVcf(
   f_out.close();
 }
 
+unsigned 
+writeVcf (
+  const std::string filename,
+  const GenomeReference& genome,
+  const std::vector<Variant>& vars,
+  const std::string label
+)
+{
+  // defaults
+  int num_samples = 1;
+  string var_qual = "."; // QUAL column
+  string var_info = (format("NS=%d") % num_samples).str(); // INFO column
+  string var_fmt  = "GT:GQ"; // FORMAT column
+  short  gt_qual  = 60; // genotype quality (global)
+
+  // open output file
+  ofstream f_out;
+  f_out.open(filename);
+  
+  // write header
+  vector<string> vec_lbl = {label};
+  writeVcfHeader(f_out, genome.vec_chr_id, genome.vec_chr_len, vec_lbl);
+
+  // write variants
+  writeVcfRecords(f_out, vars);
+
+  // close output file
+  f_out.close();  
+}
+
 long getRandomMutPos(
   function<int()> r_bucket,
   map<string, vector<long>> map_bucket_pos,
@@ -432,9 +521,10 @@ long getRandomMutPos(
   return 0;
 }
 
-/** Generate variant loci in a given genome based on evolutionary model.
+/** DEPRECATED! Functionality shifted to vario::VariantStore::generateGermlineVariants
+    Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */
-vector<Variant> generateGermlineVariants(
+vector<Variant> generateGermlineVariants (
   const int num_variants,
   const GenomeReference& genome,
   GermlineSubstitutionModel& model,
@@ -489,8 +579,101 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
   return variants;
 }
 
+/*----------------------
+   VariantStore
+  ----------------------*/
+
+unsigned
+VariantStore::indexSnvs () 
+{
+  unsigned num_snvs = 0;
+  this->map_chr_pos_snvs.clear();
+
+  for (auto const & id_var : this->map_id_snv) {
+
+    int id = id_var.first;
+    Variant var = id_var.second;
+
+    // if necessary, initialize pos->var map for chromosome
+    if (this->map_chr_pos_snvs.find(var.chr) == this->map_chr_pos_snvs.end())
+      this->map_chr_pos_snvs[var.chr] = map<TCoord, vector<int>>();
+
+    this->map_chr_pos_snvs[var.chr][var.pos].push_back(var.idx_mutation);
+    num_snvs++;
+  }
+
+  return num_snvs;
+}
+
+bool
+VariantStore::generateGermlineVariants (
+  const int num_variants,
+  const GenomeReference& genome,
+  GermlineSubstitutionModel& model,
+  const double rate_hom,
+  RandomNumberGenerator<>& rng,
+  const bool inf_sites)
+{
+  // NOTE: germline variants carry negative indices
+  int id_next = -1 * num_variants;
+  //vector<Variant> variants = vector<Variant>(num_variants);
+  boost::container::flat_set<int> var_pos; // keep track of variant positions
+  function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+  random_selector<> selector(rng.generator); // used to pick random vector indices
+
+  // determine base mutation probs from model (marginal sums)
+  vector<double> p_i(4, 0);
+  for (int i=0; i<4; ++i) {
+    for (int j=0; j<4; ++j) {
+      p_i[i] += model.Qij[i][j];
+    }
+  }
+  function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
+
+  unsigned long genome_len = genome.length; // haploid genome length
+  for (int i=0; i<num_variants; ++i) {
+    // pick random nucleotide bucket
+    int idx_bucket = random_nuc_idx();
+    // pick random position
+    long nuc_pos = selector(genome.nuc_pos[idx_bucket]);
+    if (inf_sites) {
+      while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
+// TODO: check verbosity setting
+fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated before, picking another one...\n", nuc_pos);
+        nuc_pos = selector(genome.nuc_pos[idx_bucket]);
+      }
+      var_pos.insert(nuc_pos);
+    }
+    Locus loc = genome.getLocusByGlobalPos(nuc_pos);
+    // pick new nucleotide
+    short nuc_alt = evolution::MutateSite(idx_bucket, random_float, model);
+    Variant var;
+    var.id = str(format("g%d") % i);
+    var.is_somatic = false;
+    var.is_het = ( random_float() > rate_hom );
+    var.chr = loc.id_ref;
+    //var.chr_copy = random_copy(); // TODO: deprecated!
+    var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+    var.reg_copy = 0; // TODO: deprecated!
+    var.pos = loc.start;
+    var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
+    var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
+    var.idx_mutation = id_next;
+
+    this->map_id_snv[id_next] = var;
+    id_next++;
+    // variants[i] = var;
+  }
+
+  // sanity check: correct number of variants?
+  assert ( id_next == 0 );
+  return true;
+}
+
 /** Generate variant loci in a given genome based on somatic mutation model. */
-void VariantStore::generateSomaticVariants(
+bool
+VariantStore::generateSomaticVariants(
   const vector<Mutation>& vec_mutations,
   const GenomeReference& genome,
   SomaticSubstitutionModel& model_snv,
@@ -617,13 +800,63 @@ void VariantStore::generateSomaticVariants(
     }
   }
 
-  //return variants;
+  // index SNVs by chromosome and ref position
+  this->indexSnvs();
+
+  return true;
 }
 
-void VariantStore::applyMutation(
+bool 
+VariantStore::applyGermlineVariants (
+  GenomeInstance& genome,
+  RandomNumberGenerator<>& rng
+)
+{
+  random_selector<> selector(rng.generator); // used to pick random SegmentCopy
+
+  // loop over variants
+  for (auto const & id_snv : map_id_snv) {
+    int id = id_snv.first;
+    Variant var = id_snv.second;
+
+    // skip somatic variants
+    if (var.is_somatic) continue;
+
+    // get available SegmentCopies from genome
+    string id_chr = var.chr;
+    TCoord ref_pos = var.pos;
+    vector<SegmentCopy> vec_seg_avail = genome.getSegmentCopiesAt(id_chr, ref_pos);
+
+    // SegmentCopies that will carry the variant
+    vector<SegmentCopy> vec_seg_mut;
+    // homozygous variants are introduced into all SegmentCopies, heterozygous ones into random one
+    if ( var.is_het ) {
+      // pick random SegmentCopy to mutate
+      vec_seg_mut.push_back( selector(vec_seg_avail) );
+    } else {
+      // mark all SegmentCopies for mutation
+      vec_seg_mut = vec_seg_avail;
+    }
+    
+    // initialize or append to Variant vector of segment copies
+    for ( SegmentCopy sc : vec_seg_mut ) {
+      if ( map_seg_vars.count(sc.id) == 0 ) {
+        map_seg_vars[sc.id] = { id };
+      } else {
+        map_seg_vars[sc.id].push_back(id);
+      }
+    }
+  }
+
+  return true;
+}
+
+void 
+VariantStore::applyMutation (
   Mutation mut,
   GenomeInstance& genome,
-  RandomNumberGenerator<>& rng)
+  RandomNumberGenerator<>& rng
+)
 {
   // perform some sanity checks
   assert( mut.is_snv != mut.is_cnv );
@@ -649,7 +882,6 @@ void VariantStore::applyMutation(
     }
   }
   else { // CNV mutation
-    // TODO: apply copy number variant
     CopyNumberVariant cnv = this->map_id_cnv[mut.id];
     // track modifications to SegmentCopies
     vector<seqio::seg_mod_t> vec_seg_mod;
@@ -686,6 +918,16 @@ void VariantStore::applyMutation(
         vec_seg_mod = sp_chr->amplifyRegion(cnv.start_rel, cnv.len_rel, cnv.is_forward, cnv.is_telomeric);
         this->transferMutations(vec_seg_mod);
       }
+// sanity check: does chromosome length equal length of SegmentCopies?
+ulong len = 0;
+vector<ulong> lens;
+for (auto s : sp_chr->lst_segments) {
+  lens.push_back(s.ref_end - s.ref_start);
+  len += (s.ref_end - s.ref_start);
+}
+if (len != sp_chr->length) {
+  cerr << "### Lengths are off!! ###";
+}
     }
   }
 }
@@ -693,8 +935,8 @@ void VariantStore::applyMutation(
 void VariantStore::transferMutations(vector<seqio::seg_mod_t> vec_seg_mod) {
   uuid seg_new_id;
   uuid seg_old_id;
-  unsigned long seg_old_start;
-  unsigned long seg_old_end;
+  seqio::TCoord seg_old_start;
+  seqio::TCoord seg_old_end;
 
   // loop over SegmentCopy modifications
   for (auto const & tpl_seg_mod : vec_seg_mod) {
@@ -705,7 +947,7 @@ void VariantStore::transferMutations(vector<seqio::seg_mod_t> vec_seg_mod) {
     tie(seg_new_id, seg_old_id, seg_old_start, seg_old_end) = tpl_seg_mod;
 
     // transfer variants associated with the copied region within old SegmentCopy
-    vector<unsigned> seg_new_vars;
+    vector<int> seg_new_vars;
     auto it_vars = this->map_seg_vars.find(seg_old_id);
     if (it_vars == this->map_seg_vars.end())
       continue;
@@ -721,16 +963,86 @@ void VariantStore::transferMutations(vector<seqio::seg_mod_t> vec_seg_mod) {
   }
 }
 
-
-vector<Variant> VariantStore::getSnvVector() {
+vector<Variant>
+VariantStore::getGermlineSnvVector ()
+{
   vector<Variant> variants;
-  for (auto const & kv : this->map_id_snv)
-    variants.push_back(kv.second);
+  for (auto const & kv : this->map_id_snv) {
+    Variant var = kv.second;
+    if ( !var.is_somatic )
+      variants.push_back(var);
+  }
 
   return variants;
 }
 
-unsigned VariantStore::writeCnvsToFile(string filename) {
+
+vector<Variant> 
+VariantStore::getSomaticSnvVector () 
+{
+  vector<Variant> variants;
+  for (auto const & kv : this->map_id_snv) {
+    Variant var = kv.second;
+    if ( var.is_somatic )
+      variants.push_back(var);
+  }
+
+  return variants;
+}
+
+int
+VariantStore::getSnvsForSegmentCopy (
+  map<seqio::TCoord, vector<Variant>>& map_vars,
+  boost::uuids::uuid id_seg
+) const
+{
+  int n_vars = 0;
+  map_vars.clear();
+
+  auto it_seg_vars = this->map_seg_vars.find(id_seg);
+  if (it_seg_vars != this->map_seg_vars.end()) {
+    for (int id_var : it_seg_vars->second) {
+      Variant var = this->map_id_snv.at(id_var);
+      if (map_vars.count(var.pos) == 0)
+        map_vars[var.pos] = vector<Variant>();
+      map_vars[var.pos].push_back(var);
+
+        
+      n_vars++;
+    }
+  }
+  
+  return n_vars;
+}
+
+unsigned 
+VariantStore::writeGermlineSnvsToVcf (
+  const std::string filename,
+  const GenomeReference& genome
+)
+{
+  unsigned n_vars = 0;
+
+  // retrieve germline SNVs
+  vector<Variant> vec_var;
+  for (auto const & id_snv : map_id_snv) {
+
+    int id = id_snv.first;
+    Variant var = id_snv.second;
+
+    if (!var.is_somatic)
+      vec_var.push_back(var);
+  }
+
+  n_vars = writeVcf(filename, genome, vec_var, "germline");
+  return n_vars;
+}
+
+unsigned 
+VariantStore::writeCnvsToFile (
+  string filename
+) 
+{
   ofstream f_out;
   f_out.open(filename);
   f_out << "id_cnv\tclass\tscope\tchr\tstart_rel\tdirection\tlen_rel\n";

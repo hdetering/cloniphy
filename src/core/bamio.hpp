@@ -3,8 +3,10 @@
 
 #include "clone.hpp"
 #include "random.hpp"
+#include "seqio.hpp"
 #include "vario.hpp"
 #include "stringio.hpp"
+#include <boost/filesystem.hpp> // absolute(),
 #include <boost/format.hpp>
 #include <memory>
 #include <seqan/bam_io.h>
@@ -25,6 +27,8 @@ public:
   unsigned frag_len_mean;
   unsigned frag_len_sd;
   float fold_cvg;
+  /** number of read (pairs) to sample, NOTE: overrides fold_cvg! */
+  unsigned long num_reads;
   std::string out_pfx;
   bool out_sam;
   bool out_aln;
@@ -50,7 +54,8 @@ void mutateReads(
 /** DEPRECATED Takes an existing SAM/BAM file and adds subclonal mutations to reads.
  *  NOTE: weights are to be provided for clone nodes (root node receives 1-sum)
  */
-void mutateReads(
+void 
+mutateReads (
   std::string fn_fq_out,
   std::string fn_sam_out,
   std::string fn_sam_in,
@@ -66,10 +71,11 @@ void mutateReads(
 /** Takes an existing SAM/BAM file and adds subclonal mutations to reads.
  *  NOTE: weights are to be provided for clone nodes (root node receives 1-sum)
  */
-void mutateReads(
-  std::string fn_fq_out,
-  std::string fn_sam_out,
-  std::string fn_sam_in,
+void 
+mutateReads (
+  boost::filesystem::path fn_fq_out,
+  boost::filesystem::path fn_sam_out,
+  boost::filesystem::path fn_sam_in,
   vario::VariantSet &variants,
   std::vector<std::shared_ptr<Clone>> vec_clones,
   std::map<std::string, std::vector<bool>> mm,
@@ -81,7 +87,8 @@ void mutateReads(
 );
 
 /** Add a read group to BAM file header for each clone. */
-void addCloneReadGroups(
+void 
+addCloneReadGroups (
   seqan::BamHeader &header,
   const std::string id_sample,
   const std::vector<std::string> &vec_lbl

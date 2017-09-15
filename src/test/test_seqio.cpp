@@ -208,17 +208,17 @@ BOOST_AUTO_TEST_CASE( tile )
   bool is_forward = true;
   bool is_telomeric = false;
 
-  BOOST_TEST_MESSAGE( "Delete second copy of chromosome 1" );
+  BOOST_TEST_MESSAGE( "Delete second copy of chromosome 2" );
   BOOST_TEST_MESSAGE( "--------------------------------\n" );
-  id_chr = "chr1";
+  id_chr = "chr2";
   chr_copy = genome.map_id_chr[id_chr][1];
   genome.deleteChromosome(chr_copy, id_chr);
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
   BOOST_TEST_MESSAGE( "" );
-  BOOST_TEST_MESSAGE( "Amplifiy region on chromosome 0" );
-  BOOST_TEST_MESSAGE( "--------------------------------\n" );
-  id_chr = "chr0";
+  BOOST_TEST_MESSAGE( "Amplify telomeric region on chromosome 1" );
+  BOOST_TEST_MESSAGE( "-----------------------------------------\n" );
+  id_chr = "chr1";
   chr_copy = genome.map_id_chr[id_chr][0];
   start_rel = 0.5;
   len_rel = 0.5;
@@ -227,9 +227,9 @@ BOOST_AUTO_TEST_CASE( tile )
   chr_copy->amplifyRegion(start_rel, len_rel, is_forward, is_telomeric);
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
-  BOOST_TEST_MESSAGE( "Delete region on chromosome 2" );
+  BOOST_TEST_MESSAGE( "Delete region on chromosome 3" );
   BOOST_TEST_MESSAGE( "--------------------------------\n" );
-  id_chr = "chr2";
+  id_chr = "chr3";
   chr_copy = genome.map_id_chr[id_chr][1];
   start_rel = 0.25;
   len_rel = 0.5;
@@ -238,12 +238,35 @@ BOOST_AUTO_TEST_CASE( tile )
   chr_copy->deleteRegion(start_rel, len_rel, is_forward, is_telomeric);
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
-  BOOST_TEST_MESSAGE( "--------------------------------" );
-  BOOST_TEST_MESSAGE( " Write tiled genome to files" );
-  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+  BOOST_TEST_MESSAGE( "Amplify focal region on chromosome 2" );
+  BOOST_TEST_MESSAGE( "------------------------------------\n" );
+  id_chr = "chr2";
+  chr_copy = genome.map_id_chr[id_chr][0];
+  start_rel = 0.75;
+  len_rel = 0.5;
+  is_forward = false;
+  is_telomeric = false;
+  chr_copy->amplifyRegion(start_rel, len_rel, is_forward, is_telomeric);
+  BOOST_TEST_MESSAGE( "result:\n" << genome );
 
-  string fn_pfx = "test.segio_tile";
-  genome.writeFastaTiled(ref_genome, fn_pfx, 0);
+  BOOST_TEST_MESSAGE( "Indexing SegmentCopies" );
+  BOOST_TEST_MESSAGE( "----------------------\n" );
+  genome.indexSegmentCopies();
+  BOOST_TEST_MESSAGE( "result:" );
+  for (auto const & kv : genome.map_chr_seg) {
+    string id_chr = kv.first;
+    TSegMap imap_seg = kv.second;
+    cout << "\t" << id_chr << endl;
+    cout << "\t\t" << imap_seg << endl;
+  }
+
+  // NOTE: moved this functionality to bamio::BulkSampleGenerator
+  // BOOST_TEST_MESSAGE( "--------------------------------" );
+  // BOOST_TEST_MESSAGE( " Write tiled genome to files" );
+  // BOOST_TEST_MESSAGE( "--------------------------------\n" );
+
+  // string fn_pfx = "test.segio_tile";
+  // genome.writeFastaTiled(ref_genome, fn_pfx, 10, 500);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
