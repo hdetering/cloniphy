@@ -203,7 +203,6 @@ BulkSampleGenerator::mergeBulkSeqReads (
   // attach read groups to BAM header
   addReadGroups(hdr_out, vec_rg);
   // open output file
-  //f_bam_out = BamFileOut(bam_context, fs_bam_out, Sam());
   if (!open(bam_out, fn_bam_out.c_str(), OPEN_WRONLY | OPEN_CREATE)) {
     fprintf(stderr, "[ERROR] (BulkSampleGenerator::mergeBulkSeqReads)\n");
     fprintf(stderr, "        could not create output file: '%s'\n", fn_bam_out.c_str());
@@ -244,6 +243,10 @@ fprintf(stderr, "### BulkSampleGenerator::transformBamTile (%s).\n", fn_bam_in);
       transformBamTileOpt(bam_out, bam_in, lbl_clone, var_store, rng, map_var_cvg, map_var_alt);
       // transformBamTileOpt1(bam_out, bam_in, lbl_clone, var_store, rng);
       close(bam_in);
+
+      // delete input SAM tile since it is no longer required (release disk space)
+fprintf(stderr, "### Removing input SAM (%s).\n", fn_bam_in);
+      remove(entry);
     }
   }
 
