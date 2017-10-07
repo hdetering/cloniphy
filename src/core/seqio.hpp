@@ -198,7 +198,7 @@ struct ChromosomeInstance {
   /** Identify SegmentCopies overlapping a given locus. */
   std::vector<SegmentCopy> 
   getSegmentCopiesAt (
-    unsigned long ref_pos
+    TCoord ref_pos
   );
 
   /** Amplify a region of this ChromosomeInstance by creating new SegmentCopies

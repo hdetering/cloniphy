@@ -48,7 +48,7 @@ using evolution::SomaticSubstitutionModel;
 using evolution::SomaticCnvModel;
 
 // for debugging use only - remove for final release
-template class std::map<int, GenomeInstance>;
+//template class std::map<int, GenomeInstance>;
 
 int main (int argc, char* argv[])
 {
@@ -354,23 +354,7 @@ int main (int argc, char* argv[])
       // apply somatic mutations (SNVs + CNVs, in order)
       for (int mut : node_mut) {
 //cerr << "id_mut: " << mut << endl;
-if (mut == 210) {
-  fprintf(stderr, "### Segs having s210 (before):\n");
-  for (auto const & sv : var_store.map_seg_vars) {
-    if (find(sv.second.begin(), sv.second.end(), 210) != sv.second.end()) {
-      cerr << "###   " << sv.first << endl;
-    }
-  }
-}
         var_store.applyMutation(vec_mut_som[mut], gi_node, rng);
-if (mut == 210) {
-  fprintf(stderr, "### Segs having s210 (after):\n");
-  for (auto const & sv : var_store.map_seg_vars) {
-    if (find(sv.second.begin(), sv.second.end(), 210) != sv.second.end()) {
-      cerr << "###   " << sv.first << endl;
-    }
-  }
-}
       }
       // store GenomeInstance for further use
       map_id_genome[nodes[i]->index] = gi_node;
@@ -400,7 +384,7 @@ for (auto const & cg : map_clone_genome) {
   fprintf(stderr, "### Chromosomes for clone '%s':\n", cg.first.c_str());
   for (auto const & ic : cg.second.map_id_chr) {
     for (auto const & chr : ic.second) {
-      fprintf(stderr, "###   %s (%x)\n", ic.first.c_str(), *chr);
+      fprintf(stderr, "###   %s (%p)\n", ic.first.c_str(), *chr);
     }
   }
 }
@@ -447,14 +431,6 @@ for (auto const & cg : map_clone_genome) {
   }
 }
 ofs_dbg_vars.close();
-
-// DEBUG info
-fprintf(stderr, "### Segs having s210 (finally):\n");
-for (auto const & sv : var_store.map_seg_vars) {
-  if (find(sv.second.begin(), sv.second.end(), 210) != sv.second.end()) {
-    cerr << "###   " << sv.first << endl;
-  }
-}
 
   // for convenience, transform sampling matrix to contain clone labels
   // TODO: provide better way of configuring sampling matrix
@@ -505,6 +481,7 @@ for (auto const & sv : var_store.map_seg_vars) {
     var_store,
     path_fasta,
     path_bam,
+    path_bed,
     seq_read_len, 
     seq_frag_len_mean, 
     seq_frag_len_sd, 

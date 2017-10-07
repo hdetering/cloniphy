@@ -27,11 +27,13 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceRoot}",
+                "${workspaceRoot}/include",
                 "/usr/include/c++/5",
                 "/usr/include/x86_64-linux-gnu/c++/5",
                 "/usr/local/include",
                 "/usr/include",
-                "/usr/include/x86_64-linux-gnu"
+                "/usr/include/x86_64-linux-gnu",
+                "/usr/lib/gcc/x86_64-linux-gnu/5/include"
             ],
             "defines": [],
             "browse": {

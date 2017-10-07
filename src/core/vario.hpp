@@ -139,6 +139,22 @@ struct CopyNumberVariant
   CopyNumberVariant();
 };
 
+/** Encapsulates the allele counts (reference, alternative) for a given variant and genome. */
+struct VariantAlleleCount {
+  //int idx_var; // this should rather be an index under which to store VariantAlleleCount elements.
+  /** Number of reference alleles. */
+  short num_tot;
+  /** Number of alternative alleles. */
+  short num_alt;
+
+  /** Default c'tor. */
+  VariantAlleleCount ();
+};
+
+//typedef std::map<seqio::TCoord, std::tuple<vario::Variant, short, short>> TMapPosVaf;
+typedef std::map<seqio::TCoord, VariantAlleleCount> TMapPosVaf;
+typedef std::map<std::string, TMapPosVaf> TMapChrPosVaf;
+
 /** Keeps somatic variants (SNVs, CNVs) as well as their association to
  *  genomic segment copies.
  */

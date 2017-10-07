@@ -20,6 +20,9 @@ namespace vario {
 Variant::Variant(std::string id, std::string chr, unsigned long pos)
  : id(id), chr(chr), pos(pos) {}
 
+/* VariantSet
+ *------------*/
+
 VariantSet::VariantSet() {}
 VariantSet::~VariantSet() {}
 
@@ -40,7 +43,6 @@ VariantSet& VariantSet::operator+=(const VariantSet& rhs) {
   return *this; // return the result by reference
 }
 
-/** Index variants by chromosome and position. */
 long VariantSet::indexVariants() {
   long num_variants;
   this->map_chr2pos2var.clear();
@@ -100,11 +102,17 @@ long VariantSet::calculateSumstats() {
   return num_substitutions;
 }
 
+/* Mutation *
+ *----------*/
+
 Mutation::Mutation ()
 : id(0), 
   is_snv(false),
   is_cnv(false)
 {}
+
+/* CopyNumberVariant *
+ *-------------------*/
 
 CopyNumberVariant::CopyNumberVariant ()
 : id(0),
@@ -131,6 +139,9 @@ ostream& operator<<(ostream& lhs, const CopyNumberVariant& cnv) {
   lhs << "\n";
   return lhs;
 }
+
+/* Variant *
+ *---------*/
 
 Variant::Variant ()
 : id(""),
@@ -189,6 +200,14 @@ bool Variant::isSnv() {
   }
   return true;
 }
+
+/* VariantAlleleCount *
+ *--------------------*/
+
+VariantAlleleCount::VariantAlleleCount ()
+: num_tot(0), 
+  num_alt(0)
+{}
 
 /*------------------------------------*/
 /*           Utility methods          */

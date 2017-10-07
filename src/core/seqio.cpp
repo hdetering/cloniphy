@@ -764,7 +764,7 @@ GenomeInstance::GenomeInstance (
 vector<SegmentCopy>
 GenomeInstance::getSegmentCopiesAt (
   string id_chr,
-  unsigned long ref_pos)
+  TCoord ref_pos)
 {
   vector<SegmentCopy> res_segments;
   // perform sanity checks

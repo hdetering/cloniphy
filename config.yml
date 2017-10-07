@@ -5,7 +5,7 @@
 #--------------------#
 
 # output folder
-out-dir: "cnvsim.l.2"
+out-dir: "c4.r4.m1000.30Mb.100x"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -35,7 +35,7 @@ seed: 2
 tree: "data/bulk/bulk.tre"
 
 # number of clones to simulate
-clones: 5
+#clones: 5
 
 #-------------------------#
 # reference genome params #
@@ -43,10 +43,10 @@ clones: 5
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
-ref-seq-num: 1
+ref-seq-num: 3
 ## sequence length
 ref-seq-len-mean: 20000000
-ref-seq-len-sd: 10000
+ref-seq-len-sd:    1000000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
@@ -56,7 +56,7 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # germline variants (to generate personal genome from reference)
 #mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-gl-num : 20000
+mut-gl-num : 60000
 # ratio of homozygous germline variants (not yet implemented...)
 mut-gl-hom : 0.2
 
@@ -79,10 +79,10 @@ mut-gl-model-params:
 #------------------------------#
 
 # number of total mutations to simulate
-mut-som-num: 2000
+mut-som-num: 6000
 # number of transforming mutations shared by all clones
 # (included in total mutations)
-mut-som-trunk: 200
+mut-som-trunk: 2000
 
 # single nucleotide variants
 #------------------------------
@@ -103,7 +103,7 @@ mut-som-sig-mix:
 #------------------------------
 
 # fraction of CNV events among all mutations (set to 0 to disable CNVs)
-mut-som-cnv-ratio: 0.05
+mut-som-cnv-ratio: 0.01
 # minimum length (bp) of CNV events
 mut-som-cnv-len-min: 5000
 # rate parameter for power-law distribution
@@ -152,7 +152,7 @@ samples:
 #-------------------------------#
 
 # haploid depth of coverage
-seq-coverage      : 50
+seq-coverage      : 100
 # read length
 seq-read-len      : 100
 # mean fragment length (only for paired-end reads)

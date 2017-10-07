@@ -1,4 +1,5 @@
 #include "BulkSampleGenerator.hpp"
+#include <chrono>
 #include <tuple>
 using namespace std;
 using namespace boost::filesystem;
@@ -36,6 +37,7 @@ BulkSampleGenerator::generateBulkSamples (
   const vario::VariantStore var_store,
   const path path_fasta,
   const path path_bam,
+  const path path_bed,
   const unsigned seq_read_len,
   const unsigned seq_frag_len_mean,
   const unsigned seq_frag_len_sd,
@@ -64,6 +66,15 @@ BulkSampleGenerator::generateBulkSamples (
 
     string lbl_sample = sample_weights.first;
     map<string, double> w = sample_weights.second;
+
+    // initialize expected SNV allele frequencies
+    this->initAlleleCounts(w, var_store);
+
+    // output expected read counts to BED file.
+    path fn_vaf = path_bed / str(boost::format("%s.vaf.bed") % lbl_sample) ;
+    ofstream ofs_vaf(fn_vaf.string(), std::ofstream::out);
+    writeExpectedReadCounts(ofs_vaf, seq_coverage, var_store);
+    ofs_vaf.close();
 
     // generate read groups to identify clones in samples
     vector<seqan::BamHeaderRecord> vec_rg;
@@ -142,18 +153,21 @@ BulkSampleGenerator::generateBulkSeqReads (
     unsigned long n_reads = map_clone_reads[id_clone] * seq_frac;
     double cvg = double(n_reads) / seq_len * art.read_len;
     //double cvg = map_clone_cvg[id_clone] / 2 * copy_number;
+
+    if ( cvg > 0.0 ) {
 cout << "#reads total: " << n_reads_tot << endl;
 cout << "#reads clone " << id_clone << ": "  << map_clone_reads[id_clone] << endl;
 cout << "fraction of genome: " << seq_frac << " (" << seq_len << "*" << copy_number << "/" << genome_len << ")" << endl;
 cout << "clone: " << id_clone << "; CN: " << copy_number << "; cvg: " << cvg << endl;
-    art.fold_cvg = cvg;
-    //art.num_reads = round(n_reads / 2); // actually specifies read pairs
-    art.fn_ref_fa = path_fa.string();
-    //art.out_pfx = (path_bam / fn_pfx).string();
-    //cout << art.out_pfx << endl;
-    // output files are named: <sample>.<clone>.<CN>.sam
-    string fn_pfx_out = (path_bam / (lbl_sample+"."+fn_pfx)).string();
-    int res_art = art.run(fn_pfx_out);
+      art.fold_cvg = cvg;
+      //art.num_reads = round(n_reads / 2); // actually specifies read pairs
+      art.fn_ref_fa = path_fa.string();
+      //art.out_pfx = (path_bam / fn_pfx).string();
+      //cout << art.out_pfx << endl;
+      // output files are named: <sample>.<clone>.<CN>.sam
+      string fn_pfx_out = (path_bam / (lbl_sample+"."+fn_pfx)).string();
+      int res_art = art.run(fn_pfx_out);
+    }
   }
 }
 
@@ -170,6 +184,14 @@ BulkSampleGenerator::mergeBulkSeqReads (
   BamFileOut bam_out;
   BamHeader hdr_out;
   TBamContext bam_context = context(bam_out);
+
+  // initialize read counts for SNV positions
+  map<string, unsigned> map_var_cvg;
+  map<string, unsigned> map_var_alt;
+  for (auto const id_snv : var_store.map_id_snv) {
+    map_var_cvg[id_snv.second.id] = 0;
+    map_var_alt[id_snv.second.id] = 0;
+  }
 
   // create new output file for sample
   string fn_bam_out = (path_bam / (lbl_sample + ".sam")).string();
@@ -218,10 +240,22 @@ fprintf(stderr, "### %s\n", fn_bam_in.c_str());
       // transform and export alignments to joint BAM 
       // (clone label -> read group id)
 fprintf(stderr, "### BulkSampleGenerator::transformBamTile (%s).\n", fn_bam_in);
-      transformBamTile(bam_out, bam_in, lbl_clone, var_store, rng);
+      // transformBamTile(bam_out, bam_in, lbl_clone, var_store, rng, map_var_cvg, map_var_alt);
+      transformBamTileOpt(bam_out, bam_in, lbl_clone, var_store, rng, map_var_cvg, map_var_alt);
+      // transformBamTileOpt1(bam_out, bam_in, lbl_clone, var_store, rng);
       close(bam_in);
     }
   }
+
+  // output read counts for variable positions within sample
+  path fn_read_counts = path_bam / str(boost::format("%s.vars.csv") % lbl_sample);
+  ofstream ofs_read_counts(fn_read_counts.string(), ofstream::out);
+  for (const auto var_cvg : map_var_cvg) {
+    ofs_read_counts << var_cvg.first << "\t";
+    ofs_read_counts << var_cvg.second << "\t";
+    ofs_read_counts << map_var_alt[var_cvg.first] << "\n";
+  }
+  ofs_read_counts.close();
 
   return true;
 }
@@ -389,7 +423,9 @@ BulkSampleGenerator::transformBamTile (
   BamFileIn& bam_in,
   const string id_clone,
   const vario::VariantStore& var_store,
-  RandomNumberGenerator<>& rng
+  RandomNumberGenerator<>& rng,
+  map<string, unsigned>& map_var_cvg,
+  map<string, unsigned>& map_var_alt
 )
 {
   typedef tuple<TCoord, TCoord, TCoord> TMinMaxOffset;
@@ -400,6 +436,8 @@ BulkSampleGenerator::transformBamTile (
   BamAlignmentRecord read1, read2;
   // used to pick random vector indices (e.g., SegmentCopy)
   random_selector<> selector(rng.generator);
+  // used to decide if given read is to be mutated (depending on expected VAF in sample)
+  function<double()> r_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
 
   // get SegmentCopy map for clone
   auto it_clone_chr_seg = m_map_clone_chr_seg.find(id_clone);
@@ -455,6 +493,8 @@ fprintf(stderr, "### BAM input context contains %lu refs.\n", length(contigNames
 
   // process read alignments
   unsigned num_reads = 0;
+auto t_start = chrono::steady_clock::now();
+auto t_start_10k = chrono::steady_clock::now();
   while (!atEnd(bam_in)) {
     readRecord(read1, bam_in);
     readRecord(read2, bam_in);
@@ -501,17 +541,230 @@ fprintf(stderr, "### BAM input context contains %lu refs.\n", length(contigNames
 
     // spike in mutations
     string chr(toCString(contigNames(context_out)[rid_new]));
+
 if (num_reads % 10000 == 0) {
-  fprintf(stderr, "###   Mutated %07d read pairs.\n", num_reads);
+  auto t_end_10k = chrono::steady_clock::now();
+  auto t_diff = t_end_10k - t_start_10k;
+  fprintf(stderr, "### Mutated %07d read pairs.\n", num_reads);
+  fprintf(stderr, "### TIME: %.2f ms for 10000 read pairs.\n", chrono::duration <double, milli> (t_diff).count());
+  t_start_10k = chrono::steady_clock::now();
 }
-    mutateReadPair(read1, read2, it_clone_chr_seg->second[chr], var_store, selector);
+
+
+    // mutateReadPair(read1, read2, it_clone_chr_seg->second[chr], var_store, selector);
+    mutateReadPairOpt(read1, read2,
+                      var_store.map_chr_pos_snvs.at(chr),
+                      var_store.map_id_snv,
+                      r_dbl,
+                      r1_begin,
+                      r2_begin,
+                      r1_end,
+                      r2_end
+    );
 
     // write updated reads to output BAM
     write(bam_out.iter, read1, context(bam_out), bam_out.format);
     write(bam_out.iter, read2, context(bam_out), bam_out.format);
   }
 
-fprintf(stderr, "### Processed %du read pairs.", num_reads);
+auto t_end = chrono::steady_clock::now();
+auto t_diff = t_end - t_start;
+fprintf(stderr, "### Processed %d read pairs.\n", num_reads);
+fprintf(stderr, "### TIME: %.2f ms for %d read pairs.\n", chrono::duration <double, milli> (t_diff).count(), num_reads);
+
+  return true;
+}
+
+bool
+BulkSampleGenerator::transformBamTileOpt (
+  BamFileOut& bam_out,
+  BamFileIn& bam_in,
+  const string id_clone,
+  const vario::VariantStore& var_store,
+  RandomNumberGenerator<>& rng,
+  map<string, unsigned>& map_var_cvg,
+  map<string, unsigned>& map_var_alt
+)
+{
+  typedef tuple<TCoord, TCoord, TCoord> TMinMaxOffset;
+  map<string, TMinMaxOffset> map_ref_coords; // min, max, offset for ref seq fragments
+  map<string, int> map_ref_id_out; // ref seq IDs to use in output BAM alignments
+  map<int, int> map_ref_loc_glob; // mapping input to output ref IDs
+  BamHeader header_in;
+  BamAlignmentRecord read1, read2;
+  // used to pick random vector indices (e.g., SegmentCopy)
+  random_selector<> selector(rng.generator);
+  // used to decide if given read is to be mutated (depending on expected VAF in sample)
+  function<double()> r_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
+
+  // get SegmentCopy map for clone
+  auto it_clone_chr_seg = m_map_clone_chr_seg.find(id_clone);
+
+  // get global ref seq IDs
+  auto context_out = context(bam_out);
+  for (auto i=0; i<length(contigNames(context_out)); i++) {
+    string ref_name(toCString(contigNames(context_out)[i]));
+    map_ref_id_out[ref_name] = i;
+  }
+
+  // read BAM header
+  readHeader(header_in, bam_in);
+  auto bam_context = context(bam_in);
+fprintf(stderr, "### BAM input context contains %lu refs.\n", length(contigNames(bam_context)));
+  // map local to global coordinates
+  int idx_ref_loc = 0;
+  for (auto i=0; i<length(contigNames(bam_context)); i++) {
+    string chr = "";
+    TCoord loc_start=0, ref_len=0;
+    int pad = 0;
+     
+    CharString seq_name = contigNames(bam_context)[i];
+    ref_len = contigLengths(bam_context)[i];
+    string ref_id(toCString(seq_name));
+
+    // parse ref seq id, expected format:
+    //   <chromosome>_<start>_<end>_<padding>
+    vector<string> ref_id_parts = stringio::split(ref_id, '_');
+    chr = ref_id_parts[0];
+    pad = ref_id_parts.size() > 3 ? stoi(ref_id_parts[3]) : 0;
+    if (ref_id_parts.size() >= 3) {
+      loc_start = stoul(ref_id_parts[1]);
+    } // otherwise, assume complete reference sequence, no padding
+
+    // match local ref ID to global one
+    if (map_ref_id_out.count(chr) == 0) {
+      fprintf(stderr, "[ERROR] (BulkSampleGenerator::transformBamTile)\n");
+      fprintf(stderr, "        unknown ref seq: '%s'\n", chr.c_str());
+      return false;
+    }
+    int ref_id_glob = map_ref_id_out[chr];
+    map_ref_loc_glob[idx_ref_loc] = ref_id_glob;
+    idx_ref_loc++;
+
+    // determine offset by which to shift local mapping coordinates
+    TCoord loc_min = pad;
+    TCoord loc_max = ref_len - pad;
+    TCoord offset = loc_start - pad;
+    TMinMaxOffset coords = make_tuple(loc_min, loc_max, offset);
+    map_ref_coords[ref_id] = coords;
+  }
+
+  // process read alignments
+  unsigned num_reads = 0;
+auto t_start = chrono::steady_clock::now();
+auto t_start_10k = chrono::steady_clock::now();
+  while (!atEnd(bam_in)) {
+    readRecord(read1, bam_in);
+    readRecord(read2, bam_in);
+    num_reads++;
+
+    // parse read alignment details
+    int r1_begin = read1.beginPos;
+    int r2_begin = read2.beginPos;
+    int r1_len = getAlignmentLengthInRef(read1);
+    int r2_len = getAlignmentLengthInRef(read2);
+    int r1_end = r1_begin + r1_len;
+    int r2_end = r2_begin + r2_len;
+    string r1_ref = toCString(contigNames(bam_context)[read1.rID]);
+    string r2_ref = toCString(contigNames(bam_context)[read2.rID]);
+    char r1_rc = hasFlagRC(read1) ? '+' : '-';
+    char r2_rc = hasFlagRC(read2) ? '+' : '-';
+
+    // determine local->global coordinate mapping
+    TCoord min_loc = 0, max_loc = 0, off_glob = 0;
+    tie(min_loc, max_loc, off_glob) = map_ref_coords[r1_ref];
+
+    // check if mapping lies within target coordinates
+    if (r1_begin < min_loc || r2_begin < min_loc || r1_end > max_loc || r2_end > max_loc) {
+      fprintf(stderr, "[INFO] (BulkSampleGenerator::transformBamTile) discarding read pair because of coordinate constraints:\n");
+      fprintf(stderr, "       %s (%d..%d), %s (%d..%d)\n", toCString(read1.qName), r1_begin, r1_end, toCString(read2.qName), r2_begin, r2_end);
+      continue;
+    }
+
+    // update alignment ref seq
+    int rid_new = map_ref_loc_glob[read1.rID];
+    read1.rID = rid_new;
+    read2.rID = rid_new;
+    read1.rNextId = rid_new;
+    read2.rNextId = rid_new;
+
+    // update alignment coordinates
+    read1.beginPos += off_glob;
+    read2.beginPos += off_glob;
+
+    // assign read group
+    CharString tagRG = str(boost::format("RG:Z:%s") % id_clone);
+    appendTagsSamToBam(read1.tags, tagRG);
+    appendTagsSamToBam(read2.tags, tagRG);
+
+    // spike in mutations
+    string chr(toCString(contigNames(context_out)[rid_new]));
+
+if (num_reads % 10000 == 0) {
+  auto t_end_10k = chrono::steady_clock::now();
+  auto t_diff = t_end_10k - t_start_10k;
+  fprintf(stderr, "### Mutated %07d read pairs.\n", num_reads);
+  fprintf(stderr, "### TIME: %.2f ms for 10000 read pairs.\n", chrono::duration <double, milli> (t_diff).count());
+  t_start_10k = chrono::steady_clock::now();
+}
+
+    //auto map_pos_snv = var_store.map_chr_pos_snvs.at(chr); 
+    //auto map_id_snv = var_store.map_id_snv;
+    
+    // determine read pair coordinates
+    TCoord pos_begin, pos_end;
+    if (r1_begin < r2_begin) {
+      pos_begin = r1_begin;
+      pos_end   = r2_end;
+    }
+    else {
+      pos_begin = r2_begin;
+      pos_end   = r1_end;
+    }
+
+    // identify first variant larger than read pair start
+    auto it_snv = var_store.map_chr_pos_snvs.at(chr).lower_bound(pos_begin);
+    
+    // loop over candidate variants
+    while ( it_snv != var_store.map_chr_pos_snvs.at(chr).end() && it_snv->first < pos_end ) {
+      seqio::TCoord pos_var = it_snv->first;
+      // each position can be affected by multiple SNVs (relaxing infinite sites assumption)
+      vector<int> vec_snv = it_snv->second;
+      for (int id_snv : vec_snv) {
+        // get variant allele frequency for SNV in this sample
+        double vaf = this->m_map_snv_vaf[id_snv];
+
+        // decide if read pair is to be mutated (with probability VAF)
+        if (r_dbl() > vaf) continue;
+
+        Variant snv = var_store.map_id_snv.at(id_snv);
+
+        if (pos_var >= r1_begin && pos_var < r1_end) { // mutate read1
+          int r1_var_pos = pos_var - r1_begin;
+          read1.seq[r1_var_pos] = snv.alleles[1][0];
+          map_var_cvg[snv.id]++;
+          map_var_alt[snv.id]++;
+        } 
+        else if (pos_var >= r2_begin && pos_var < r2_end) { // mutate read2
+          int r2_var_pos = pos_var - r2_begin;
+          read2.seq[r2_var_pos] = snv.alleles[1][0];
+          map_var_cvg[snv.id]++;
+          map_var_alt[snv.id]++;
+        }
+      }
+      // next variable position
+      it_snv++;
+    }
+
+    // write updated reads to output BAM
+    write(bam_out.iter, read1, context(bam_out), bam_out.format);
+    write(bam_out.iter, read2, context(bam_out), bam_out.format);
+  }
+
+auto t_end = chrono::steady_clock::now();
+auto t_diff = t_end - t_start;
+fprintf(stderr, "### Processed %d read pairs.\n", num_reads);
+fprintf(stderr, "### TIME: %.2f ms for %d read pairs.\n", chrono::duration <double, milli> (t_diff).count(), num_reads);
 
   return true;
 }
@@ -599,6 +852,179 @@ bool BulkSampleGenerator::mutateReadPair (
   }
 
   return true;
+}
+
+bool BulkSampleGenerator::mutateReadPairOpt (
+  BamAlignmentRecord& read1, 
+  BamAlignmentRecord& read2,
+  const map<seqio::TCoord, vector<int>>& map_pos_snv,
+  const map<int, vario::Variant>& map_id_snv,
+  function<double()>& r_dbl,
+  const int r1_begin,
+  const int r2_begin,
+  const int r1_end,
+  const int r2_end
+)
+{
+  // determine read pair coordinates
+  TCoord pos_begin, pos_end;
+  if (r1_begin < r2_begin) {
+    pos_begin = r1_begin;
+    pos_end   = r2_end;
+  }
+  else {
+    pos_begin = r2_begin;
+    pos_end   = r1_end;
+  }
+
+  // identify first variant larger than read pair start
+  auto it_snv = map_pos_snv.lower_bound(pos_begin);
+  
+  // loop over candidate variants
+  while ( it_snv != map_pos_snv.end() && it_snv->first < pos_end ) {
+    seqio::TCoord pos_var = it_snv->first;
+    // each position can be affected by multiple SNVs (relaxing infinite sites assumption)
+    vector<int> vec_snv = it_snv->second;
+    for (int id_snv : vec_snv) {
+      // get variant allele frequency for SNV in this sample
+      double vaf = this->m_map_snv_vaf[id_snv];
+
+      // decide if read pair is to be mutated (with probability VAF)
+      if (r_dbl() > vaf) continue;
+
+      Variant snv = map_id_snv.at(id_snv);
+
+      if (pos_var >= r1_begin && pos_var < r1_end) { // mutate read1
+        int r1_var_pos = pos_var - r1_begin;
+        read1.seq[r1_var_pos] = snv.alleles[1][0];
+      } 
+      else if (pos_var >= r2_begin && pos_var < r2_end) { // mutate read2
+        int r2_var_pos = pos_var - r2_begin;
+        read2.seq[r2_var_pos] = snv.alleles[1][0];
+      }
+    }
+    // next variable position
+    it_snv++;
+  }
+  
+  return true;
+}
+
+bool
+BulkSampleGenerator::initAlleleCounts (
+  const map<string, double> map_clone_ccf,
+  const vario::VariantStore& var_store
+  //vario::TMapChrPosVaf& out_map_chr_pos_vaf
+)
+{
+  // requires genome instances to be initialized
+  assert(has_clone_genomes);
+
+  this->m_map_clone_snv_vac.clear();
+  this->m_map_snv_vaf.clear();
+
+  // loop over clone genomes
+  for (auto clone_chr_seg : m_map_clone_chr_seg) {
+
+    string id_clone = clone_chr_seg.first;
+    // segment copy map for clone, indexed by chromosome
+    map<string, seqio::TSegMap> map_chr_seg = clone_chr_seg.second;
+
+    // initialize map for clone
+    m_map_clone_snv_vac[id_clone] = map<int, vario::VariantAlleleCount>();
+
+    // populate allele counts for somatic SNVs
+    for (auto const & kv : var_store.map_id_snv) {
+      int id_var = kv.first;
+      Variant var = kv.second;
+      
+      TCoord pos_var = var.pos;
+      string id_chr = var.chr;
+
+      // if (out_map_chr_pos_vaf.count(id_chr) == 0) {
+      //   out_map_chr_pos_vaf[id_chr] = TMapPosVaf();
+      // }
+      
+      // get segment copies overlapping SNV position
+      seqio::TSegMap imap_seg_chr = this->m_map_clone_chr_seg[id_clone][id_chr];
+      seqio::TSegSet iset_read;
+      iset_read.add(interval<TCoord>::right_open(pos_var, pos_var+1));
+      seqio::TSegMap imap_seg_ovlp = imap_seg_chr & iset_read;
+
+      short num_tot = 0;
+      short num_alt = 0;
+
+      for (auto const & itvl_iset : imap_seg_ovlp) {
+        for (const SegmentCopy & segment : itvl_iset.second) {
+          num_tot++; // increase total allele count
+          // check if current segment copy carries current SNV
+          auto it_seg_vars = var_store.map_seg_vars.find(segment.id);
+          if (it_seg_vars == var_store.map_seg_vars.end()) 
+            continue;
+          vector<int> vec_seg_vars = it_seg_vars->second;
+
+          // increase alternative allele count if variant associated to segment copy
+          if(find(vec_seg_vars.begin(), vec_seg_vars.end(), id_var) != vec_seg_vars.end())
+            num_alt++;
+        }
+      }
+
+      vario::VariantAlleleCount vac;
+      vac.num_tot = num_tot;
+      vac.num_alt = num_alt;
+      m_map_clone_snv_vac[id_clone][id_var] = vac;
+    }
+  }
+
+  // Initialize expected bulk variant allele frequencies (VAFs) for somatic SNVs.
+  // Formula:
+  //   VAF_i = \sum_k ( CP_k * A_k,i / N_k,i )
+  // With
+  //   CCF_k := Cancer cell fraction (frequency) of clone k within the bulk sample
+  //   A_k,i := Alternative alleles of clone k at variant i
+  //   N_k,i := Total alleles of clone k at variant i
+
+  for (auto const & kv : var_store.map_id_snv) {
+    int id_snv = kv.first;
+    double vaf = 0.0;
+
+    for (auto const & clone_ccf : map_clone_ccf) {
+      string id_clone = clone_ccf.first;
+      double ccf = clone_ccf.second;
+      vario::VariantAlleleCount vac = this->m_map_clone_snv_vac[id_clone][id_snv];
+
+      vaf += ccf * vac.num_alt / vac.num_tot;
+    }
+
+    this->m_map_snv_vaf[id_snv] = vaf;
+  }
+}
+
+int
+BulkSampleGenerator::writeExpectedReadCounts (
+  ofstream& ofs_out,
+  const int cvg_depth,
+  const vario::VariantStore& var_store
+) const
+{
+  // write header
+  ofs_out << "# Expected read counts for bulk sample." << endl;
+  ofs_out << "# id_snv,chr,pos,ref,alt" << endl;
+
+  // loop over variants
+  for (auto const & snv_vaf : this->m_map_snv_vaf) {
+    int id_snv = snv_vaf.first;
+    double vaf = snv_vaf.second;
+
+    // get SNV details
+    Variant var = var_store.map_id_snv.at(id_snv);
+    
+    // write output to file
+    ofs_out << id_snv << ",";
+    ofs_out << var.chr << ",";
+    ofs_out << var.pos << ",";
+    ofs_out << vaf << endl;
+  }
 }
 
 void
