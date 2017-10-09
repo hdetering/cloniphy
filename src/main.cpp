@@ -395,7 +395,7 @@ cerr << "A:\t" << *(map_clone_genome["A"].vec_chr[0]->lst_segments.begin()) << e
 // DEBUG info: export segment copies to file
 // TODO: move out to Logger class
 string fn_dbg_segs = (path_out / "segments.tsv").string();
-ofstream ofs_dbg_segs(fn_dbg_segs, ofstream::out);
+std::ofstream ofs_dbg_segs(fn_dbg_segs, std::ofstream::out);
 for (auto const & lbl_gi : map_clone_genome) {
   string lbl_clone = lbl_gi.first;
   for (auto const & id_chr : lbl_gi.second.map_id_chr) {
@@ -416,7 +416,7 @@ ofs_dbg_segs.close();
 // DEBUG info: export variants associated to each segment copy
 // TODO: move out to Logger class
 string fn_dbg_vars = (path_out / "segment_vars.tsv").string();
-ofstream ofs_dbg_vars(fn_dbg_vars, ofstream::out);
+std::ofstream ofs_dbg_vars(fn_dbg_vars, std::ofstream::out);
 for (auto const & cg : map_clone_genome) {
   string lbl_clone = cg.first;
   for (auto const & ic : cg.second.map_id_chr) {
@@ -505,7 +505,7 @@ ofs_dbg_vars.close();
   // write somatic variants to VCF file
   string fn_vcf = (path_out / "somatic.vcf").string();
   fprintf(stderr, "\nWriting (sub)clonal mutations to file '%s'.\n", fn_vcf.c_str());
-  ofstream f_vcf;
+  std::ofstream f_vcf;
   f_vcf.open(fn_vcf);
   vario::writeVcf(ref_genome.records, vec_var_somatic, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
   f_vcf.close();
