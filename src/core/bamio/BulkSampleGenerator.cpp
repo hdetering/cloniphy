@@ -195,7 +195,7 @@ BulkSampleGenerator::mergeBulkSeqReads (
 
   // create new output file for sample
   string fn_bam_out = (path_bam / (lbl_sample + ".sam")).string();
-  ofstream fs_bam_out;
+  std::ofstream fs_bam_out;
   fs_bam_out.open(fn_bam_out.c_str());
 
   // collect reference sequence info and write to BAM header
@@ -252,7 +252,7 @@ fprintf(stderr, "### Removing input SAM (%s).\n", fn_bam_in);
 
   // output read counts for variable positions within sample
   path fn_read_counts = path_bam / str(boost::format("%s.vars.csv") % lbl_sample);
-  ofstream ofs_read_counts(fn_read_counts.string(), ofstream::out);
+  std::ofstream ofs_read_counts(fn_read_counts.string(), std::ofstream::out);
   for (const auto var_cvg : map_var_cvg) {
     ofs_read_counts << var_cvg.first << "\t";
     ofs_read_counts << var_cvg.second << "\t";
@@ -329,7 +329,7 @@ BulkSampleGenerator::writeBulkCopyNumber (
 
     // create BED file for sample
     string fn_bed = (path_out / str(boost::format("%s.cn.bed") % id_sample)).string();
-    ofstream ofs_bed(fn_bed, ofstream::out);
+    std::ofstream ofs_bed(fn_bed, std::ofstream::out);
 
     // write genomic intervals and CN state to BED file
     for (auto const & chr_seg : map_chr_seg) {
@@ -1005,7 +1005,7 @@ BulkSampleGenerator::initAlleleCounts (
 
 int
 BulkSampleGenerator::writeExpectedReadCounts (
-  ofstream& ofs_out,
+  std::ofstream& ofs_out,
   const int cvg_depth,
   const vario::VariantStore& var_store
 ) const
@@ -1053,7 +1053,7 @@ BulkSampleGenerator::writeFastaTiled (
   map<seqio::TRegion, double> map_reg_cn;
 
   // export genomic fragments to corresponding output files
-  map<int, shared_ptr<ofstream>> map_cn_file;
+  map<int, shared_ptr<std::ofstream>> map_cn_file;
   for ( auto const & chr_seg : map_chr_segments ) {
     string id_chr = chr_seg.first;
     for ( auto const & seg : chr_seg.second ) {
@@ -1067,10 +1067,10 @@ BulkSampleGenerator::writeFastaTiled (
       // create output file for CN state if not exists
       if ( map_cn_file.count(cn_state) == 0 ) {
         path filepath = path_fasta / str(boost::format("%s.%d.fa") % lbl_clone % cn_state);
-        shared_ptr<ofstream> ofs(new ofstream(filepath.string(), ofstream::out));
+        shared_ptr<std::ofstream> ofs(new ofstream(filepath.string(), std::ofstream::out));
         map_cn_file[cn_state] = ofs;
       }
-      shared_ptr<ofstream> ofs = map_cn_file[cn_state];
+      shared_ptr<std::ofstream> ofs = map_cn_file[cn_state];
       // get sequence for target region from reference genome
       map<TCoord, string> map_start_seq;
       reference.getSequence(id_chr, ref_start, ref_end, map_start_seq);
@@ -1105,7 +1105,7 @@ BulkSampleGenerator::writeFastaTiled (
 
   // write intervals and corresponding CN state to BED file
   string fn_bed = (path_bed / str(boost::format("%s.cn.bed") % lbl_clone)).string();
-  ofstream f_bed(fn_bed);
+  std::ofstream f_bed(fn_bed);
   for (auto& reg_cn : map_reg_cn) {
     string id_chr;
     TCoord ref_start, ref_end;
