@@ -263,28 +263,28 @@ BOOST_AUTO_TEST_CASE ( bsg )
   path path_bam = workdir/"bam";
   
   // 1. read reference genome
-  BOOST_MESSAGE( "\nReading reference genome from file:\n" + fn_ref.string() );
+  BOOST_TEST_MESSAGE( "\nReading reference genome from file:\n" + fn_ref.string() );
   GenomeReference ref_genome(fn_ref.c_str());
-  BOOST_MESSAGE( "Read " << ref_genome.num_records << "records:\n" );
-  BOOST_MESSAGE( ref_genome );
+  BOOST_TEST_MESSAGE( "Read " << ref_genome.num_records << "records:\n" );
+  BOOST_TEST_MESSAGE( ref_genome );
 
   // 2. generate germline variants
   vario::VariantStore var_store;
   
 
   // 2. initialize BulkSampleGenerator
-  BOOST_MESSAGE( "\nInitializing BulkSampleGenerator.\n" );
+  BOOST_TEST_MESSAGE( "\nInitializing BulkSampleGenerator.\n" );
   BulkSampleGenerator bulk_gen;
   bulk_gen.initializeRefSeqs(ref_genome);
 
   // 3. generate read groups to assign read pairs to clones
-  BOOST_MESSAGE( "\nGenerating Read Groups.\n" );
+  BOOST_TEST_MESSAGE( "\nGenerating Read Groups.\n" );
   vector<seqan::BamHeaderRecord> vec_rg;
   vector<string> vec_tag_id = {"A","B","C","D"};
   bulk_gen.generateReadGroups(vec_rg, "sample1", vec_tag_id, "Illumina", "HiSeq2500");
 
   // 4. merge existing reads (won't work without BAM files in path_bam)
-  BOOST_MESSAGE( "\nNow merging BAM files...\n" );
+  BOOST_TEST_MESSAGE( "\nNow merging BAM files...\n" );
   bulk_gen.mergeBulkSeqReads(path_bam, "sample1", vec_rg, var_store, rng);
 }
 
