@@ -4,7 +4,6 @@
 using namespace std;
 using namespace boost::filesystem;
 using namespace seqan;
-using std::ofstream; // resolve ambiguity with boost::filesytem::ofstream
 using boost::icl::interval_map;
 using boost::icl::interval;
 using seqio::GenomeInstance;
@@ -73,7 +72,7 @@ BulkSampleGenerator::generateBulkSamples (
 
     // output expected read counts to BED file.
     path fn_vaf = path_bed / str(boost::format("%s.vaf.bed") % lbl_sample) ;
-    ofstream ofs_vaf(fn_vaf.string(), std::ofstream::out);
+    std::ofstream ofs_vaf(fn_vaf.string(), std::ofstream::out);
     writeExpectedReadCounts(ofs_vaf, seq_coverage, var_store);
     ofs_vaf.close();
 
