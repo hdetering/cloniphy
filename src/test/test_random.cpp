@@ -10,6 +10,9 @@
 using boost::format;
 using boost::str;
 using namespace std;
+using boost::format;
+using boost::str;
+
 
 struct FixtureRandom {
   FixtureRandom() {
