@@ -4,10 +4,11 @@
 #include "../core/random.hpp"
 #include <boost/format.hpp>
 #include <chrono>
+#include <fstream>
+#include <iostream>
+
 using boost::format;
 using boost::str;
-#include <fstream>
-
 using namespace std;
 
 struct FixtureRandom {
