@@ -4,6 +4,7 @@
 using namespace std;
 using namespace boost::filesystem;
 using namespace seqan;
+using std::ofstream; // resolve ambiguity with boost::filesytem::ofstream
 using boost::icl::interval_map;
 using boost::icl::interval;
 using seqio::GenomeInstance;
