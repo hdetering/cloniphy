@@ -263,7 +263,7 @@ BOOST_AUTO_TEST_CASE ( bsg )
   path path_bam = workdir/"bam";
   
   // 1. read reference genome
-  BOOST_MESSAGE( "\nReading reference genome from file:\n" << fn_ref );
+  BOOST_MESSAGE( "\nReading reference genome from file:\n" + fn_ref.string() );
   GenomeReference ref_genome(fn_ref.c_str());
   BOOST_MESSAGE( "Read " << ref_genome.num_records << "records:\n" );
   BOOST_MESSAGE( ref_genome );
