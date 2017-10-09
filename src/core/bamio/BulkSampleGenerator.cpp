@@ -737,22 +737,27 @@ if (num_reads % 10000 == 0) {
         // get variant allele frequency for SNV in this sample
         double vaf = this->m_map_snv_vaf[id_snv];
 
-        // decide if read pair is to be mutated (with probability VAF)
-        if (r_dbl() > vaf) continue;
-
         Variant snv = var_store.map_id_snv.at(id_snv);
 
-        if (pos_var >= r1_begin && pos_var < r1_end) { // mutate read1
-          int r1_var_pos = pos_var - r1_begin;
-          read1.seq[r1_var_pos] = snv.alleles[1][0];
+        if (pos_var >= r1_begin && pos_var < r1_end) { // variant overlaps read1
           map_var_cvg[snv.id]++;
-          map_var_alt[snv.id]++;
+
+          // decide if read pair is to be mutated (with probability VAF)
+          if (r_dbl() <= vaf) {
+            int r1_var_pos = pos_var - r1_begin;
+            read1.seq[r1_var_pos] = snv.alleles[1][0];
+            map_var_alt[snv.id]++;
+          }
         } 
-        else if (pos_var >= r2_begin && pos_var < r2_end) { // mutate read2
-          int r2_var_pos = pos_var - r2_begin;
-          read2.seq[r2_var_pos] = snv.alleles[1][0];
+        else if (pos_var >= r2_begin && pos_var < r2_end) { // variant overlaps read2
           map_var_cvg[snv.id]++;
-          map_var_alt[snv.id]++;
+
+          // decide if read pair is to be mutated (with probability VAF)
+          if (r_dbl() <= vaf) {
+            int r2_var_pos = pos_var - r2_begin;
+            read2.seq[r2_var_pos] = snv.alleles[1][0];
+            map_var_alt[snv.id]++;
+          }
         }
       }
       // next variable position
