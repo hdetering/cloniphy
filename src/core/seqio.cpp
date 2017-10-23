@@ -43,6 +43,21 @@ operator<(const SegmentCopy& lhs, const SegmentCopy& rhs) {
   return lhs.id < rhs.id;
 }
 
+/*------------------- 
+   AlleleSpecCopyNum 
+  -------------------*/
+
+bool 
+operator==(const AlleleSpecCopyNum& lhs, const AlleleSpecCopyNum& rhs) {
+  return lhs.count_A == rhs.count_A && lhs.count_B == rhs.count_B;
+}
+
+
+// bool 
+// operator==(const AlleleSpecCopyNum& rhs) {
+//   return this->count_A == rhs.count_A && this->count_B == rhs.count_B;
+// }
+
 /*---------------
   GenomeReference
   ---------------*/
@@ -418,11 +433,13 @@ ChromosomeReference::ChromosomeReference() : id(""), length(0) {}
 
 ChromosomeInstance::ChromosomeInstance() : length(0) {}
 
-ChromosomeInstance::ChromosomeInstance(ChromosomeReference ref)
-//: ref_chr(shared_ptr<ChromosomeReference>(&ref)), length(ref.length) {
+ChromosomeInstance::ChromosomeInstance (
+  const ChromosomeReference ref,
+  const char gl_allele
+)
 : length(ref.length) {
   // inititally chromosome consists of a single SegmentCopy
-  SegmentCopy seg_copy(0, this->length);
+  SegmentCopy seg_copy(0, this->length, gl_allele);
   this->lst_segments.push_back(seg_copy);
 }
 
@@ -436,7 +453,7 @@ vector<SegmentCopy> ChromosomeInstance::getSegmentCopiesAt(unsigned long ref_pos
   return res_segments;
 }
 
-vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
+vector<seg_mod_t> ChromosomeInstance::amplifyRegion (
   double start_rel,
   double len_rel,
   bool is_forward,
@@ -474,6 +491,7 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
   // identify first affected SegmentCopy
   unsigned long pos_bp = 0; // current position
   unsigned long seg_len = 0; // length of current SegmentCopy
+  char seg_allele = 'A'; // reference source allele of current SegmentCopy
   auto it_seg = this->lst_segments.begin();
   // NOTE: after break, pos_bp stores the start coordinate of the current SegmentCopy
   while (it_seg != this->lst_segments.end()) {
@@ -488,12 +506,13 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
   if (bkp_start >= pos_bp) {
     is_left_bkp = true;
     seg_len = it_seg->ref_end - it_seg->ref_start;
+    seg_allele = it_seg->gl_allele;
     //is_right_bkp = (bkp_end <= pos_bp+seg_len);
     // create new SegmentCopy
     unsigned long seg_new_start = it_seg->ref_start + (bkp_start - pos_bp);
     unsigned long seg_new_end = pos_bp+seg_len <= bkp_end ? it_seg->ref_end : seg_new_start+len_bp;
     assert( seg_new_start < seg_new_end );
-    SegmentCopy seg_new(seg_new_start, seg_new_end);
+    SegmentCopy seg_new(seg_new_start, seg_new_end, seg_allele);
     lst_seg_new.push_back(seg_new);
     vec_seg_mod.push_back(make_tuple(seg_new.id, it_seg->id, seg_new_start, seg_new_end));
 
@@ -501,15 +520,15 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
     if (!is_forward ) {
       if ( bkp_start > pos_bp) { // split this SegmentCopy at breakpoint
         // head of SegmentCopy
-        unsigned long head_len = bkp_start - pos_bp;
-        unsigned long head_start = it_seg->ref_start;
-        unsigned long head_end = it_seg->ref_start + head_len;
-        SegmentCopy seg_head(head_start, head_end);
+        TCoord head_len = bkp_start - pos_bp;
+        TCoord head_start = it_seg->ref_start;
+        TCoord head_end = it_seg->ref_start + head_len;
+        SegmentCopy seg_head(head_start, head_end, seg_allele);
         vec_seg_mod.push_back(make_tuple(seg_head.id, it_seg->id, head_start, head_end));
         // tail of SegmentCopy
-        unsigned long tail_start = head_end;
-        unsigned long tail_end = it_seg->ref_end;
-        SegmentCopy seg_tail(tail_start, tail_end);
+        TCoord tail_start = head_end;
+        TCoord tail_end = it_seg->ref_end;
+        SegmentCopy seg_tail(tail_start, tail_end, seg_allele);
         vec_seg_mod.push_back(make_tuple(seg_tail.id, it_seg->id, tail_start, tail_end));
 
         // replace existing SegmentCopy
@@ -532,7 +551,7 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
     if (pos_bp+seg_len >= bkp_end) break;
     // right breakpoint is after end of SegmentCopy
     if (!is_left_bkp) {
-      SegmentCopy seg_copy(it_seg->ref_start, it_seg->ref_end);
+      SegmentCopy seg_copy(it_seg->ref_start, it_seg->ref_end, it_seg->gl_allele);
       lst_seg_new.push_back(seg_copy);
       vec_seg_mod.push_back(make_tuple(seg_copy.id, it_seg->id, it_seg->ref_start, it_seg->ref_end));
     } else {
@@ -548,26 +567,27 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion(
     // new SegmentCopy needed only if this one does not contain left breakpoint
     // (otherwise the whole duplication has already been handled)
     if (!is_left_bkp) {
-      unsigned long seg_new_start = it_seg->ref_start;
-      unsigned long seg_new_end = seg_new_start + (bkp_end-pos_bp);
+      TCoord seg_new_start = it_seg->ref_start;
+      TCoord seg_new_end = seg_new_start + (bkp_end-pos_bp);
+      char seg_new_allele = it_seg->gl_allele;
       assert( seg_new_start < seg_new_end );
-      SegmentCopy seg_new(seg_new_start, seg_new_end);
+      SegmentCopy seg_new(seg_new_start, seg_new_end, seg_new_allele);
       lst_seg_new.push_back(seg_new);
       vec_seg_mod.push_back(make_tuple(seg_new.id, it_seg->id, seg_new_start, seg_new_end));
     }
     if (is_forward ) {
       if (bkp_end < pos_bp+seg_len) { // split this SegmentCopy at breakpoint
         // head of SegmentCopy
-        unsigned long head_len = bkp_end - pos_bp;
-        unsigned long head_start = it_seg->ref_start;
-        unsigned long head_end = it_seg->ref_start + head_len;
-        SegmentCopy seg_head(head_start, head_end);
+        TCoord head_len = bkp_end - pos_bp;
+        TCoord head_start = it_seg->ref_start;
+        TCoord head_end = it_seg->ref_start + head_len;
+        SegmentCopy seg_head(head_start, head_end, it_seg->gl_allele);
         vec_seg_mod.push_back(make_tuple(seg_head.id, it_seg->id, head_start, head_end));
 
         // tail of SegmentCopy
-        unsigned long tail_start = head_end;
-        unsigned long tail_end = it_seg->ref_end;
-        SegmentCopy seg_tail(tail_start, tail_end);
+        TCoord tail_start = head_end;
+        TCoord tail_end = it_seg->ref_end;
+        SegmentCopy seg_tail(tail_start, tail_end, it_seg->gl_allele);
         vec_seg_mod.push_back(make_tuple(seg_tail.id, it_seg->id, tail_start, tail_end));
 
         // replace existing SegmentCopy
@@ -610,10 +630,10 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
   else
     assert( start_rel - len_rel >= 0.0 );
   // physical start, length of event
-  unsigned long start_bp = start_rel * this->length;
-  unsigned long len_bp = len_rel * this->length;
+  TCoord start_bp = start_rel * this->length;
+  TCoord len_bp = len_rel * this->length;
   // physical coordinates
-  unsigned long bkp_start, bkp_end;
+  TCoord bkp_start, bkp_end;
   if (is_forward) {
     bkp_start = start_bp;
     bkp_end = is_telomeric ? this->length : start_bp+len_bp;
@@ -625,8 +645,8 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
   len_bp = (bkp_end - bkp_start);
 
   // identify first affected SegmentCopy
-  unsigned long pos_bp = 0; // current position
-  unsigned long seg_len = 0; // length of current SegmentCopy
+  TCoord pos_bp = 0; // current position
+  TCoord seg_len = 0; // length of current SegmentCopy
   auto it_seg = this->lst_segments.begin();
   // NOTE: after break, pos_bp stores the start coordinate of the current SegmentCopy
   while (it_seg != this->lst_segments.end()) {
@@ -644,11 +664,11 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
   // does deletion start after beginning of current SegmentCopy?
   if (bkp_start > pos_bp) {
     // head of SegmentCopy will be conserved
-    unsigned long head_len = bkp_start - pos_bp;
-    unsigned long head_start = it_seg->ref_start;
-    unsigned long head_end = it_seg->ref_start + head_len;
+    TCoord head_len = bkp_start - pos_bp;
+    TCoord head_start = it_seg->ref_start;
+    TCoord head_end = it_seg->ref_start + head_len;
     assert( head_start < head_end );
-    SegmentCopy seg_head(head_start, head_end);
+    SegmentCopy seg_head(head_start, head_end, it_seg->gl_allele);
     lst_seg_new.push_back(seg_head);
     vec_seg_mod.push_back(make_tuple(seg_head.id, it_seg->id, head_start, head_end));
   }
@@ -664,11 +684,11 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
   // does deletion end before end of current SegmentCopy?
   if (bkp_end < pos_bp+seg_len) {
     // tail of SegmentCopy will be conserved
-    unsigned long tail_len = pos_bp + seg_len - bkp_end;
-    unsigned long tail_start = it_seg->ref_end - tail_len;
-    unsigned long tail_end = it_seg->ref_end;
+    TCoord tail_len = pos_bp + seg_len - bkp_end;
+    TCoord tail_start = it_seg->ref_end - tail_len;
+    TCoord tail_end = it_seg->ref_end;
     assert( tail_start < tail_end );
-    SegmentCopy seg_tail(tail_start, tail_end);
+    SegmentCopy seg_tail(tail_start, tail_end, it_seg->gl_allele);
     lst_seg_new.push_back(seg_tail);
     vec_seg_mod.push_back(make_tuple(seg_tail.id, it_seg->id, tail_start, tail_end));
   }
@@ -687,7 +707,7 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
 void ChromosomeInstance::copy(shared_ptr<ChromosomeInstance> ci_old, vector<seg_mod_t>& out_vec_seg_mod) {
   this->length = ci_old->length;
   for (auto const & seg_old : ci_old->lst_segments) {
-    SegmentCopy seg_new(seg_old.ref_start, seg_old.ref_end);
+    SegmentCopy seg_new(seg_old.ref_start, seg_old.ref_end, seg_old.gl_allele);
     this->lst_segments.push_back(seg_new);
     out_vec_seg_mod.push_back(make_tuple(seg_new.id, seg_old.id, seg_old.ref_start, seg_old.ref_end));
   }
@@ -714,6 +734,10 @@ ChromosomeInstance::indexSegmentCopies (
   }
 }
 
+/*---------------- 
+   GenomeInstance
+  ----------------*/
+
 GenomeInstance::GenomeInstance() {}
 
 GenomeInstance::GenomeInstance (
@@ -723,10 +747,10 @@ GenomeInstance::GenomeInstance (
   for (auto const & kv : g_ref.chromosomes) {
     ChromosomeReference chr_ref = *(kv.second);
     // initial genome state is diploid -> generate two instances of each chromosome
-    shared_ptr<ChromosomeInstance> sp_chr_inst1(new ChromosomeInstance(chr_ref));
+    shared_ptr<ChromosomeInstance> sp_chr_inst1(new ChromosomeInstance(chr_ref, 'A'));
     this->vec_chr.push_back(sp_chr_inst1);
     this->vec_chr_len.push_back(sp_chr_inst1->length);
-    shared_ptr<ChromosomeInstance> sp_chr_inst2(new ChromosomeInstance(chr_ref));
+    shared_ptr<ChromosomeInstance> sp_chr_inst2(new ChromosomeInstance(chr_ref, 'B'));
     this->vec_chr.push_back(sp_chr_inst2);
     this->vec_chr_len.push_back(sp_chr_inst2->length);
     // sanity check: chromsome IDs should be unique
@@ -831,6 +855,37 @@ GenomeInstance::getCopyNumberStateByChr (
   }
 }
 
+void
+GenomeInstance::getCopyNumberStateByChr (
+  map<string, interval_map<TCoord, AlleleSpecCopyNum>>& map_chr_alleles,
+  const double scale
+) const
+{
+  // infer copy number state segments
+  // for each chromosome id, build an interval map
+  for ( auto const & id_chr : map_id_chr ) {
+    map_chr_alleles[id_chr.first] = interval_map<TCoord, AlleleSpecCopyNum>();
+    // infer segment-wise copy number for each ChromosomeInstance
+    for ( auto const chr : id_chr.second ) {
+      // each SegmentCopy increases the CN state for the corresponding region
+      for ( auto const & seg : chr->lst_segments ) {
+        // NOTE: if this ever fails: switch start and end coordinates (or can interval_map deal with that?)
+        assert( seg.ref_start < seg.ref_end );
+        auto i = interval<TCoord>::right_open(seg.ref_start, seg.ref_end);
+        // copy number increases for allele to which segment copy belongs
+        AlleleSpecCopyNum allele_count;
+        if ( seg.gl_allele == 'A' )
+          allele_count.count_A = scale;
+        else
+          allele_count.count_B = scale;
+        // add interval with value 1 to interval map (copy number increases by 1)
+        map_chr_alleles[id_chr.first] += make_pair(i, allele_count);
+      }
+    }
+  }
+}
+
+
 bool
 GenomeInstance::indexSegmentCopies ()
 {
@@ -861,15 +916,24 @@ ostream& operator<<(ostream& lhs, const GenomeInstance& gi) {
   return lhs;
 }
 
-SegmentCopy::SegmentCopy()
+/*-------------
+   SegmentCopy
+  -------------*/
+
+SegmentCopy::SegmentCopy ()
 : id(boost::uuids::random_generator()()) {}
 
-SegmentCopy::~SegmentCopy() {}
+SegmentCopy::~SegmentCopy () {}
 
-SegmentCopy::SegmentCopy(unsigned long start, unsigned long end)
+SegmentCopy::SegmentCopy (
+  const TCoord start, 
+  const TCoord end,
+  const char allele
+)
 : id(boost::uuids::random_generator()()), 
   ref_start(start), 
-  ref_end(end)
+  ref_end(end),
+  gl_allele(allele)
 {}
 
 ostream& operator<<(ostream& lhs, const SegmentCopy& seg) {

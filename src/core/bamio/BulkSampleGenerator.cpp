@@ -307,22 +307,22 @@ BulkSampleGenerator::writeBulkCopyNumber (
     map<string, double> w = kv.second;
   
     // merge CN states for individual clone genomes (use interval_map)
-    map<string, interval_map<TCoord, double>> map_chr_seg;
+    map<string, interval_map<TCoord, seqio::AlleleSpecCopyNum>> map_chr_cn;
     for (auto const lbl_w : w) {
       string id_clone = lbl_w.first;
       double weight = lbl_w.second;
 
       GenomeInstance gi = map_lbl_gi.at(id_clone);
-      map<string, interval_map<TCoord, double>> map_chr_seg_clone;
-      gi.getCopyNumberStateByChr(map_chr_seg_clone, weight);
+      map<string, interval_map<TCoord, seqio::AlleleSpecCopyNum>> map_chr_cn_clone;
+      gi.getCopyNumberStateByChr(map_chr_cn, weight);
 
       // for each chromosome id, build an interval map
-      for ( auto const & chr_seg : map_chr_seg_clone ) {
+      for ( auto const & chr_seg : map_chr_cn_clone ) {
         string id_chr = chr_seg.first;
-        if (map_chr_seg.count(id_chr) == 0) {
-          map_chr_seg[id_chr] = chr_seg.second;
+        if (map_chr_cn.count(id_chr) == 0) {
+          map_chr_cn[id_chr] = chr_seg.second;
         } else {
-          map_chr_seg[id_chr] += chr_seg.second;
+          map_chr_cn[id_chr] += chr_seg.second;
         }
       }
     }
@@ -332,16 +332,17 @@ BulkSampleGenerator::writeBulkCopyNumber (
     std::ofstream ofs_bed(fn_bed, std::ofstream::out);
 
     // write genomic intervals and CN state to BED file
-    for (auto const & chr_seg : map_chr_seg) {
+    for (auto const & chr_seg : map_chr_cn) {
       string id_chr = chr_seg.first;
-      interval_map<TCoord, double> imap_reg_cn = chr_seg.second;
+      interval_map<TCoord, seqio::AlleleSpecCopyNum> imap_reg_cn = chr_seg.second;
       for (auto const & reg_cn : imap_reg_cn) {
         TCoord ref_start, ref_end;
         auto reg = reg_cn.first;
         ref_start = reg.lower();
         ref_end = reg.upper();
-        double cn_state = reg_cn.second;
-        ofs_bed << str(boost::format("%s\t%lu\t%lu\t%0.4f\n") % id_chr % ref_start % ref_end % cn_state);
+        seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
+        ofs_bed << str(boost::format("%s\t%lu\t%lu\t%0.4f\t%0.4f\n") % 
+                       id_chr % ref_start % ref_end % cn_state.count_A % cn_state.count_B);
       }
     }
   }
@@ -1050,16 +1051,17 @@ BulkSampleGenerator::writeFastaTiled (
 
   // infer copy number state segments
   // for each chromosome id, build an interval map
-  map<string, interval_map<TCoord, double>> map_chr_segments;
-  genome.getCopyNumberStateByChr(map_chr_segments);
+  map<string, interval_map<TCoord, seqio::AlleleSpecCopyNum>> map_chr_alleles;
+  genome.getCopyNumberStateByChr(map_chr_alleles);
 
   // data structure to keep track of genomic fragments and their CN state
   // ordered by location (chr, start, end);
-  map<seqio::TRegion, double> map_reg_cn;
+  map<seqio::TRegion, seqio::AlleleSpecCopyNum> map_reg_cn;
 
   // export genomic fragments to corresponding output files
   map<int, shared_ptr<std::ofstream>> map_cn_file;
-  for ( auto const & chr_seg : map_chr_segments ) {
+  // for ( auto const & chr_seg : map_chr_segments ) {
+  for ( auto const & chr_seg : map_chr_alleles ) {
     string id_chr = chr_seg.first;
     for ( auto const & seg : chr_seg.second ) {
       auto i = seg.first;
@@ -1068,14 +1070,16 @@ BulkSampleGenerator::writeFastaTiled (
       // ignore segments shorter than minimum length
       if ( ref_end-ref_start < min_len ) 
         continue;
-      double cn_state = seg.second;
+      // double cn_state = seg.second;
+      seqio::AlleleSpecCopyNum cn_state = seg.second;
+      double cn_total = cn_state.count_A + cn_state.count_B;
       // create output file for CN state if not exists
-      if ( map_cn_file.count(cn_state) == 0 ) {
-        path filepath = path_fasta / str(boost::format("%s.%d.fa") % lbl_clone % cn_state);
+      if ( map_cn_file.count(cn_total) == 0 ) {
+        path filepath = path_fasta / str(boost::format("%s.%d.fa") % lbl_clone % cn_total);
         shared_ptr<std::ofstream> ofs(new std::ofstream(filepath.string(), std::ofstream::out));
-        map_cn_file[cn_state] = ofs;
+        map_cn_file[cn_total] = ofs;
       }
-      shared_ptr<std::ofstream> ofs = map_cn_file[cn_state];
+      shared_ptr<std::ofstream> ofs = map_cn_file[cn_total];
       // get sequence for target region from reference genome
       map<TCoord, string> map_start_seq;
       reference.getSequence(id_chr, ref_start, ref_end, map_start_seq);
@@ -1115,17 +1119,20 @@ BulkSampleGenerator::writeFastaTiled (
     string id_chr;
     TCoord ref_start, ref_end;
     tie(id_chr, ref_start, ref_end) = reg_cn.first;
-    double cn_state = reg_cn.second;
+    seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
+    bool cn_total = cn_state.count_A + cn_state.count_B;
 
-    f_bed << str(boost::format("%s\t%lu\t%lu\t%.4f\n") % id_chr % ref_start % ref_end % cn_state);
+    f_bed << str(boost::format("%s\t%lu\t%lu\t%.4f\t%.4f\n") 
+                 % id_chr % ref_start % ref_end 
+                 % cn_state.count_A % cn_state.count_B);
 
     // add fragment length to CN->len index
-    if (map_cn_len.count(cn_state) == 0) {
-      map_cn_len[cn_state] = (ref_end - ref_start) + 2*padding;
-      map_cn_nseq[cn_state] = 1;
+    if (map_cn_len.count(cn_total) == 0) {
+      map_cn_len[cn_total] = (ref_end - ref_start) + 2*padding;
+      map_cn_nseq[cn_total] = 1;
     } else {
-      map_cn_len[cn_state] += (ref_end - ref_start) + 2*padding;
-      map_cn_nseq[cn_state] += 1;
+      map_cn_len[cn_total] += (ref_end - ref_start) + 2*padding;
+      map_cn_nseq[cn_total] += 1;
     }
   }
 

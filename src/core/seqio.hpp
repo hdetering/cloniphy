@@ -124,13 +124,24 @@ struct SegmentCopy {
   TCoord ref_start;
   /** End position (0-based, exclusive) in reference chromosome */
   TCoord ref_end;
+  /** Germline source allele (maternal: A, paternal: B). */
+  char gl_allele;
 
   /** default c'tor */
   SegmentCopy();
   /** default d'tor */
   ~SegmentCopy();
-  /** Create SegmentCopy for given coordinates */
-  SegmentCopy(TCoord start, TCoord end);
+
+  /** Create SegmentCopy for given coordinates.
+   *  \param start      Reference bp position where segment copy begins.
+   *  \param end        Reference bp position where segment copy ends.
+   *  \param gl_allele  Germline source allele ('A','B') from which segment copy originates.
+   */
+  SegmentCopy (
+    const TCoord start, 
+    const TCoord end,
+    const char gl_allele
+  );
 };
 
 /** Compare two segment copies (equality).
@@ -183,17 +194,23 @@ typedef std::tuple<boost::uuids::uuid, boost::uuids::uuid, unsigned long, unsign
  *  which represent regions of the reference sequence.
  */
 struct ChromosomeInstance {
-  /** Back-pointer to ChromosomeReference */
-  //std::shared_ptr<ChromosomeReference> ref_chr;
   /** Real length (in bp) of ChromosomeInstance */
   unsigned long length;
   /** SegmentCopies that are associated with this ChromosomeInstance */
   std::list<SegmentCopy> lst_segments;
+  
   /** default c'tor */
   ChromosomeInstance();
-  /** Generate ChromsomeInstance from reference chromsome.
-   *  A single SegmentCopy will be created comprising the whole chromosome. */
-  ChromosomeInstance(ChromosomeReference);
+
+  /** Generate ChromsomeInstance from reference chromosome.
+   *  A single SegmentCopy will be created comprising the whole chromosome.
+   *  \param chr_ref    Reference chromosome of which to create an instance.
+   *  \param gl_allele  Germline source allele, will be assigned to segment copies.
+   */
+  ChromosomeInstance (
+    const ChromosomeReference chr_ref,
+    const char gl_allele
+  );
 
   /** Identify SegmentCopies overlapping a given locus. */
   std::vector<SegmentCopy> 
@@ -394,6 +411,26 @@ std::string nucToString(const Nuc);
 /** Mutate a nucleotide by an offset. */
 char shiftNucleotide(const char, const int);
 
+/** Utility class to encapsulate allele-specific copy number state as two double values. */
+struct AlleleSpecCopyNum {
+  /** Copy number for allele A. */
+  double count_A;
+  /** Copy number for allele B. */
+  double count_B;
+
+  /** default c'tor */
+  AlleleSpecCopyNum() : count_A(0.0), count_B(0.0) {}
+
+  /** Add two copy number states. */
+  AlleleSpecCopyNum& operator+=(const AlleleSpecCopyNum& rhs) {
+    this->count_A += rhs.count_A;
+    this->count_B += rhs.count_B;
+    return *this;
+  }
+};
+/** Compare two copy number states. */
+bool operator==(const AlleleSpecCopyNum& lhs, const AlleleSpecCopyNum& rhs);
+
 /** Represents the incarnation of a reference genome.
  *
  *  A GenomeInstance consists of a set of ChromosomeInstances,
@@ -481,6 +518,16 @@ struct GenomeInstance {
   void
   getCopyNumberStateByChr (
     std::map<std::string, boost::icl::interval_map<TCoord, double>>& map_chr_seg,
+    const double scale = 1.0
+  ) const;
+
+  /** Map genomic regions for each chromosome to their allele-specific copy number states.
+   *  \param map_chr_seg map storing for genomic segment its copy number state.
+   *  \param scale       factor by which each segment increases CN (default: 1).
+   */
+  void
+  getCopyNumberStateByChr (
+    std::map<std::string, boost::icl::interval_map<TCoord, AlleleSpecCopyNum>>& map_chr_seg,
     const double scale = 1.0
   ) const;
 
