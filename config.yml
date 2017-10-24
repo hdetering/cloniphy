@@ -5,7 +5,8 @@
 #--------------------#
 
 # output folder
-out-dir: "c4.r4.m1000.30Mb.100x"
+#out-dir: "c4.r4.m100.100kb.100x"
+out-dir: "c4.r4.m1000.60Mb.100x"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
