@@ -312,9 +312,12 @@ BulkSampleGenerator::writeBulkCopyNumber (
       string id_clone = lbl_w.first;
       double weight = lbl_w.second;
 
+      // clones not present in sample do not contribute to copy number.
+      if (weight == 0.0) continue;
+
       GenomeInstance gi = map_lbl_gi.at(id_clone);
       map<string, interval_map<TCoord, seqio::AlleleSpecCopyNum>> map_chr_cn_clone;
-      gi.getCopyNumberStateByChr(map_chr_cn, weight);
+      gi.getCopyNumberStateByChr(map_chr_cn_clone, weight);
 
       // for each chromosome id, build an interval map
       for ( auto const & chr_seg : map_chr_cn_clone ) {
@@ -341,7 +344,7 @@ BulkSampleGenerator::writeBulkCopyNumber (
         ref_start = reg.lower();
         ref_end = reg.upper();
         seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
-        ofs_bed << str(boost::format("%s\t%lu\t%lu\t%0.4f\t%0.4f\n") % 
+        ofs_bed << str(boost::format("%s\t%lu\t%lu\t%0.2f\t%0.2f\n") % 
                        id_chr % ref_start % ref_end % cn_state.count_A % cn_state.count_B);
       }
     }
@@ -1122,7 +1125,7 @@ BulkSampleGenerator::writeFastaTiled (
     seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
     bool cn_total = cn_state.count_A + cn_state.count_B;
 
-    f_bed << str(boost::format("%s\t%lu\t%lu\t%.4f\t%.4f\n") 
+    f_bed << str(boost::format("%s\t%lu\t%lu\t%.2f\t%.2f\n") 
                  % id_chr % ref_start % ref_end 
                  % cn_state.count_A % cn_state.count_B);
 
