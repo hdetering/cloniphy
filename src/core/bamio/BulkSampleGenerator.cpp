@@ -143,7 +143,6 @@ BulkSampleGenerator::generateBulkSeqReads (
     int copy_number = stoi(fn_parts[1]);
 
     // sanity check: clone label valid?
-    //assert ( map_clone_cvg.count(id_clone) == 1 );
     assert ( map_clone_reads.count(id_clone) == 1 );
 
     // calculate number of reads to be sampled from this segment
@@ -1123,7 +1122,7 @@ BulkSampleGenerator::writeFastaTiled (
     TCoord ref_start, ref_end;
     tie(id_chr, ref_start, ref_end) = reg_cn.first;
     seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
-    bool cn_total = cn_state.count_A + cn_state.count_B;
+    double cn_total = cn_state.count_A + cn_state.count_B;
 
     f_bed << str(boost::format("%s\t%lu\t%lu\t%.2f\t%.2f\n") 
                  % id_chr % ref_start % ref_end 
