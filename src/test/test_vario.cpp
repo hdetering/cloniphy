@@ -89,6 +89,7 @@ BOOST_AUTO_TEST_CASE( vcf_sumstats )
 }
 
 /* generate set of novel variants */
+/* TODO: Test has to be rewritten (use VariantStore). */
 BOOST_AUTO_TEST_CASE( germline )
 {
   int num_vars = 1000;
@@ -100,13 +101,13 @@ BOOST_AUTO_TEST_CASE( germline )
   vector<Variant> variants = var_store.getGermlineSnvVector();
 
   BOOST_TEST_MESSAGE( "done generating 1000 variants, here are the first 10: " );
-  BOOST_TEST_MESSAGE( "  id, chr, bp, ref, alt, copy" );
+  BOOST_TEST_MESSAGE( "  id, chr, bp, ref, alt" );
   for (int i=0; i<10; ++i) {
-    BOOST_TEST_MESSAGE( format("%s,%s,%d,%s,%s,%s") % variants[i].id % variants[i].chr % variants[i].pos % variants[i].alleles[0] % variants[i].alleles[1] % variants[i].chr_copy );
+    BOOST_TEST_MESSAGE( format("%s,%s,%d,%s,%s") % variants[i].id % variants[i].chr % variants[i].pos % variants[i].alleles[0] % variants[i].alleles[1] );
   }
 
   // export variants to file
-  vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
+  vector<Variant> var_sorted = Variant::sortByPositionLex(variants);
   vector<int> vec_idx = { 0 };
   vector<string> labels = { "healthy" };
   vector<vector<bool>> mm(1, vector<bool>(num_vars, true));
@@ -120,7 +121,8 @@ BOOST_AUTO_TEST_CASE( germline )
 
   BOOST_TEST_MESSAGE( "\ngenerating personal genome..." );
   BOOST_TEST_MESSAGE( "  applying variants" );
-  vario::applyVariants(ref_genome, variants);
+  // TODO: use VariantStore object!
+  //vario::applyVariants(ref_genome, variants);
   BOOST_TEST_MESSAGE( "  writing personal genome to file 'pers.fa'" );
   ofstream fs_pg;
   fs_pg.open("pers.fa");

@@ -31,7 +31,6 @@ struct Variant
 {
   std::string id;     /** unique identifier */
   std::string chr;    /** reference chromosome id */
-  short chr_copy;     /** chromosome phase (0: maternal, 1: paternal, ...[hyperdiploid]) */
   short reg_copy;     /** affected copy of chr region (0: original, 1: first copy, ...) */
   seqio::TCoord pos;  /** reference basepair position */
   std::vector<std::string> alleles; /** observed alleles */
@@ -50,7 +49,7 @@ struct Variant
   /** Sort variants, first lexicographically by CHR, then by position in CHR. */
   static std::vector<Variant> sortByPositionLex(const std::vector<Variant>&);
   /** Sort variants by absolute position in genome, taking chomosome copies into account. */
-  static std::vector<Variant> sortByPositionPoly(const std::vector<Variant>&);
+  //static std::vector<Variant> sortByPositionPoly(const std::vector<Variant>&);
   /** Sort variants by position in reference genome. */
   static std::vector<Variant> sortByPositionRef(const std::vector<Variant>&);
   /** Returns true if this variant is a SNV, false otherwise. */

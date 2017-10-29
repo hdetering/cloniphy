@@ -5,7 +5,7 @@
 #--------------------#
 
 # output folder
-out-dir: "c4.r4.m100.100kb.100x"
+out-dir: "c4.r4.m100.300kb.100x.test"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -43,7 +43,7 @@ tree: "data/bulk/bulk.tre"
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
-ref-seq-num: 1
+ref-seq-num: 3
 ## sequence length
 ref-seq-len-mean: 100000
 ref-seq-len-sd:    10000

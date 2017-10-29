@@ -176,14 +176,14 @@ vector<Variant> Variant::sortByPositionLex(const vector<Variant> &variants) {
   return variantsCopy;
 }
 
-vector<Variant> Variant::sortByPositionPoly(const vector<Variant> &variants) {
-  vector<Variant> variantsCopy = variants;
-  sort(variantsCopy.begin(), variantsCopy.end(),
-      [](const Variant &a, const Variant &b) -> bool {
-        return (a.rel_pos + a.chr_copy) < (b.rel_pos + b.chr_copy);
-      });
-  return variantsCopy;
-}
+// vector<Variant> Variant::sortByPositionPoly(const vector<Variant> &variants) {
+//   vector<Variant> variantsCopy = variants;
+//   sort(variantsCopy.begin(), variantsCopy.end(),
+//       [](const Variant &a, const Variant &b) -> bool {
+//         return (a.rel_pos + a.chr_copy) < (b.rel_pos + b.chr_copy);
+//       });
+//   return variantsCopy;
+// }
 
 vector<Variant> Variant::sortByPositionRef(const vector<Variant> &variants) {
   vector<Variant> variantsCopy = variants;
@@ -311,21 +311,17 @@ fprintf(stderr, "VCF header: %s\n", header_line.c_str());
     var.alleles.push_back(var_cols[3]);
     vector<string> alt = stringio::split(var_cols[4], ',');
     var.alleles.insert(var.alleles.end(), alt.begin(), alt.end());
-    var.reg_copy = 0; // TODO: can we do better than this?
-    var.chr_copy = 0; // TODO: can we do better than this?
+    // var.reg_copy = 0; // TODO: can we do better than this?
+    // var.chr_copy = 0; // TODO: can we do better than this?
     // TODO: at this point only SNVs are supported
     if (!var.isSnv()) {
       stringio::safeGetline(input, line);
       continue;
     }
 
-    // for single-sample VCFs, set variant phase
+    // for single-sample VCFs, set zygosity state
     if (num_samples == 1) {
-      if (atoi(&var_cols[9][0]) > 0) {
-        var.chr_copy = 0;
-      } else if (atoi(&var_cols[9][2]) > 0) {
-        var.chr_copy = 1;
-      }
+      var.is_het = ( &var_cols[9][0] != &var_cols[9][2] );
     }
 
     variants.vec_variants.push_back(var);
@@ -441,7 +437,7 @@ writeVcfRecords (
 }
 
 
-void writeVcf(
+void writeVcf (
   const vector<shared_ptr<SeqRecord>>& seqs,
   const vector<Variant>& vars,
   const vector<int>& id_samples,
@@ -477,9 +473,11 @@ void writeVcf(
     for (auto sid : id_samples) {
       string genotype = "";
       if (mutMatrix[sid][var.idx_mutation] == true)
-        genotype = (var.chr_copy==0 ? "1|0" : "0|1");
+        //genotype = (var.chr_copy==0 ? "1|0" : "0|1");
+        genotype = (var.is_het ? "0/1" : "1/1");
       else
-        genotype = "0|0";
+        //genotype = "0|0";
+        genotype = "0/0";
       out << format("\t%s:%d") % genotype % gt_qual;
     }
     out << endl;
@@ -543,60 +541,60 @@ long getRandomMutPos(
 /** DEPRECATED! Functionality shifted to vario::VariantStore::generateGermlineVariants
     Generate variant loci in a given genome based on evolutionary model.
     Nucleotide substitution probabilities guide selection of loci. */
-vector<Variant> generateGermlineVariants (
-  const int num_variants,
-  const GenomeReference& genome,
-  GermlineSubstitutionModel& model,
-  RandomNumberGenerator<>& rng,
-  const bool inf_sites)
-{
-  vector<Variant> variants = vector<Variant>(num_variants);
-  boost::container::flat_set<int> var_pos; // keep track of variant positions
-  function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
-  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
-  random_selector<> selector(rng.generator); // used to pick random vector indices
+// vector<Variant> generateGermlineVariants (
+//   const int num_variants,
+//   const GenomeReference& genome,
+//   GermlineSubstitutionModel& model,
+//   RandomNumberGenerator<>& rng,
+//   const bool inf_sites)
+// {
+//   vector<Variant> variants = vector<Variant>(num_variants);
+//   boost::container::flat_set<int> var_pos; // keep track of variant positions
+//   function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+//   function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
+//   random_selector<> selector(rng.generator); // used to pick random vector indices
 
-  // determine base mutation probs from model (marginal sums)
-  vector<double> p_i(4, 0);
-  for (int i=0; i<4; ++i) {
-    for (int j=0; j<4; ++j) {
-      p_i[i] += model.Qij[i][j];
-    }
-  }
-  function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
+//   // determine base mutation probs from model (marginal sums)
+//   vector<double> p_i(4, 0);
+//   for (int i=0; i<4; ++i) {
+//     for (int j=0; j<4; ++j) {
+//       p_i[i] += model.Qij[i][j];
+//     }
+//   }
+//   function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);
 
-  unsigned long genome_len = genome.length; // haploid genome length
-  for (int i=0; i<num_variants; ++i) {
-    // pick random nucleotide bucket
-    int idx_bucket = random_nuc_idx();
-    // pick random position
-    long nuc_pos = selector(genome.nuc_pos[idx_bucket]);
-    if (inf_sites) {
-      while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
-// TODO: check verbosity setting
-fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated before, picking another one...\n", nuc_pos);
-        nuc_pos = selector(genome.nuc_pos[idx_bucket]);
-      }
-      var_pos.insert(nuc_pos);
-    }
-    Locus loc = genome.getLocusByGlobalPos(nuc_pos);
-    // pick new nucleotide
-    short nuc_alt = evolution::MutateSite(idx_bucket, random_float, model);
-    Variant var;
-    var.id = str(format("g%d") % i);
-    var.chr = loc.id_ref;
-    //var.chr_copy = random_copy(); // TODO: deprecated!
-    var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
-    var.reg_copy = 0; // TODO: deprecated!
-    var.pos = loc.start;
-    var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
-    var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
-    var.idx_mutation = i;
-    variants[i] = var;
-  }
+//   unsigned long genome_len = genome.length; // haploid genome length
+//   for (int i=0; i<num_variants; ++i) {
+//     // pick random nucleotide bucket
+//     int idx_bucket = random_nuc_idx();
+//     // pick random position
+//     long nuc_pos = selector(genome.nuc_pos[idx_bucket]);
+//     if (inf_sites) {
+//       while (binary_search(var_pos.begin(), var_pos.end(), nuc_pos)) {
+// // TODO: check verbosity setting
+// fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated before, picking another one...\n", nuc_pos);
+//         nuc_pos = selector(genome.nuc_pos[idx_bucket]);
+//       }
+//       var_pos.insert(nuc_pos);
+//     }
+//     Locus loc = genome.getLocusByGlobalPos(nuc_pos);
+//     // pick new nucleotide
+//     short nuc_alt = evolution::MutateSite(idx_bucket, random_float, model);
+//     Variant var;
+//     var.id = str(format("g%d") % i);
+//     var.chr = loc.id_ref;
+//     //var.chr_copy = random_copy(); // TODO: deprecated!
+//     var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+//     var.reg_copy = 0; // TODO: deprecated!
+//     var.pos = loc.start;
+//     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
+//     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
+//     var.idx_mutation = i;
+//     variants[i] = var;
+//   }
 
-  return variants;
-}
+//   return variants;
+// }
 
 /*----------------------
    VariantStore
@@ -673,8 +671,9 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.is_het = ( random_float() > rate_hom );
     var.chr = loc.id_ref;
     //var.chr_copy = random_copy(); // TODO: deprecated!
-    var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
-    var.reg_copy = 0; // TODO: deprecated!
+    //var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+    var.rel_pos = double(nuc_pos)/genome_len;
+    //var.reg_copy = 0; // TODO: deprecated!
     var.pos = loc.start;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
@@ -754,8 +753,9 @@ VariantStore::generateSomaticVariants(
       Variant var;
       var.id = str(format("s%d") % m.id);
       var.chr = loc.id_ref;
-      var.chr_copy = random_copy(); // TODO: deprecated!
-      var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+      //var.chr_copy = random_copy(); // TODO: deprecated!
+      //var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
+      var.rel_pos = double(nuc_pos)/genome_len;
       // TODO: assign SegmentCopy
       //var.reg_copy = 0;
       var.pos = loc.start;
@@ -1105,8 +1105,8 @@ fprintf(stderr, "locus %ld has been mutated before, picking another one...\n", n
     Variant var;
     var.id = to_string(i);
     var.chr = id_chr;
-    var.chr_copy = random_copy();
-    var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
+    //var.chr_copy = random_copy();
+    //var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
     var.pos = nuc_pos;
     var.rel_pos = double(nuc_pos)/genome.length;
     var.alleles.push_back(string(1, seqio::idx2nuc(ref_nuc)));
@@ -1117,42 +1117,43 @@ fprintf(stderr, "locus %ld has been mutated before, picking another one...\n", n
   return variants;
 }
 
-void applyVariants(
-  GenomeReference &genome,
-  const vector<Variant> &variants)
-{
-  unsigned num_sequences = genome.num_records;
-  // generate lookup table for sequences
-  map<string,vector<unsigned>> chr2seq;
-  for (unsigned i=0; i<genome.records.size(); ++i) {
-    string id_ref = genome.records[i]->id_ref;
-    if (chr2seq.find(id_ref) == chr2seq.end()) {
-      chr2seq[id_ref] = vector<unsigned>();
-    }
-    chr2seq[id_ref].push_back(i);
-  }
-fprintf(stderr, "applying %lu variants...\n", variants.size());
-  // modify genome according to variant genotypes
-  for (Variant var : variants) {
-    auto it_chr_idx = chr2seq.find(var.chr);
-    // make sure ref seq exists in genome
-    if (it_chr_idx == chr2seq.end()) {
-      fprintf(stderr, "[WARN] sequence '%s' not contained in reference genome\n", var.chr.c_str());
-    }
-    else {
-      vector<unsigned> chr_idx = it_chr_idx->second;
-      // make sure mutated chr copy exists in genome
-      if (chr_idx.size() < var.chr_copy+1) {
-        fprintf(stderr, "[WARN] genome does not contain %d copies of CHR '%s'\n", var.chr_copy+1, var.chr.c_str());
-      }
-      else {
-        // apply variant to sequence
-        unsigned cidx = chr_idx[var.chr_copy];
-        genome.records[cidx]->seq[var.pos] = var.alleles[1][0]; // TODO: at the moment only SNVs are supported ("[0]" extracts the first character from the allel)
-      }
-    }
-  }
-}
+/* DEPRECATED! */
+// void applyVariants(
+//   GenomeReference &genome,
+//   const vector<Variant> &variants)
+// {
+//   unsigned num_sequences = genome.num_records;
+//   // generate lookup table for sequences
+//   map<string,vector<unsigned>> chr2seq;
+//   for (unsigned i=0; i<genome.records.size(); ++i) {
+//     string id_ref = genome.records[i]->id_ref;
+//     if (chr2seq.find(id_ref) == chr2seq.end()) {
+//       chr2seq[id_ref] = vector<unsigned>();
+//     }
+//     chr2seq[id_ref].push_back(i);
+//   }
+// fprintf(stderr, "applying %lu variants...\n", variants.size());
+//   // modify genome according to variant genotypes
+//   for (Variant var : variants) {
+//     auto it_chr_idx = chr2seq.find(var.chr);
+//     // make sure ref seq exists in genome
+//     if (it_chr_idx == chr2seq.end()) {
+//       fprintf(stderr, "[WARN] sequence '%s' not contained in reference genome\n", var.chr.c_str());
+//     }
+//     else {
+//       vector<unsigned> chr_idx = it_chr_idx->second;
+//       // make sure mutated chr copy exists in genome
+//       if (chr_idx.size() < var.chr_copy+1) {
+//         fprintf(stderr, "[WARN] genome does not contain %d copies of CHR '%s'\n", var.chr_copy+1, var.chr.c_str());
+//       }
+//       else {
+//         // apply variant to sequence
+//         unsigned cidx = chr_idx[var.chr_copy];
+//         genome.records[cidx]->seq[var.pos] = var.alleles[1][0]; // TODO: at the moment only SNVs are supported ("[0]" extracts the first character from the allel)
+//       }
+//     }
+//   }
+// }
 
 
 void applyVariants(

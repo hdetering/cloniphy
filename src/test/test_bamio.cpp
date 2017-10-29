@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   }
   var_store.generateSomaticVariants(vec_mutations, genome, model_sm, model_cnv, rng);
   vector<Variant> variants = var_store.getSomaticSnvVector();
-  vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
+  vector<Variant> var_sorted = Variant::sortByPositionLex(variants);
   auto fn_out = "pers.bulk.vcf";
   ofstream fs_out;
   fs_out.open(fn_out);
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE( multisample )
   }
   var_store.generateSomaticVariants(vec_mutations, genome, model_sm, model_cnv, rng);
   vector<Variant> variants = var_store.getSomaticSnvVector();
-  vector<Variant> var_sorted = Variant::sortByPositionPoly(variants);
+  vector<Variant> var_sorted = Variant::sortByPositionLex(variants);
   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
   vector<int> vec_idx;
   vector<string> vec_lbl;
@@ -219,7 +219,8 @@ BOOST_AUTO_TEST_CASE( multisample )
     vector<double> w = row_sample.second;
     string fn_fastq = str(boost::format("%s.fq") % lbl_sample);
     string fn_sam = str(boost::format("%s.sam") % lbl_sample);
-    bamio::mutateReads(fn_fastq, fn_sam, "build/pers.sam", varset, tree, w, lbl_sample, genome.ploidy, rng);
+    // TODO: use BulkSampleGenerator object!
+    //bamio::mutateReads(fn_fastq, fn_sam, "build/pers.sam", varset, tree, w, lbl_sample, genome.ploidy, rng);
   }
   BOOST_TEST_MESSAGE( "EOT" );
 }

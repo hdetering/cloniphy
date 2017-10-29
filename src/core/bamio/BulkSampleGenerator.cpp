@@ -659,6 +659,7 @@ fprintf(stderr, "### BAM input context contains %lu refs.\n", length(contigNames
   unsigned num_reads = 0;
 auto t_start = chrono::steady_clock::now();
 auto t_start_10k = chrono::steady_clock::now();
+
   while (!atEnd(bam_in)) {
     readRecord(read1, bam_in);
     readRecord(read2, bam_in);
@@ -697,6 +698,10 @@ auto t_start_10k = chrono::steady_clock::now();
     // update alignment coordinates
     read1.beginPos += off_glob;
     read2.beginPos += off_glob;
+    r1_begin += off_glob;
+    r2_begin += off_glob;
+    r1_end += off_glob;
+    r2_end += off_glob;
 
     // assign read group
     CharString tagRG = str(boost::format("RG:Z:%s") % id_clone);
@@ -944,7 +949,7 @@ BulkSampleGenerator::initAlleleCounts (
     // initialize map for clone
     m_map_clone_snv_vac[id_clone] = map<int, vario::VariantAlleleCount>();
 
-    // populate allele counts for somatic SNVs
+    // populate allele counts for SNVs
     for (auto const & kv : var_store.map_id_snv) {
       int id_var = kv.first;
       Variant var = kv.second;
