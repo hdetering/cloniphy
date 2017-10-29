@@ -9,6 +9,8 @@ target_link_libraries (demo cloniphy)
 # enforce c++11 standard
 set_property(TARGET demo PROPERTY CXX_STANDARD 11)
 set_property(TARGET demo PROPERTY CXX_STANDARD_REQUIRED ON)
+# NOTE: This should help print string values in GDB sessions, comment out for prod!
+#add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
 # ----------------------------------------------------------------------------
 # Dependencies
