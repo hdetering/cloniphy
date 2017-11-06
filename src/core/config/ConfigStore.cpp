@@ -43,7 +43,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   long seed = time(NULL) + clock();
 
   stringstream ss;
-  ss << endl << PROGRAM_NAME << " " << version::VERSION_STRING << endl << endl;
+  ss << endl << PROGRAM_NAME << " " << version::GIT_TAG_NAME << endl << endl;
   ss << "Available options";
 
   namespace po = boost::program_options;
@@ -73,7 +73,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     po::store(po::parse_command_line(ac, av, desc), var_map);
 
     if (var_map.count("version")) {
-      std::cerr << PROGRAM_NAME << " " << version::VERSION_STRING << endl;
+      std::cerr << PROGRAM_NAME << " " << version::GIT_TAG_NAME << endl;
       return false;
     }
 
@@ -321,7 +321,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   if(_config["verbosity"].as<int>() > 0) {
     fprintf(stderr, "====================================================================\n");
-    fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::VERSION_STRING);
+    fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::GIT_TAG_NAME);
     fprintf(stderr, "---\n");
     fprintf(stderr, "Running with the following options:\n");
     fprintf(stderr, "====================================================================\n");
