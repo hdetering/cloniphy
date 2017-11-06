@@ -36,6 +36,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_mut_som_sig = "resources/signatures_probabilities.txt";
   string fn_ref_fa = "";
   string fn_tree = "";
+  bool seq_read_gen = false;
   bool do_reuse_reads = false;
   bool do_fq_out = true;
   bool do_sam_out = true;
@@ -174,6 +175,16 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["seed"] = seed;
   }
   seed = _config["seed"].as<long>();
+
+  //---------------------------------------------------------------------------
+  // sequencing-related params
+  //---------------------------------------------------------------------------
+
+  // whether to generate sequencing reads (if not, generate readcounts directly)
+  if (!_config["seq-read-gen"]) {
+    _config["seq-read-gen"] = seq_read_gen;
+  }
+  seq_read_gen = _config["seq-read-gen"].as<bool>();
   // bit to indicate if reads of normal sample are be reused for tumor samples
   if (!_config["seq-reuse-reads"]) {
       _config["seq-reuse-reads"] = do_reuse_reads;
@@ -189,9 +200,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       _config["seq-sam-out"] = do_sam_out;
   }
   do_fq_out = _config["seq-sam-out"].as<bool>();
-
-
+  
+  //---------------------------------------------------------------------------
   // perform sanity checks
+  //---------------------------------------------------------------------------
 
   // at least one mutation per clone?
   if (n_mut_somatic < n_clones) {
@@ -320,20 +332,25 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
 
   if(_config["verbosity"].as<int>() > 0) {
-    fprintf(stderr, "====================================================================\n");
-    fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::GIT_TAG_NAME);
-    fprintf(stderr, "---\n");
+    fprintf(stderr, "################################################################################\n");
+    fprintf(stderr, " / ___| | ___  _ __ (_)  _ \\| |__  _   _ \n");
+    fprintf(stderr, "| |   | |/ _ \\| '_ \\| | |_) | '_ \\| | | |\n");
+    fprintf(stderr, "| |___| | (_) | | | | |  __/| | | | |_| |\n");
+    fprintf(stderr, " \\____|_|\\___/|_| |_|_|_|   |_| |_|\\__, |\n");
+    fprintf(stderr, "                                   |___/  (%s)\n", version::GIT_TAG_NAME);
+    //fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::GIT_TAG_NAME);
+    fprintf(stderr, "================================================================================\n");
     fprintf(stderr, "Running with the following options:\n");
-    fprintf(stderr, "====================================================================\n");
+    fprintf(stderr, "================================================================================\n");
     fprintf(stderr, "  random seed:\t\t%ld\n", seed);
     if (fn_tree.length()>0) {
       fprintf(stderr, "  clone tree:\t\t%s\n", fn_tree.c_str());
     } else {
       fprintf(stderr, "  clones:\t\t%d\n", n_clones);
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Reference genome:\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     if (fn_ref_fa.length()>0) {
       fprintf(stderr, "  input file:\t\t%s\n", fn_ref_fa.c_str());
     } else {
@@ -341,9 +358,9 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  ref seqs:\t\t%d\n", this->getValue<int>("ref-seq-num"));
       fprintf(stderr, "  seq len:\t\t%d (+/-%d)\n", this->getValue<int>("ref-seq-len-mean"), this->getValue<int>("ref-seq-len-mean"));
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Germline mutations:\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     if (fn_mut_gl_vcf.length() > 0) {
       fprintf(stderr, "  germline VCF:\t%s\n", fn_mut_gl_vcf.c_str());
     } else {
@@ -351,32 +368,37 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  number of mutations: %d\n", n_mut_gl);
       fprintf(stderr, "  evolutionary model:\t%s\n", mut_gl_model.c_str());
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Sequencing data\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     if (fn_bam_input.length()>0) {
-      fprintf(stderr, "  simulate reads:\tno\n");
       fprintf(stderr, "  input reads:\t%s\n", fn_bam_input.c_str());
+      fprintf(stderr, "  simulate reads:\tno\n");
+    } else if (!seq_read_gen) {
+      fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
+      fprintf(stderr, "  simulate reads:\tno\n");
     } else {
       fprintf(stderr, "  simulate reads:\tyes\n");
       fprintf(stderr, "  reuse healthy reads:\t%s\n", do_reuse_reads ? "yes" : "no");
-      fprintf(stderr, "  ref coverage:\t\t%d\n", this->getValue<int>("seq-coverage"));
+      fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
       fprintf(stderr, "  seq read length:\t%d\n", this->getValue<int>("seq-read-len"));
       fprintf(stderr, "  seq insert size:\t%d (+-%d)\n", this->getValue<int>("seq-frag-len-mean"), this->getValue<int>("seq-frag-len-sd"));
       fprintf(stderr, "  simulator:\t\t%s\n", this->getValue<string>("seq-art-path").c_str());
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Somatic mutations\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "  number of mutations:\t%d\n", n_mut_somatic);
     fprintf(stderr, "  trunk mutations:\t%d\n", n_mut_trunk);
     if (_config["samples"]) {
+      fprintf(stderr, "--------------------------------------------------------------------------------\n");
       fprintf(stderr, "Sampling scheme:\n");
+      fprintf(stderr, "--------------------------------------------------------------------------------\n");
       map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");
       string s_sampling = stringio::printMatrix(sample_mtx);
       fprintf(stderr, "%s", s_sampling.c_str());
     }
-    fprintf(stderr, "====================================================================\n\n");
+    fprintf(stderr, "################################################################################\n");
   }
 
   return true;

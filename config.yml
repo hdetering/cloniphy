@@ -154,6 +154,10 @@ samples:
 
 # haploid depth of coverage
 seq-coverage      : 100
+# whether to generate sequencing reads
+# (if false, simulate read counts directly)
+seq-read-gen      : false
+
 # read length
 seq-read-len      : 100
 # mean fragment length (only for paired-end reads)

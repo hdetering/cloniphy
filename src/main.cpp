@@ -76,6 +76,7 @@ int main (int argc, char* argv[])
   string fn_mut_som_sig = config.getValue<string>("mut-som-sig-file");
   map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
   double seq_coverage = config.getValue<double>("seq-coverage");
+  bool seq_read_gen = config.getValue<bool>("seq-read-gen");
   unsigned seq_read_len = config.getValue<unsigned>("seq-read-len");
   unsigned seq_frag_len_mean = config.getValue<unsigned>("seq-frag-len-mean");
   unsigned seq_frag_len_sd = config.getValue<unsigned>("seq-frag-len-sd");
