@@ -13,3 +13,8 @@ target_include_directories(cloniphy PUBLIC ${CMAKE_SOURCE_DIR}/include bamio con
 
 # add yaml-cpp library
 target_link_libraries(cloniphy yaml-cpp)
+
+# use gitversion to make Git version info available in code
+# https://github.com/smessmer/gitversion/tree/develop
+INCLUDE(${CMAKE_SOURCE_DIR}/include/gitversion/cmake.cmake)
+TARGET_GIT_VERSION_INIT(cloniphy)

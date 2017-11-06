@@ -11,7 +11,7 @@ using boost::str;
 #include <sys/stat.h>
 #include "yaml-cpp/yaml.h"
 
-#define PROGRAM_NAME "CloniPhy 0.1"
+#define PROGRAM_NAME "CloniPhy"
 
 namespace config {
 

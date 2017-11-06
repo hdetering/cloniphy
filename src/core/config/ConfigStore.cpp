@@ -1,4 +1,5 @@
 #include "ConfigStore.hpp"
+#include <gitversion/version.h>
 
 using namespace std;
 
@@ -42,7 +43,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   long seed = time(NULL) + clock();
 
   stringstream ss;
-  ss << endl << PROGRAM_NAME << endl << endl << "Available options";
+  ss << endl << PROGRAM_NAME << " " << version::VERSION_STRING << endl << endl;
+  ss << "Available options";
 
   namespace po = boost::program_options;
 
@@ -51,6 +53,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   po::options_description desc(ss.str());
   desc.add_options()
+    ("version,v", "print version string")
     ("help,h", "print help message")
     ("config,c", po::value<string>(), "config file")
     ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
@@ -68,6 +71,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   try {
     po::store(po::parse_command_line(ac, av, desc), var_map);
+
+    if (var_map.count("version")) {
+      std::cerr << PROGRAM_NAME << " " << version::VERSION_STRING << endl;
+      return false;
+    }
 
     if (var_map.count("help") || ac == 1) {
       std::cerr << desc << std::endl;
@@ -312,6 +320,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
 
   if(_config["verbosity"].as<int>() > 0) {
+    fprintf(stderr, "====================================================================\n");
+    fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::VERSION_STRING);
     fprintf(stderr, "---\n");
     fprintf(stderr, "Running with the following options:\n");
     fprintf(stderr, "====================================================================\n");
