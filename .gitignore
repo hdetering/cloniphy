@@ -1,14 +1,13 @@
-# Ignore the build dir
+# Ignore any binaries and executables
+*.o
 build
-
-# Ignore any executables
-bin/*
 
 # Ignore third-party components (for now)
 util
-
 # Ignore example data
 data
+# cocumentation is auto-generated, no need to include it
+doc
 
 # Ignore data output files
 *.log
@@ -21,3 +20,9 @@ data
 *.aln
 *.vcf
 *.bed
+
+# backup copies of files should not be versioned
+legacy/
+
+# some temporary files that are not of interest
+scripts/.ipynb_checkpoints
