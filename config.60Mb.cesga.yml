@@ -5,8 +5,7 @@
 #--------------------#
 
 # output folder
-#out-dir: "c4.r4.m100.100kb.100x"
-out-dir: "c4.r4.m1000.60Mb.100x"
+out-dir: "c4.r4.m6000.60Mb.100x"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -33,7 +32,7 @@ seed: 2
 #-----------------------#
 
 # user-provided clone tree (overrides parameters below)
-tree: "data/bulk/bulk.tre"
+tree: "/home/uvi/be/hde/code/cloniphy/data/bulk/bulk.tre"
 
 # number of clones to simulate
 #clones: 5
@@ -93,7 +92,7 @@ mut-som-trunk: 2000
 
 # Mutational signatures are obtained from COSMIC:
 #   http://cancer.sanger.ac.uk/cosmic/signatures
-mut-som-sig-file: ../resources/signatures_probabilities.txt
+mut-som-sig-file: "/home/uvi/be/hde/code/cloniphy/resources/signatures_probabilities.txt"
 
 # The following list defines the relative contribution each signature (1-30).
 # Signatures not present in the list will not be applied.
@@ -161,7 +160,7 @@ seq-frag-len-mean : 500
 # standard deviation of fragment length (only for paired-end reads)
 seq-frag-len-sd   : 20
 # path to ART executable
-seq-art-path      : /home/uvi/be/hde/src/art_bin_MountRainier/art_illumina
+seq-art-path      : "/home/uvi/be/hde/src/art_bin_MountRainier/art_illumina"
 # whether to use reads from healthy sample for tumor samples
 # NOTE: setting only applied in SNV-only mode (mut-som-cnv-ratio: 0)
 seq-reuse-reads   : true

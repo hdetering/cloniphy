@@ -5,8 +5,7 @@
 #--------------------#
 
 # output folder
-#out-dir: "c4.r4.m100.100kb.100x"
-out-dir: "c4.r4.m1000.60Mb.100x"
+out-dir: "c4.r4.m100.100kb.100x"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -33,7 +32,7 @@ seed: 2
 #-----------------------#
 
 # user-provided clone tree (overrides parameters below)
-tree: "data/bulk/bulk.tre"
+tree: "/home/uvi/be/hde/code/cloniphy/data/bulk/bulk.tre"
 
 # number of clones to simulate
 #clones: 5
@@ -44,10 +43,10 @@ tree: "data/bulk/bulk.tre"
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
-ref-seq-num: 3
+ref-seq-num: 1
 ## sequence length
-ref-seq-len-mean: 20000000
-ref-seq-len-sd:    1000000
+ref-seq-len-mean: 100000
+ref-seq-len-sd:    10000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
@@ -57,7 +56,7 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # germline variants (to generate personal genome from reference)
 #mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-gl-num : 60000
+mut-gl-num : 100
 # ratio of homozygous germline variants (not yet implemented...)
 mut-gl-hom : 0.2
 
@@ -80,10 +79,10 @@ mut-gl-model-params:
 #------------------------------#
 
 # number of total mutations to simulate
-mut-som-num: 6000
+mut-som-num: 100
 # number of transforming mutations shared by all clones
 # (included in total mutations)
-mut-som-trunk: 2000
+mut-som-trunk: 40
 
 # single nucleotide variants
 #------------------------------
@@ -93,7 +92,7 @@ mut-som-trunk: 2000
 
 # Mutational signatures are obtained from COSMIC:
 #   http://cancer.sanger.ac.uk/cosmic/signatures
-mut-som-sig-file: ../resources/signatures_probabilities.txt
+mut-som-sig-file: "/home/uvi/be/hde/code/cloniphy/resources/signatures_probabilities.txt"
 
 # The following list defines the relative contribution each signature (1-30).
 # Signatures not present in the list will not be applied.
@@ -104,9 +103,9 @@ mut-som-sig-mix:
 #------------------------------
 
 # fraction of CNV events among all mutations (set to 0 to disable CNVs)
-mut-som-cnv-ratio: 0.01
+mut-som-cnv-ratio: 0.05
 # minimum length (bp) of CNV events
-mut-som-cnv-len-min: 5000
+mut-som-cnv-len-min: 1000
 # rate parameter for power-law distribution
 mut-som-cnv-len-exp: 1
 # prior probability for a CNV event to be a gain (vs. loss)
