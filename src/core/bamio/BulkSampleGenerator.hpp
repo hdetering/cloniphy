@@ -65,7 +65,8 @@ public:
     * \param path_bam          Directory to which reads (BAM) will be output.
     * \param path_bam          Directory to which allele counts (BED) will be output.
     * \param seq_coverage      Total sequencing coverage (haploid).
-    * \param seq_error         Sequencing error (per base). Only applied when generating read counts.
+    * \param seq_rc_error      Sequencing error (per base). Only applied when generating read counts.
+    * \param seq_rc_disp       Sequencing depth overdispersion. Only applies to read count generation.
     * \param seq_read_gen      Generate reads? (false: generate read counts)
     * \param seq_use_vaf       Spike in variants according to VAFs? (breaks haplotypes!)
     * \param seq_read_len      Read length (passed on to read simulator).
@@ -82,7 +83,8 @@ public:
     const boost::filesystem::path path_bam,
     const boost::filesystem::path path_bed,
     const double seq_coverage,
-    const double seq_error,
+    const double seq_rc_error,
+    const double seq_rc_disp,
     const bool seq_read_gen,
     const bool seq_use_vaf,
     const unsigned seq_read_len,
@@ -113,6 +115,7 @@ public:
     const std::string lbl_sample,
     const double seq_coverage,
     const double seq_error,
+    const double seq_disp,
     RandomNumberGenerator<>& rng
   ); 
 

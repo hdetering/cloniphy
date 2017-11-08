@@ -39,7 +39,8 @@ BulkSampleGenerator::generateBulkSamples (
   const path path_bam,
   const path path_bed,
   const double seq_coverage,
-  const double seq_error,
+  const double seq_rc_error,
+  const double seq_rc_disp,
   const bool seq_read_gen,
   const bool seq_use_vaf,
   const unsigned seq_read_len,
@@ -90,7 +91,14 @@ BulkSampleGenerator::generateBulkSamples (
       mergeBulkSeqReads(path_bam, lbl_sample, vec_rg, var_store, seq_use_vaf, rng);
     } 
     else { // generate read counts
-      generateReadCounts(path_bam, lbl_sample, seq_coverage, seq_error, rng);
+      generateReadCounts(
+        path_bam, 
+        lbl_sample, 
+        seq_coverage, 
+        seq_rc_error, 
+        seq_rc_disp, 
+        rng
+      );
     }
   }
 }
@@ -101,9 +109,19 @@ BulkSampleGenerator::generateReadCounts (
   const string lbl_sample,
   const double seq_coverage,
   const double seq_error,
+  const double seq_disp,
   RandomNumberGenerator<>& rng
 ) 
 {
+  // STEP 1: generate read counts for true variants
+  //---------------------------------------------------------------------------
+
+
+  // STEP 2: introduce sequencing errors (incl. FP variant loci)
+  //---------------------------------------------------------------------------
+  
+  // determine expected number of seq errors
+  // sample number of seq errors to introduce
 
   return true;
 }
