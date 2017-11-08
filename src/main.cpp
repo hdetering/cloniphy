@@ -76,6 +76,7 @@ int main (int argc, char* argv[])
   string fn_mut_som_sig = config.getValue<string>("mut-som-sig-file");
   map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
   double seq_coverage = config.getValue<double>("seq-coverage");
+  double seq_error = config.getValue<double>("seq-error");
   bool seq_read_gen = config.getValue<bool>("seq-read-gen");
   bool seq_use_vaf = config.getValue<bool>("seq-use-vaf");
   unsigned seq_read_len = config.getValue<unsigned>("seq-read-len");
@@ -488,6 +489,7 @@ ofs_dbg_vars.close();
     path_bam,
     path_bed,
     seq_coverage,
+    seq_error,
     seq_read_gen,
     seq_use_vaf,
     seq_read_len, 
