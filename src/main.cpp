@@ -77,6 +77,7 @@ int main (int argc, char* argv[])
   map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
   double seq_coverage = config.getValue<double>("seq-coverage");
   bool seq_read_gen = config.getValue<bool>("seq-read-gen");
+  bool seq_use_vaf = config.getValue<bool>("seq-use-vaf");
   unsigned seq_read_len = config.getValue<unsigned>("seq-read-len");
   unsigned seq_frag_len_mean = config.getValue<unsigned>("seq-frag-len-mean");
   unsigned seq_frag_len_sd = config.getValue<unsigned>("seq-frag-len-sd");
@@ -461,14 +462,17 @@ ofs_dbg_vars.close();
   // initialize BulkSampleGenerator with reference genome
   bulk_generator.initializeRefSeqs(ref_genome);
 
-  fprintf(stdout, "Writing tiled ref seqs...\n");
-  bulk_generator.writeCloneGenomes (
-    map_clone_genome,
-    ref_genome, 
-    seq_tile_pad,
-    seq_frag_len_mean, 
-    path_fasta, 
-    path_bed);
+  // export genomic sequences (only if reads are to be generated)
+  if ( seq_read_gen ) {
+    fprintf(stdout, "Writing tiled ref seqs...\n");
+    bulk_generator.writeCloneGenomes (
+      map_clone_genome,
+      ref_genome, 
+      seq_tile_pad,
+      seq_frag_len_mean, 
+      path_fasta, 
+      path_bed);
+  }
 
   // write expected absolute copy number states to BED file for each sample
   bulk_generator.writeBulkCopyNumber(mtx_sample_clone, map_clone_genome, path_bed);
@@ -483,10 +487,12 @@ ofs_dbg_vars.close();
     path_fasta,
     path_bam,
     path_bed,
+    seq_coverage,
+    seq_read_gen,
+    seq_use_vaf,
     seq_read_len, 
     seq_frag_len_mean, 
-    seq_frag_len_sd, 
-    seq_coverage, 
+    seq_frag_len_sd,  
     seq_art_path,
     rng
   );

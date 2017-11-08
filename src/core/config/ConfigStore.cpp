@@ -37,6 +37,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_ref_fa = "";
   string fn_tree = "";
   bool seq_read_gen = false;
+  bool seq_use_vaf = false;
   bool do_reuse_reads = false;
   bool do_fq_out = true;
   bool do_sam_out = true;
@@ -185,6 +186,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["seq-read-gen"] = seq_read_gen;
   }
   seq_read_gen = _config["seq-read-gen"].as<bool>();
+  // whether to use VAFs to spike in mutations (if not, assign read pairs to segment copies)
+  if (!_config["seq-use-vaf"]) {
+    _config["seq-use-vaf"] = seq_use_vaf;
+  }
+  seq_use_vaf = _config["seq-use-vaf"].as<bool>();
   // bit to indicate if reads of normal sample are be reused for tumor samples
   if (!_config["seq-reuse-reads"]) {
       _config["seq-reuse-reads"] = do_reuse_reads;

@@ -286,7 +286,8 @@ BOOST_AUTO_TEST_CASE ( bsg )
 
   // 4. merge existing reads (won't work without BAM files in path_bam)
   BOOST_TEST_MESSAGE( "\nNow merging BAM files...\n" );
-  bulk_gen.mergeBulkSeqReads(path_bam, "sample1", vec_rg, var_store, rng);
+  bool seq_use_vaf = false; // assign read pairs to segment copies
+  bulk_gen.mergeBulkSeqReads(path_bam, "sample1", vec_rg, var_store, seq_use_vaf, rng);
 }
 
 /* Test BOOST interval container library */

@@ -64,10 +64,12 @@ public:
     * \param path_fasta        Directory with clone genome sequences (tiled by copy number state).
     * \param path_bam          Directory to which reads (BAM) will be output.
     * \param path_bam          Directory to which allele counts (BED) will be output.
+    * \param seq_coverage      Total sequencing coverage (haploid).
+    * \param seq_read_gen      Generate reads? (false: generate read counts)
+    * \param seq_use_vaf       Spike in variants according to VAFs? (breaks haplotypes!)
     * \param seq_read_len      Read length (passed on to read simulator).
     * \param seq_frag_len_mean Insert size mean (passed on to read simulator).
     * \param seq_read_len_sd   Insert size std dev (passed on to read simulator).
-    * \param seq_coverage      Haploid total sequencing coverage.
     * \param art_bin           Binary of read simulator to be called.
     * \param rng               Random number generator.
     */
@@ -78,10 +80,12 @@ public:
     const boost::filesystem::path path_fasta,
     const boost::filesystem::path path_bam,
     const boost::filesystem::path path_bed,
+    const double seq_coverage,
+    const bool seq_read_gen,
+    const bool seq_use_vaf,
     const unsigned seq_read_len,
     const unsigned seq_frag_len_mean,
     const unsigned seq_frag_len_sd,
-    const double seq_coverage,
     const std::string art_bin,
     RandomNumberGenerator<>& rng
   );
@@ -111,12 +115,13 @@ public:
     * Output files naming convention: 
     *   <bulk_sample>.sam
     *
-    * \param path_bam   directory containg read BAMs, output will be written there
-    * \param lbl_sample label of the bulk sample (bulk_sample above)
-    * \param vec_rg     read groups to include in the output BAM header
-    * \param var_store  VariantStore containing germline and somatic variants.
-    * \param rng        Random number generator.
-    * \returns          true on success, false on error
+    * \param path_bam     Directory containg read BAMs, output will be written there.
+    * \param lbl_sample   Label of the bulk sample (bulk_sample above).
+    * \param vec_rg       Read groups to include in the output BAM header.
+    * \param var_store    VariantStore containing germline and somatic variants.
+    * \param seq_use_vaf  Spike in variants according to VAFs? (breaks haplotypes!)
+    * \param rng          Random number generator.
+    * \returns            true on success, false on error
     */
   bool
   mergeBulkSeqReads (
@@ -124,6 +129,7 @@ public:
     const std::string lbl_sample,
     const std::vector<seqan::BamHeaderRecord>& vec_rg,
     const vario::VariantStore var_store,
+    const bool seq_use_vaf,
     RandomNumberGenerator<>& rng
   );
 
@@ -145,7 +151,7 @@ public:
     * \returns            true on success, false on error
     */
   bool
-  transformBamTile (
+  transformBamTileSeg (
     seqan::BamFileOut& bam_out,
     seqan::BamFileIn& bam_in,
     const std::string id_clone,
@@ -157,7 +163,7 @@ public:
 
   /** Using mutateReadPairOpt code, but directly (without function call). */
   bool
-  transformBamTileOpt (
+  transformBamTileVaf (
     seqan::BamFileOut& bam_out,
     seqan::BamFileIn& bam_in,
     const std::string id_clone,
@@ -180,7 +186,7 @@ public:
     * \returns          True on success, false on error.
     */
   bool
-  mutateReadPair (
+  mutateReadPairSeg (
     seqan::BamAlignmentRecord& read1, 
     seqan::BamAlignmentRecord& read2,
     const seqio::TSegMap& segments,
@@ -189,9 +195,8 @@ public:
   );
 
   /** Spike in mutations into reads.
-    * 1. Select genomic SegmentCopy from interval map.
-    * 2. Get variants associated with SegmentCopy from VariantStore.
-    * 3. Identify variants overlapping read pair and apply them.
+    * 1. Identify first variant downstream of read pair start.
+    * 2. Apply variants overlapping read pair according to their expected VAF.
     *  
     * \param read1       First read in pair.
     * \param read2       Second read in pair.
@@ -205,7 +210,7 @@ public:
     * \returns           True on success, false on error.
     */
   bool
-  mutateReadPairOpt (
+  mutateReadPairVaf (
     seqan::BamAlignmentRecord& read1, 
     seqan::BamAlignmentRecord& read2,
     const std::map<seqio::TCoord, std::vector<int>>& map_pos_snv,

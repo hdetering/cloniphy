@@ -166,6 +166,10 @@ seq-frag-len-mean : 500
 seq-frag-len-sd   : 20
 # path to ART executable
 seq-art-path      : /home/uvi/be/hde/src/art_bin_MountRainier/art_illumina
+# whether to introduce somatic SNVs solely based on expected VAF.
+# NOTE: Speeds up sample generation considerably, but breaks haplotypes.
+#  (When set to 'false', each read pair is assigned to a genomic segment copy.)
+seq-use-vaf       : false
 # whether to use reads from healthy sample for tumor samples
 # NOTE: setting only applied in SNV-only mode (mut-som-cnv-ratio: 0)
 seq-reuse-reads   : true
