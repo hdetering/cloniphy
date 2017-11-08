@@ -89,9 +89,20 @@ BulkSampleGenerator::generateBulkSamples (
       mergeBulkSeqReads(path_bam, lbl_sample, vec_rg, var_store, seq_use_vaf, rng);
     } 
     else { // generate read counts
-
+      generateReadCounts(path_bam, lbl_sample, seq_coverage, rng);
     }
   }
+}
+
+bool
+BulkSampleGenerator::generateReadCounts (
+  const path path_out,
+  const string lbl_sample,
+  const double seq_coverage,
+  RandomNumberGenerator<>& rng
+) 
+{
+  return true;
 }
 
 void
@@ -520,28 +531,12 @@ auto t_start_10k = chrono::steady_clock::now();
     readRecord(read2, bam_in);
     num_reads++;
 
-    // parse read alignment details
-    int r1_begin = read1.beginPos;
-    int r2_begin = read2.beginPos;
-    int r1_len = getAlignmentLengthInRef(read1);
-    int r2_len = getAlignmentLengthInRef(read2);
-    int r1_end = r1_begin + r1_len;
-    int r2_end = r2_begin + r2_len;
+    // get chromosome ID from read mapping
     string r1_ref = toCString(contigNames(bam_context)[read1.rID]);
     string r2_ref = toCString(contigNames(bam_context)[read2.rID]);
-    char r1_rc = hasFlagRC(read1) ? '+' : '-';
-    char r2_rc = hasFlagRC(read2) ? '+' : '-';
-
     // determine local->global coordinate mapping
     TCoord min_loc = 0, max_loc = 0, off_glob = 0;
     tie(min_loc, max_loc, off_glob) = map_ref_coords[r1_ref];
-
-    // check if mapping lies within target coordinates
-    if (r1_begin < min_loc || r2_begin < min_loc || r1_end > max_loc || r2_end > max_loc) {
-      fprintf(stderr, "[INFO] (BulkSampleGenerator::transformBamTile) discarding read pair because of coordinate constraints:\n");
-      fprintf(stderr, "       %s (%d..%d), %s (%d..%d)\n", toCString(read1.qName), r1_begin, r1_end, toCString(read2.qName), r2_begin, r2_end);
-      continue;
-    }
 
     // update alignment ref seq
     int rid_new = map_ref_loc_glob[read1.rID];
@@ -554,6 +549,23 @@ auto t_start_10k = chrono::steady_clock::now();
     read1.beginPos += off_glob;
     read2.beginPos += off_glob;
 
+    // parse read alignment details
+    int r1_begin = read1.beginPos;
+    int r2_begin = read2.beginPos;
+    int r1_len = getAlignmentLengthInRef(read1);
+    int r2_len = getAlignmentLengthInRef(read2);
+    int r1_end = r1_begin + r1_len;
+    int r2_end = r2_begin + r2_len;
+    char r1_rc = hasFlagRC(read1) ? '+' : '-';
+    char r2_rc = hasFlagRC(read2) ? '+' : '-';
+
+    // check if mapping lies within target coordinates
+    if (r1_begin < min_loc || r2_begin < min_loc || r1_end > max_loc || r2_end > max_loc) {
+      fprintf(stderr, "[INFO] (BulkSampleGenerator::transformBamTile) discarding read pair because of coordinate constraints:\n");
+      fprintf(stderr, "       %s (%d..%d), %s (%d..%d)\n", toCString(read1.qName), r1_begin, r1_end, toCString(read2.qName), r2_begin, r2_end);
+      continue;
+    }
+
     // assign read group
     CharString tagRG = str(boost::format("RG:Z:%s") % id_clone);
     appendTagsSamToBam(read1.tags, tagRG);
@@ -561,11 +573,12 @@ auto t_start_10k = chrono::steady_clock::now();
 
     // spike in mutations
     string chr(toCString(contigNames(context_out)[rid_new]));
+    map<TCoord, vector<int>> map_pos_var = var_store.map_chr_pos_snvs.at(chr);
+    seqio::TSegMap segments = it_clone_chr_seg->second[chr];
 
     //--- MUTATE READ PAIR (BEGIN) ---
     // Code copied from mutateReadPairSeg() for increased runtime performance. 
 
-    seqio::TSegMap segments = it_clone_chr_seg->second[chr];
     SegmentCopy seg;
   
     // determine read pair coordinates
@@ -579,6 +592,23 @@ auto t_start_10k = chrono::steady_clock::now();
       pos_end   = r1_end;
     }
   
+    // increase read count for variants overlapping read pair.
+    for (auto it = map_pos_var.lower_bound(pos_begin); 
+         it != map_pos_var.end() && it->first <= pos_end;
+         ++it)
+    {
+      if ( it->first >= r1_begin && it->first < r1_end ) { // read1 overlaps with variant
+        for ( int v : it->second ) {
+          map_var_cvg[var_store.map_id_snv.at(v).id]++;
+        }
+      }
+      else if ( it->first >= r2_begin && it->first < r2_end ) { // read1 overlaps with variant
+        for ( int v : it->second ) {
+          map_var_cvg[var_store.map_id_snv.at(v).id]++;
+        }
+      }
+    }
+
     // 1. Assign SegmentCopy for read pair.
     //--------------------------------------
   
@@ -604,21 +634,20 @@ auto t_start_10k = chrono::steady_clock::now();
     // 2. Get variants associated with SegmentCopy.
     //----------------------------------------------
   
-    map<seqio::TCoord, vector<Variant>> map_pos_var;
-    var_store.getSnvsForSegmentCopy(map_pos_var, seg.id);
+    map<seqio::TCoord, vector<Variant>> map_pos_mut;
+    var_store.getSnvsForSegmentCopy(map_pos_mut, seg.id);
   
     // 3. Apply variants overlapping read pair.
     //------------------------------------------
   
-    for (auto it = map_pos_var.lower_bound(pos_begin); 
-         it != map_pos_var.end() && it->first <= pos_end;
+    for (auto it = map_pos_mut.lower_bound(pos_begin); 
+         it != map_pos_mut.end() && it->first <= pos_end;
          ++it)
     {
       for (Variant var : it->second) {
   
         int r1_var_pos = var.pos - r1_begin;
         if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
-          map_var_cvg[var.id]++;
           map_var_alt[var.id]++;
           //fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
           read1.seq[r1_var_pos] = var.alleles[1][0];
@@ -626,7 +655,6 @@ auto t_start_10k = chrono::steady_clock::now();
   
         int r2_var_pos = var.pos - r2_begin;
         if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
-          map_var_cvg[var.id]++;
           map_var_alt[var.id]++;
           //fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
           read2.seq[r2_var_pos] = var.alleles[1][0];

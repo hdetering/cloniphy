@@ -90,17 +90,40 @@ public:
     RandomNumberGenerator<>& rng
   );
 
-  /** Generate sequencing reads for a bulk seq sample. 
-    * Output files naming convention: 
-    *   <bulk_sample>.<clone>.<copy_number>.sam
-    *
-    * \param path_fasta       Directory with clone genome sequences (tiled by copy number state).
-    * \param path_bam         Directory to which reads (BAM) will be output.
-    * \param lbl_sample       Label of the bulk sample (bulk_sample above).
-    * \param map_clone_weight Clone weights, used to calculate read coverage for each clone.
-    * \param seq_coverage     Haploid total sequencing coverage.
-    * \param art              ArtWrapper object, called to generate reads from genomes.
-    */
+  /**
+   * Generate read counts for variant loci for each sample.
+   * 
+   * Output files naming convention:
+   *   <sample>.vars.csv
+   * 
+   * Output file column format:
+   *   <mutId>,<total_reads>,<alternative_reads>
+   * 
+   * \param path_out      Path at which to write output files.
+   * \param lbl_sample    Label for the sample.
+   * \param seq_coverage  Sequencing depth.
+   * \returns             true on success, false on error
+   */
+  bool
+  generateReadCounts (
+    const boost::filesystem::path path_out,
+    const std::string lbl_sample,
+    const double seq_coverage,
+    RandomNumberGenerator<>& rng
+  ); 
+
+  /** 
+   * Generate sequencing reads for a bulk seq sample. 
+   * Output files naming convention: 
+   *   <bulk_sample>.<clone>.<copy_number>.sam
+   *
+   * \param path_fasta       Directory with clone genome sequences (tiled by copy number state).
+   * \param path_bam         Directory to which reads (BAM) will be output.
+   * \param lbl_sample       Label of the bulk sample (bulk_sample above).
+   * \param map_clone_weight Clone weights, used to calculate read coverage for each clone.
+   * \param seq_coverage     Haploid total sequencing coverage.
+   * \param art              ArtWrapper object, called to generate reads from genomes.
+   */
   void
   generateBulkSeqReads (
     const boost::filesystem::path path_fasta,
