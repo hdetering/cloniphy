@@ -18,6 +18,8 @@ private:
   bool has_refseqs;
   /** Flag that indicates if clone genomes have been exported. */
   bool has_clone_genomes;
+  /** Flag that indicates if copy number states have been initialized. */
+  bool has_cn_states;
   /** The set of reference sequences to be included in output header. */
   std::map<std::string, seqio::TCoord> m_map_ref_len;
   /** Index of genomic segments for each clone and chromosome. */
@@ -32,6 +34,17 @@ private:
   std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
   /** Allele frequencies of SNVs indexed by SNV id. */
   std::map<int, double> m_map_snv_vaf;
+  /** Allele-specific copy number state by sample, chromosome, coordinates */
+  std::map<
+    std::string,       // sample id 
+    std::map<
+      std::string,     // chromosome id
+      boost::icl::interval_map<
+        seqio::TCoord, // start and end coordinates 
+        seqio::AlleleSpecCopyNum // copy no. for maternal and paternal allele
+      >
+    >
+  > m_smp_chr_cn;
 
 public:
   /** Default c'tor. */
@@ -103,19 +116,21 @@ public:
    * Output file column format:
    *   <mutId>,<total_reads>,<alternative_reads>
    * 
-   * \param path_out      Path at which to write output files.
-   * \param lbl_sample    Label for the sample.
-   * \param seq_coverage  Sequencing depth.
-   * \param seq_error     Sequencing error (per base).
-   * \returns             true on success, false on error
+   * \param path_out          Path at which to write output files.
+   * \param lbl_sample        Label for the sample.
+   * \param seq_coverage      Sequencing depth mean.
+   * \param seq_disp          Sequencing depth dispersion.
+   * \param seq_error         Sequencing error (per base).
+   * \returns                 true on success, false on error
    */
   bool
   generateReadCounts (
     const boost::filesystem::path path_out,
     const std::string lbl_sample,
     const double seq_coverage,
-    const double seq_error,
     const double seq_disp,
+    const double seq_error,
+    const vario::VariantStore& var_store,
     RandomNumberGenerator<>& rng
   ); 
 
@@ -288,19 +303,31 @@ public:
     const boost::filesystem::path path_bed
   );
 
-  /** Writes expected absolute copy number (CN) states for each bulk sample to a BED file.
-    * Output: One BED file for each sample. 
-    *         Naming convention: <sample>.cn.bed
+  /** Stores absolute copy number (CN) states for each bulk sample in internal index map.
     *
     * \param   mtx_sample sampling matrix, contains clone abundances for each sample.
     * \param   map_lbl_gi GenomeInstances making up bulk samples, indexed by clone labels.
-    * \param   path_out   Output directory for BED files.
     * \returns true on success, false on error
     */
   bool
-  writeBulkCopyNumber (
+  calculateBulkCopyNumber (
     const std::map<std::string, std::map<std::string, double>> mtx_sample,
-    const std::map<std::string, seqio::GenomeInstance> map_lbl_gi,
+    const std::map<std::string, seqio::GenomeInstance> map_lbl_gi
+  );
+
+  /** 
+   * Writes expected absolute copy number (CN) states for each bulk sample to a BED file.
+   *
+   * NOTE: Requires calling "calculateBulkCopyNumber()" first!
+   *  
+   * Output: One BED file for each sample. 
+   *         Naming convention: <sample>.cn.bed
+   *
+   * \param   path_out   Output directory for BED files.
+   * \returns true on success, false on error
+   */
+  bool
+  writeBulkCopyNumber (
     const boost::filesystem::path path_out
   ) const;
 

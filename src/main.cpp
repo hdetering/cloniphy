@@ -476,8 +476,10 @@ ofs_dbg_vars.close();
       path_bed);
   }
 
-  // write expected absolute copy number states to BED file for each sample
-  bulk_generator.writeBulkCopyNumber(mtx_sample_clone, map_clone_genome, path_bed);
+  // determine allele-specific copy number state for samples
+  bulk_generator.calculateBulkCopyNumber(mtx_sample_clone, map_clone_genome);
+  // write absolute copy number states to BED file for each sample
+  bulk_generator.writeBulkCopyNumber(path_bed);
 
   // generate reads for genomic regions
   // - reads overlapping with padded regions are discarded

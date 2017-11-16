@@ -80,13 +80,13 @@ BulkSampleGenerator::generateBulkSamples (
     writeExpectedReadCounts(ofs_vaf, seq_coverage, var_store);
     ofs_vaf.close();
 
-    // generate read groups to identify clones in samples
-    vector<seqan::BamHeaderRecord> vec_rg;
-    generateReadGroups(vec_rg, lbl_sample, vec_clone_lbl, "Illumina", "HiSeq2500");
-
     fprintf(stdout, "Generating bulk sample '%s'", lbl_sample.c_str());
     
     if ( seq_read_gen ) { // generate sequencing reads
+      // generate read groups to identify clones in samples
+      vector<seqan::BamHeaderRecord> vec_rg;
+      generateReadGroups(vec_rg, lbl_sample, vec_clone_lbl, "Illumina", "HiSeq2500");
+
       generateBulkSeqReads(path_fasta, path_bam, lbl_sample, w, seq_coverage, art);
       mergeBulkSeqReads(path_bam, lbl_sample, vec_rg, var_store, seq_use_vaf, rng);
     } 
@@ -95,8 +95,9 @@ BulkSampleGenerator::generateBulkSamples (
         path_bam, 
         lbl_sample, 
         seq_coverage, 
+        seq_rc_disp,
         seq_rc_error, 
-        seq_rc_disp, 
+        var_store,
         rng
       );
     }
@@ -108,14 +109,27 @@ BulkSampleGenerator::generateReadCounts (
   const path path_out,
   const string lbl_sample,
   const double seq_coverage,
-  const double seq_error,
   const double seq_disp,
+  const double seq_error,
+  const vario::VariantStore& var_store,
   RandomNumberGenerator<>& rng
 ) 
 {
+  // store read counts per chromosome and position
+  // TODO: how to deal with coinciding variants ???
+  map<string, map<TCoord, pair<int, int>>> map_chr_pos_rc;
+
   // STEP 1: generate read counts for true variants
   //---------------------------------------------------------------------------
+  for (auto snv_vaf : m_map_snv_vaf) {
+    int id_snv = snv_vaf.first;
+    double vaf = snv_vaf.second;
 
+    // sample total coverage from Negative Binomial distribution
+    int rc_tot = rng.getRandomNegativeBinomial(seq_coverage, seq_disp);
+
+    //
+  } 
 
   // STEP 2: introduce sequencing errors (incl. FP variant loci)
   //---------------------------------------------------------------------------
@@ -123,6 +137,15 @@ BulkSampleGenerator::generateReadCounts (
   // determine expected number of seq errors
   // sample number of seq errors to introduce
 
+  // OUTPUT: Write read counts to file
+  //---------------------------------------------------------------------------
+  
+  // create output file
+  string fn_out = (path_out / str(boost::format("%s.rc.csv") % lbl_sample)).string();
+  ofstream ofs_out(fn_out);
+  
+
+  ofs_out.close();
   return true;
 }
 
@@ -340,11 +363,10 @@ BulkSampleGenerator::writeCloneGenomes (
 }
 
 bool
-BulkSampleGenerator::writeBulkCopyNumber (
+BulkSampleGenerator::calculateBulkCopyNumber (
   const map<string, map<string, double>> mtx_sample,
-  const map<string, GenomeInstance> map_lbl_gi,
-  const path path_out
-) const
+  const map<string, GenomeInstance> map_lbl_gi
+)
 {
   // loop over samples
   for (auto & kv : mtx_sample) {
@@ -374,6 +396,30 @@ BulkSampleGenerator::writeBulkCopyNumber (
         }
       }
     }
+
+    // store genomic intervals and CN state in internal index
+    this->m_smp_chr_cn[id_sample] = map_chr_cn;
+  }
+
+  this->has_cn_states = true;
+  
+  return true;
+}
+
+bool
+BulkSampleGenerator::writeBulkCopyNumber (
+  const path path_out
+) const
+{
+  // make sure copy number states have been initialized
+  assert ( this->has_cn_states );
+
+  typedef interval_map<TCoord, seqio::AlleleSpecCopyNum> TCnMap;
+
+  // loop over samples
+  for (auto & smp_chr : this->m_smp_chr_cn) {
+    string id_sample = smp_chr.first;
+    map<string, TCnMap> map_chr_cn = smp_chr.second;
 
     // create BED file for sample
     string fn_bed = (path_out / str(boost::format("%s.cn.bed") % id_sample)).string();
@@ -1257,7 +1303,7 @@ BulkSampleGenerator::writeFastaTiled (
 
   // write intervals and corresponding CN state to BED file
   string fn_bed = (path_bed / str(boost::format("%s.cn.bed") % lbl_clone)).string();
-  std::ofstream f_bed(fn_bed);
+  ofstream f_bed(fn_bed);
   for (auto& reg_cn : map_reg_cn) {
     string id_chr;
     TCoord ref_start, ref_end;

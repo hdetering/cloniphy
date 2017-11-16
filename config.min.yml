@@ -158,7 +158,9 @@ seq-coverage      : 100
 seq-read-gen      : true
 # sequencing error (per base.)
 # only applied for generating read counts (i.e. seq-read-gen = false)
-seq-error         : 0.01
+seq-rc-error      : 0.01
+# Dispersion parameter for read count distribution
+seq-rc-disp       : 5
 
 # read length
 seq-read-len      : 100

@@ -141,7 +141,7 @@ struct CopyNumberVariant
 /** Encapsulates the allele counts (reference, alternative) for a given variant and genome. */
 struct VariantAlleleCount {
   //int idx_var; // this should rather be an index under which to store VariantAlleleCount elements.
-  /** Number of reference alleles. */
+  /** Total number of copies. */
   short num_tot;
   /** Number of alternative alleles. */
   short num_alt;
