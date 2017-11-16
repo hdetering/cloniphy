@@ -2,6 +2,7 @@
 #define BULKSAMPLEGENERATOR_H
 
 #include "../bamio.hpp"
+#include "BulkSample.hpp"
 
 namespace bamio {
 
@@ -14,12 +15,16 @@ typedef seqan::BamIOContext<TNameStore, TNameStoreCache, seqan::Dependent<> > TB
 class BulkSampleGenerator {
 
 private:
+  /** Flag that indicates if bulk samples have been initialized. */
+  bool has_samples;
   /** Flag that indicates if reference sequences have been set. */
   bool has_refseqs;
   /** Flag that indicates if clone genomes have been exported. */
   bool has_clone_genomes;
   /** Flag that indicates if copy number states have been initialized. */
   bool has_cn_states;
+  /** Bulk samples (contain info about mixture, CN state, etc.). */
+  std::map<std::string, BulkSample> m_samples;
   /** The set of reference sequences to be included in output header. */
   std::map<std::string, seqio::TCoord> m_map_ref_len;
   /** Index of genomic segments for each clone and chromosome. */
@@ -34,25 +39,27 @@ private:
   std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
   /** Allele frequencies of SNVs indexed by SNV id. */
   std::map<int, double> m_map_snv_vaf;
-  /** Allele-specific copy number state by sample, chromosome, coordinates */
-  std::map<
-    std::string,       // sample id 
-    std::map<
-      std::string,     // chromosome id
-      boost::icl::interval_map<
-        seqio::TCoord, // start and end coordinates 
-        seqio::AlleleSpecCopyNum // copy no. for maternal and paternal allele
-      >
-    >
-  > m_smp_chr_cn;
 
 public:
   /** Default c'tor. */
   BulkSampleGenerator();
 
-  /** Extract the context of reference sequences (name, length) from reference genome. */
+  /**
+   * Initialize bulk samples from sampling matrix.
+   * 
+   * \param mtx_sample_clone  Sampling matrix (sample x clone x weight).
+   * \returns                 true on success, false on error
+   */
+  bool
+  initSamples (
+    const std::map<std::string, std::map<std::string, double>> mtx_sampling
+  );
+
+  /** 
+   * Extract the context of reference sequences (name, length) from reference genome. 
+   */
   void
-  initializeRefSeqs (
+  initRefSeqs (
     const seqio::GenomeReference& ref_genome
   );
 

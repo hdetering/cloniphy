@@ -276,7 +276,7 @@ BOOST_AUTO_TEST_CASE ( bsg )
   // 2. initialize BulkSampleGenerator
   BOOST_TEST_MESSAGE( "\nInitializing BulkSampleGenerator.\n" );
   BulkSampleGenerator bulk_gen;
-  bulk_gen.initializeRefSeqs(ref_genome);
+  bulk_gen.initRefSeqs(ref_genome);
 
   // 3. generate read groups to assign read pairs to clones
   BOOST_TEST_MESSAGE( "\nGenerating Read Groups.\n" );

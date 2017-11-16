@@ -460,9 +460,11 @@ ofs_dbg_vars.close();
   // sanity check: number of genome matches clone fractions?
   assert ( map_clone_genome.size() == mtx_sample_clone.begin().second.size() );
 
+  // initialize bulk samples
+  bulk_generator.initSamples(mtx_sample_clone);
 
   // initialize BulkSampleGenerator with reference genome
-  bulk_generator.initializeRefSeqs(ref_genome);
+  bulk_generator.initRefSeqs(ref_genome);
 
   // export genomic sequences (only if reads are to be generated)
   if ( seq_read_gen ) {

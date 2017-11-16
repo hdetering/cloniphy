@@ -18,8 +18,26 @@ BulkSampleGenerator::BulkSampleGenerator ()
   has_clone_genomes(false)
 {}
 
+bool
+BulkSampleGenerator::initSamples (
+  const map<string, map<string, double>> mtx_sample_clone_w
+) 
+{
+  for (auto smp_clone_w : mtx_sample_clone_w) {
+    string              id_smp  = smp_clone_w.first;
+    map<string, double> clone_w = smp_clone_w.second;
+
+    BulkSample sample(id_smp, clone_w);
+    this->m_samples[id_smp] = sample;
+  } 
+
+  this->has_samples = true;
+
+  return true;
+}
+
 void
-BulkSampleGenerator::initializeRefSeqs (
+BulkSampleGenerator::initRefSeqs (
   const seqio::GenomeReference& ref_genome
 )
 {
@@ -50,26 +68,14 @@ BulkSampleGenerator::generateBulkSamples (
   RandomNumberGenerator<>& rng
 )
 {
-  // get clone labels from sampling matrix
-  vector<string> vec_clone_lbl;
-  for (auto sample_clone_w : mtx_sample_clone_w) {
-    for (auto lbl_w : sample_clone_w.second) {
-      vec_clone_lbl.push_back(lbl_w.first);
-    }
-    break; // only need to look at first sample
-  }
-
-  // initialize ART wrapper
-  bamio::ArtWrapper art(art_bin);
-  art.read_len = seq_read_len;
-  art.frag_len_mean = seq_frag_len_mean;
-  art.frag_len_sd = seq_frag_len_sd;
-  art.out_sam = true;
-
   for (auto const sample_weights : mtx_sample_clone_w) {
 
     string lbl_sample = sample_weights.first;
     map<string, double> w = sample_weights.second;
+
+    // initialize new bulk sample
+    BulkSample sample(lbl_sample, w);
+    this->m_samples[lbl_sample] = sample;
 
     // initialize expected SNV allele frequencies
     this->initAlleleCounts(w, var_store);
@@ -82,10 +88,18 @@ BulkSampleGenerator::generateBulkSamples (
 
     fprintf(stdout, "Generating bulk sample '%s'", lbl_sample.c_str());
     
-    if ( seq_read_gen ) { // generate sequencing reads
+    if ( seq_read_gen ) { // generate sequencing reads      
       // generate read groups to identify clones in samples
+      vector<string> vec_clone_lbl = sample.getCloneLabels();
       vector<seqan::BamHeaderRecord> vec_rg;
       generateReadGroups(vec_rg, lbl_sample, vec_clone_lbl, "Illumina", "HiSeq2500");
+
+      // initialize ART wrapper
+      bamio::ArtWrapper art(art_bin);
+      art.read_len = seq_read_len;
+      art.frag_len_mean = seq_frag_len_mean;
+      art.frag_len_sd = seq_frag_len_sd;
+      art.out_sam = true;
 
       generateBulkSeqReads(path_fasta, path_bam, lbl_sample, w, seq_coverage, art);
       mergeBulkSeqReads(path_bam, lbl_sample, vec_rg, var_store, seq_use_vaf, rng);
@@ -369,10 +383,10 @@ BulkSampleGenerator::calculateBulkCopyNumber (
 )
 {
   // loop over samples
-  for (auto & kv : mtx_sample) {
+  for (auto & kv : this->m_samples) {
     string id_sample = kv.first;
-    map<string, double> w = kv.second;
-  
+    map<string, double> w = kv.second.m_clone_weight;
+
     // merge CN states for individual clone genomes (use interval_map)
     map<string, interval_map<TCoord, seqio::AlleleSpecCopyNum>> map_chr_cn;
     for (auto const lbl_w : w) {
@@ -398,7 +412,7 @@ BulkSampleGenerator::calculateBulkCopyNumber (
     }
 
     // store genomic intervals and CN state in internal index
-    this->m_smp_chr_cn[id_sample] = map_chr_cn;
+    this->m_samples[id_sample].m_chr_cn = map_chr_cn;
   }
 
   this->has_cn_states = true;
@@ -417,9 +431,9 @@ BulkSampleGenerator::writeBulkCopyNumber (
   typedef interval_map<TCoord, seqio::AlleleSpecCopyNum> TCnMap;
 
   // loop over samples
-  for (auto & smp_chr : this->m_smp_chr_cn) {
-    string id_sample = smp_chr.first;
-    map<string, TCnMap> map_chr_cn = smp_chr.second;
+  for (auto & id_smp : this->m_samples) {
+    string id_sample = id_smp.first;
+    map<string, TCnMap> map_chr_cn = id_smp.second.m_chr_cn;
 
     // create BED file for sample
     string fn_bed = (path_out / str(boost::format("%s.cn.bed") % id_sample)).string();
@@ -453,7 +467,7 @@ BulkSampleGenerator::generateBamHeader (
   // require reference sequences to be initialized
   if (!this->has_refseqs) {
     fprintf(stderr, "[ERROR] (BulkSampleGenerator::generateBamHeader)\n");
-    fprintf(stderr, "        Requires reference sequences, call initializeRefSeqs() first.\n");
+    fprintf(stderr, "        Requires reference sequences, call initRefSeqs() first.\n");
     return false;
   }
 
