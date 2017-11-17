@@ -479,7 +479,8 @@ ofs_dbg_vars.close();
   }
 
   // determine allele-specific copy number state for samples
-  bulk_generator.calculateBulkCopyNumber(mtx_sample_clone, map_clone_genome);
+  // bulk_generator.calculateBulkCopyNumber(mtx_sample_clone, map_clone_genome);
+  bulk_generator.calculateBulkCopyNumber(map_clone_genome);
   // write absolute copy number states to BED file for each sample
   bulk_generator.writeBulkCopyNumber(path_bed);
 

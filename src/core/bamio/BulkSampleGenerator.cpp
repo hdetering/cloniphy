@@ -14,8 +14,11 @@ using seqio::TRegion;
 namespace bamio {
 
 BulkSampleGenerator::BulkSampleGenerator ()
-: has_refseqs(false),
-  has_clone_genomes(false)
+: has_samples(false),
+  has_refseqs(false),
+  has_clone_genomes(false),
+  has_cn_states(false),
+  m_ref_len(0)
 {}
 
 bool
@@ -45,6 +48,7 @@ BulkSampleGenerator::initRefSeqs (
     string id = ref_chr.first;
     shared_ptr<seqio::ChromosomeReference> chr = ref_chr.second;
     this->m_map_ref_len[id] = chr->length;
+    this->m_ref_len += chr->length;
   }
   this->has_refseqs = true;
 }
@@ -129,20 +133,44 @@ BulkSampleGenerator::generateReadCounts (
   RandomNumberGenerator<>& rng
 ) 
 {
+  // sanity checks
+  assert ( this->has_samples );
+  assert ( this->has_cn_states );
+
   // store read counts per chromosome and position
-  // TODO: how to deal with coinciding variants ???
-  map<string, map<TCoord, pair<int, int>>> map_chr_pos_rc;
+  // (colliding variants identified by their int index)
+  map<string, map<TCoord, map<int, pair<int, int>>>> map_chr_pos_rc;
+
+  // get sample we are dealing with
+  BulkSample sample = this->m_samples[lbl_sample];
+
+  // calculate expected coverage per base pair position
+  double cvg_per_bp = double(seq_coverage) * m_ref_len / sample.genome_len_abs;
 
   // STEP 1: generate read counts for true variants
   //---------------------------------------------------------------------------
   for (auto snv_vaf : m_map_snv_vaf) {
     int id_snv = snv_vaf.first;
     double vaf = snv_vaf.second;
+    Variant var = var_store.map_id_snv.at(id_snv);
 
-    // sample total coverage from Negative Binomial distribution
-    int rc_tot = rng.getRandomNegativeBinomial(seq_coverage, seq_disp);
+    // calculate copy number-adjusted expected coverage
+    int cvg_exp = round(sample.getExpectedCoverageAt(var.chr, var.pos, cvg_per_bp));
 
-    //
+    // sample total read count from Negative Binomial distribution
+    int rc_tot = rng.getRandomNegativeBinomial(cvg_exp, seq_disp);
+
+    // sample alternative read count from Binomial distribution
+    int rc_alt = rng.getRandomBinomial(rc_tot, vaf)();
+
+    // store results
+    if ( map_chr_pos_rc.count(var.chr) == 0 ) {
+      map_chr_pos_rc[var.chr] = map<TCoord, map<int, pair<int, int>>>();
+    }
+    if ( map_chr_pos_rc[var.chr].count(var.pos) == 0 ) {
+      map_chr_pos_rc[var.chr][var.pos] = map<int, pair<int, int>>();
+    }
+    map_chr_pos_rc[var.chr][var.pos][var.idx_mutation] = make_pair(rc_tot, rc_alt);
   } 
 
   // STEP 2: introduce sequencing errors (incl. FP variant loci)
@@ -378,17 +406,19 @@ BulkSampleGenerator::writeCloneGenomes (
 
 bool
 BulkSampleGenerator::calculateBulkCopyNumber (
-  const map<string, map<string, double>> mtx_sample,
+  //const map<string, map<string, double>> mtx_sample,
   const map<string, GenomeInstance> map_lbl_gi
 )
 {
+  typedef interval_map<TCoord, seqio::AlleleSpecCopyNum> TImapCn;
+
   // loop over samples
   for (auto & kv : this->m_samples) {
     string id_sample = kv.first;
     map<string, double> w = kv.second.m_clone_weight;
 
     // merge CN states for individual clone genomes (use interval_map)
-    map<string, interval_map<TCoord, seqio::AlleleSpecCopyNum>> map_chr_cn;
+    map<string, TImapCn> map_chr_cn;
     for (auto const lbl_w : w) {
       string id_clone = lbl_w.first;
       double weight = lbl_w.second;
@@ -397,7 +427,7 @@ BulkSampleGenerator::calculateBulkCopyNumber (
       if (weight == 0.0) continue;
 
       GenomeInstance gi = map_lbl_gi.at(id_clone);
-      map<string, interval_map<TCoord, seqio::AlleleSpecCopyNum>> map_chr_cn_clone;
+      map<string, TImapCn> map_chr_cn_clone;
       gi.getCopyNumberStateByChr(map_chr_cn_clone, weight);
 
       // for each chromosome id, build an interval map
@@ -413,6 +443,18 @@ BulkSampleGenerator::calculateBulkCopyNumber (
 
     // store genomic intervals and CN state in internal index
     this->m_samples[id_sample].m_chr_cn = map_chr_cn;
+
+    // calculate real genome length for sample (used in exp. cvg. calc)
+    TCoord g_len = 0;
+    for (auto & chr_cn : map_chr_cn) {
+      TImapCn imap_cn = chr_cn.second;
+      for (auto it = imap_cn.begin(); it != imap_cn.end(); ++it) {
+        TCoord seg_len = it->first.upper() - it->first.lower();
+        double seg_cn  = it->second.count_A + it->second.count_B;
+        g_len += TCoord(seg_len * seg_cn); 
+      }
+    }
+    this->m_samples[id_sample].genome_len_abs = g_len;
   }
 
   this->has_cn_states = true;

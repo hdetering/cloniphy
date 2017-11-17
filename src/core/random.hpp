@@ -101,6 +101,24 @@ struct RandomNumberGenerator {
 	  return bind(dist, ref(generator));
   }
 
+  /**
+   * Returns a function that samples from the binomial dristribution.
+   * 
+   * \param n  number of trials
+   * \param p  probability of success
+   * \returns  random function sampling from Binom(n, k) 
+   */
+  template <typename IntType = int>
+  std::function<IntType()>
+  getRandomBinomial (
+    IntType n,
+    double p
+  )
+  {
+    std::binomial_distribution<> dist(n, p);
+    return bind(dist, ref(generator));
+  }
+
   /** algorithm proposed in:
    *  Rubin, Donald B. The Bayesian Bootstrap.
    *  Ann. Statist. 9 (1981), no. 1, 130--134. doi:10.1214/aos/1176345338.

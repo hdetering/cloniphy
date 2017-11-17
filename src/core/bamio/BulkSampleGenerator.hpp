@@ -25,6 +25,8 @@ private:
   bool has_cn_states;
   /** Bulk samples (contain info about mixture, CN state, etc.). */
   std::map<std::string, BulkSample> m_samples;
+  /** Reference genome length. */
+  seqio::TCoord m_ref_len;
   /** The set of reference sequences to be included in output header. */
   std::map<std::string, seqio::TCoord> m_map_ref_len;
   /** Index of genomic segments for each clone and chromosome. */
@@ -318,7 +320,7 @@ public:
     */
   bool
   calculateBulkCopyNumber (
-    const std::map<std::string, std::map<std::string, double>> mtx_sample,
+    //const std::map<std::string, std::map<std::string, double>> mtx_sample,
     const std::map<std::string, seqio::GenomeInstance> map_lbl_gi
   );
 
