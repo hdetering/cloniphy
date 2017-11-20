@@ -50,6 +50,8 @@ BulkSampleGenerator::initRefSeqs (
     this->m_map_ref_len[id] = chr->length;
     this->m_ref_len += chr->length;
   }
+  
+  this->m_ref_genome = make_shared(ref_genome);
   this->has_refseqs = true;
 }
 

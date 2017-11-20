@@ -25,6 +25,8 @@ private:
   bool has_cn_states;
   /** Bulk samples (contain info about mixture, CN state, etc.). */
   std::map<std::string, BulkSample> m_samples;
+  /** Reference genome (sequence required during sim of read errors.) */
+  std::shared_ptr<seqio::GenomeReference> m_ref_genome;
   /** Reference genome length. */
   seqio::TCoord m_ref_len;
   /** The set of reference sequences to be included in output header. */
