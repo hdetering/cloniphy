@@ -155,13 +155,13 @@ BulkSampleGenerator::generateReadCounts (
     Variant var = var_store.map_id_snv.at(id_snv);
 
     // calculate copy number-adjusted expected coverage
-    int cvg_exp = round(sample.getExpectedCoverageAt(var.chr, var.pos, cvg_per_bp));
+    double cvg_exp = sample.getExpectedCoverageAt(var.chr, var.pos, cvg_per_bp);
 
     // sample total read count from Negative Binomial distribution
     int rc_tot = rng.getRandomNegativeBinomial(cvg_exp, seq_disp);
 
     // sample alternative read count from Binomial distribution
-    int rc_alt = rng.getRandomBinomial(rc_tot, vaf)();
+    int rc_alt = rng.getRandomFunctionBinomial(rc_tot, vaf)();
 
     // store results
     if ( map_chr_pos_rc.count(var.chr) == 0 ) {
@@ -177,7 +177,15 @@ BulkSampleGenerator::generateReadCounts (
   //---------------------------------------------------------------------------
   
   // determine expected number of seq errors
+  unsigned n_err_exp = m_ref_len * seq_error * seq_coverage;
   // sample number of seq errors to introduce
+  unsigned n_err = rng.getRandomFunctionPoisson(n_err_exp)();
+
+  // introduce sequencing errors at random genomic positions
+  function<TCoord()> r_unif = rng.getRandomFunctionInt(TCoord(0), m_ref_len);
+  for (unsigned i=0; i<n_err; i++) {
+    // pick random reference position
+  }
 
   // OUTPUT: Write read counts to file
   //---------------------------------------------------------------------------
@@ -591,7 +599,7 @@ BulkSampleGenerator::transformBamTileSeg (
   // used to pick random vector indices (e.g., SegmentCopy)
   random_selector<> selector(rng.generator);
   // used to decide if given read is to be mutated (depending on expected VAF in sample)
-  function<double()> r_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> r_dbl = rng.getRandomFunctionReal(0.0, 1.0);
 
   // get SegmentCopy map for clone
   auto it_clone_chr_seg = m_map_clone_chr_seg.find(id_clone);
@@ -839,7 +847,7 @@ BulkSampleGenerator::transformBamTileVaf (
   // used to pick random vector indices (e.g., SegmentCopy)
   random_selector<> selector(rng.generator);
   // used to decide if given read is to be mutated (depending on expected VAF in sample)
-  function<double()> r_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> r_dbl = rng.getRandomFunctionReal(0.0, 1.0);
 
   // get SegmentCopy map for clone
   auto it_clone_chr_seg = m_map_clone_chr_seg.find(id_clone);

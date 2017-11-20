@@ -183,7 +183,7 @@ void GenomeReference::generate(
   // set sequence lengths
   vector<unsigned long> vec_seq_len(num_seqs);
   if (sd_len > 0) { // sample from Gamma distribution
-    function<double()> rlen = rng.getRandomGammaMeanSd(mean_len, sd_len);
+    function<double()> rlen = rng.getRandomFunctionGammaMeanSd(mean_len, sd_len);
     std::generate(vec_seq_len.begin(), vec_seq_len.end(), rlen);
     std::sort(vec_seq_len.begin(), vec_seq_len.end(), std::greater<unsigned long>());
   }

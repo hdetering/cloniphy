@@ -30,8 +30,8 @@ void simulateMda(
   double num_amp = seq_len * fold * lambda / amp_size_mean;
   // per-site probability for amplicon start
   double p = num_amp / double(seq_len);
-  function<double()> rf_amp_len = rng.getRandomGammaMeanSd(amp_size_mean, amp_size_sd);
-  function<double()> rf_amp_cvg = rng.getRandomExponential(lambda);
+  function<double()> rf_amp_len = rng.getRandomFunctionGammaMeanSd(amp_size_mean, amp_size_sd);
+  function<double()> rf_amp_cvg = rng.getRandomFunctionExponential(lambda);
   function<double()> rf_coin = rng.getRandomIndexWeighted({1-p, p});
 
   cvg = vector<unsigned>(seq_len, 1); // one copy is the primary sequence itself
@@ -60,7 +60,7 @@ void simulateMdaProcessHaploid(
   unsigned long total_len = seq_len;
   vector<unsigned> vec_frag_start = { 0 }; // start position of fragments
   vector<unsigned> vec_frag_len = { seq_len }; // length of fragments
-  function<double()> rf_amp_len = rng.getRandomGammaMeanSd(amp_size_mean, amp_size_sd);
+  function<double()> rf_amp_len = rng.getRandomFunctionGammaMeanSd(amp_size_mean, amp_size_sd);
   function<short()> rf_strand = rng.getRandomFunctionInt(short(0),short(1));
 
   while (total_len < seq_len*fold) {
@@ -114,7 +114,7 @@ void simulateMdaProcessDiploid(
   // fragment lengths
   vector<unsigned> vec_frag_len = vector<unsigned>(ploidy, seq_len);
   vector<unsigned short> vec_frag_allele = { 0, 1 }; // allelic source (\in {0,1})
-  function<double()> rf_amp_len = rng.getRandomGammaMeanSd(amp_size_mean, amp_size_sd);
+  function<double()> rf_amp_len = rng.getRandomFunctionGammaMeanSd(amp_size_mean, amp_size_sd);
   function<short()> rf_strand = rng.getRandomFunctionInt(short(0),short(1));
 
   while (total_len < target_len) {

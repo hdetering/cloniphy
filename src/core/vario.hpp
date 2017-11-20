@@ -38,6 +38,7 @@ struct Variant
   double rel_pos;     /** relative position in genome (use for sorting) */
   bool is_somatic;    /** is this Variant somatic or germline? (different output channels) */
   bool is_het;        /** true: Variant is heterozygous; false: homozygous (only applies if not is_somatic) */
+  bool is_error;      /** true: Variant due to sequencing error (only applies to read count sim) */
 
   Variant();
   Variant(std::string id, std::string chr, unsigned long pos);

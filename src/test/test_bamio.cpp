@@ -67,8 +67,8 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // TODO: this should be replaced by loading a tree from file (see above)
   // -> integrate flags "is_visible" and "weight" into Newick format
-  function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
-  function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
+  function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
+  function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
   int num_clones = 5;
   treeio::Tree<Clone> tree(num_clones);
   tree.generateRandomTopologyLeafsOnly(random_dbl);
@@ -155,8 +155,8 @@ BOOST_AUTO_TEST_CASE( multisample )
   int num_transmuts = config.getValue<int>("init-muts");
 
   // initialize random functions
-  function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
-  function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
+  function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
+  function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
 
   // generate clone tree
   treeio::Tree<Clone> tree(num_clones);

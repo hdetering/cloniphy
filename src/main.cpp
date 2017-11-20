@@ -186,8 +186,8 @@ int main (int argc, char* argv[])
   //seed = time(NULL) + clock();
   fprintf(stderr, "random seed: %ld\n", seed);
   RandomNumberGenerator<> rng(seed);
-  function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
-  function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
+  function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
+  function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
 
   if (fn_tree.size() > 0) {
     cerr << "Reading tree from file '" << fn_tree << "'" << endl;

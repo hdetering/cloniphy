@@ -21,25 +21,36 @@ struct RandomNumberGenerator {
 
   //RandomNumberGenerator(long seed);
   RandomNumberGenerator(long seed) {
-	generator.seed(seed);
+	  generator.seed(seed);
   }
 
-  std::function<double()> getRandomFunctionDouble(double min, double max) {
-	assert( max > min );
-	std::uniform_real_distribution<> dist(min, max);
-	return bind(dist, ref(generator));
+  template <typename RealType = double>
+  std::function<RealType()> 
+  getRandomFunctionReal (
+    const RealType min, 
+    const RealType max
+  ) 
+  {
+	  assert( max > min );
+	  std::uniform_real_distribution<> dist(min, max);
+	  return bind(dist, ref(generator));
   }
 
-  template <typename T>
-  std::function<T()> getRandomFunctionInt(T min, T max) {
-	std::uniform_int_distribution<> dist(min, max);
-	return bind(dist, ref(generator));
+  template <typename IntType = int>
+  std::function<IntType()> 
+  getRandomFunctionInt(
+    IntType min, 
+    IntType max
+  ) 
+  {
+	  std::uniform_int_distribution<> dist(min, max);
+	  return bind(dist, ref(generator));
   }
 
   template <typename IndexType = int, typename WeightType = double>
   std::function<IndexType()> 
   getRandomIndexWeighted (
-    std::vector<WeightType> weights
+    const std::vector<WeightType> weights
   ) 
   {
 	  std::discrete_distribution<IndexType> dist(weights.begin(), weights.end());
@@ -50,9 +61,10 @@ struct RandomNumberGenerator {
    * Get Poisson-distributed random function.
    * \param mean  Mean and variance. 
    */
-  std::function<int()> 
-  getRandomPoisson (
-    double mean
+  template <typename IntType = int, typename RealType = double>
+  std::function<IntType()> 
+  getRandomFunctionPoisson (
+    const RealType mean
   ) 
   {
 	  std::poisson_distribution<> dist(mean);
@@ -62,10 +74,11 @@ struct RandomNumberGenerator {
   /**
    * Get Gamma-distributed random function. 
    */
-  std::function<double()> 
-  getRandomGamma (
-    double shape, 
-    double scale
+  template <typename RealType = double>
+  std::function<RealType()> 
+  getRandomFunctionGamma (
+    const RealType shape, 
+    const RealType scale
   )
   {
 	  std::gamma_distribution<> dist(shape, scale);
@@ -74,9 +87,9 @@ struct RandomNumberGenerator {
 
   template <typename RealType = double>
   std::function<RealType()> 
-  getRandomGammaMeanSd (
-    RealType mean, 
-    RealType sd
+  getRandomFunctionGammaMeanSd (
+    const RealType mean, 
+    const RealType sd
   )
   {
     //std::uniform_real_distribution<> dist(min, max);
@@ -85,7 +98,7 @@ struct RandomNumberGenerator {
       // calculate gamma parameters
       double shape = float(mean*mean) / float(sd*sd);
       double scale = float(sd*sd) / float(mean);
-      return getRandomGamma(shape, scale);
+      return getRandomFunctionGamma(shape, scale);
     } else {
       return [mean] () { return mean; };
     }
@@ -93,8 +106,8 @@ struct RandomNumberGenerator {
 
   template <typename RealType = double>
   std::function<RealType()> 
-  getRandomExponential (
-    double lambda
+  getRandomFunctionExponential (
+    const RealType lambda
   ) 
   {
 	  std::exponential_distribution<RealType> dist(lambda);
@@ -108,11 +121,11 @@ struct RandomNumberGenerator {
    * \param p  probability of success
    * \returns  random function sampling from Binom(n, k) 
    */
-  template <typename IntType = int>
+  template <typename IntType = int, typename RealType = double>
   std::function<IntType()>
-  getRandomBinomial (
-    IntType n,
-    double p
+  getRandomFunctionBinomial (
+    const IntType n,
+    const RealType p
   )
   {
     std::binomial_distribution<> dist(n, p);
@@ -123,18 +136,19 @@ struct RandomNumberGenerator {
    *  Rubin, Donald B. The Bayesian Bootstrap.
    *  Ann. Statist. 9 (1981), no. 1, 130--134. doi:10.1214/aos/1176345338.
    */
-  std::vector<double> 
+  template <typename RealType = double, typename IntType = int>
+  std::vector<RealType> 
   getRandomProbs (
-    int n
+    const IntType n
   ) 
   {
-    std::vector<double> p(n);
-    std::vector<double> r(n+1);
+    std::vector<RealType> p(n);
+    std::vector<RealType> r(n+1);
     r[0] = 0.0;
     r[1] = 1.0;
-    auto random_double = getRandomFunctionDouble(0.0, 1.0);
+    std::function<RealType()> r_unif = getRandomFunctionReal(0.0, 1.0);
     for (int i=2; i<n+1; ++i) {
-      r[i] = random_double();
+      r[i] = r_unif();
     }
     std::sort(r.begin(), r.end());
     for (int i=0; i<n; ++i) {
@@ -149,20 +163,21 @@ struct RandomNumberGenerator {
    *  BA Frigyik, A Kapila, MR Gupta
    *  Dept. Elect. Eng., Univ. Washington, Seattle, WA, USA, UWEETR-2010-0006, 2010
    */
-  std::vector<double> 
+  template <typename RealType = double>
+  std::vector<RealType> 
   getRandomDirichlet (
-	  std::vector<double> alpha
+	  const std::vector<RealType> alpha
   ) 
   {
-    std::vector<double> res;
-    double cumsum = 0.0;
-    for (double a : alpha) {
-      auto rgamma = getRandomGamma(a, 1);
-      double x = rgamma();
+    std::vector<RealType> res;
+    RealType cumsum = 0.0;
+    for (RealType a : alpha) {
+      std::function<RealType()> rgamma = getRandomFunctionGamma(a, 1.0);
+      RealType x = rgamma();
       res.push_back(x);
       cumsum += x;
     }
-	  for (double& q : res)
+	  for (RealType& q : res)
 	    q /= cumsum;
 
 	  return res;
@@ -210,15 +225,19 @@ struct RandomNumberGenerator {
     The variance is mu + mu^2/dispersion in this parametrization.
   */
 
-  int getRandomNegativeBinomial (double mean, double dispersion)
+  template <typename IntType = int, typename RealType = double>
+  IntType
+  getRandomNegativeBinomial (
+    const RealType mean, 
+    const RealType dispersion)
   {
     // parameters for gamma distribution
-    double shape  = dispersion;
-    double scale  = (dispersion+mean)/dispersion-1;
+    RealType shape  = dispersion;
+    RealType scale  = (dispersion+mean)/dispersion-1;
 
     // sample NB as Poisson with Gamma-distributed mean
-    double rgamma = getRandomGamma(shape, scale)();
-    double rpois  = getRandomPoisson(rgamma)();
+    RealType rgamma = getRandomFunctionGamma(shape, scale)();
+    RealType rpois  = getRandomFunctionPoisson(rgamma)();
 
     return rpois;
   }
@@ -232,20 +251,21 @@ struct RandomNumberGenerator {
    *  \param l minimum value (>0)
    *  \param h maximum value (>l)
    */
-  double 
+  template <typename RealType = double>
+  RealType
   getRandomParetoBounded (
-    const double a, 
-    const double l, 
-    const double h
+    const RealType a, 
+    const RealType l, 
+    const RealType h
   ) 
   {
 	  assert( a > 0 );
 	  assert( l > 0 );
 	  assert( h > l );
-	  std::function<double()> r_unif = getRandomFunctionDouble(0, 1);
-	  double u = r_unif();
+	  std::function<RealType()> r_unif = getRandomFunctionReal(0, 1);
+	  RealType u = r_unif();
 
-	  double x = pow(-(u*pow(h,a)-u*pow(l,a)-pow(h,a))/(pow(h,a)*pow(l,a)),-1.0/a);
+	  RealType x = pow(-(u*pow(h,a)-u*pow(l,a)-pow(h,a))/(pow(h,a)*pow(l,a)),-1.0/a);
 	  return x;
   }
 
@@ -260,16 +280,17 @@ struct RandomNumberGenerator {
    *  \param max maximum value
    *  \param r rate parameter (sensu P(x)=1/L^r)
    */
-  unsigned long 
+  template <typename IntType = unsigned long, typename RealType = double>
+  IntType
   getRandomPowerLaw (
-	  const unsigned long min,
-	  const unsigned long max,
-	  const double r
+	  const IntType min,
+	  const IntType max,
+	  const RealType r
   )
   {
-	  auto r_dbl_unif = getRandomFunctionDouble(0.0, 1.0);
-	  double y = r_dbl_unif();
-	  unsigned long x = pow(pow(min,r+1) - pow(min,r+1)*y + pow(min,r+1), 1/(r+1));
+	  std::function<RealType()> r_unif = getRandomFunctionReal(0.0, 1.0);
+	  RealType y = r_unif();
+	  IntType x = pow(pow(min,r+1) - pow(min,r+1)*y + pow(min,r+1), 1/(r+1));
 	  return x;
   }
 };

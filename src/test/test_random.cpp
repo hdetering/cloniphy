@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE( gamma )
 {
   double shape = 2.0;
   double scale = 0.5;
-  function<double()> random_gamma = gen.getRandomGamma(shape, scale);
+  function<double()> random_gamma = gen.getRandomFunctionGamma(shape, scale);
   unsigned num_values = 100000;
   vector<double> vec_values(num_values);
 
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE( pareto )
 
   vector<double> vec_values;
   for (int i=0; i<100000; ++i) {
-    vec_values.push_back(gen.getRandomParetoBounded(shape, double(min)/max, 1));
+    vec_values.push_back(gen.getRandomParetoBounded(shape, double(min)/max, 1.0));
   }
 
   auto fn = "random_bp_r1.csv";
