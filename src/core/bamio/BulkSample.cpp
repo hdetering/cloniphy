@@ -33,10 +33,10 @@ BulkSample::getCloneLabels () const
 
 double
 BulkSample::getExpectedCoverageAt (
-  string chr,
-  TCoord pos,
-  double cvg_per_bp
-)
+  const string chr,
+  const TCoord pos,
+  const double cvg_per_bp
+) const
 {
   double cvg_exp = -1.0;
 
@@ -46,7 +46,7 @@ BulkSample::getExpectedCoverageAt (
   this->getTotalCopyNumberAt(chr, pos, seg_cn, seg_len);
   
   if (seg_cn < 0) { // this is bad!
-    fprintf(stderr, "[ERROR] Failed to get copy number state for '%s:%lu'", 
+    fprintf(stderr, "[ERROR] (BulkSample::getExpectedCoverageAt) Failed to get copy number state for '%s:%lu'\n", 
       chr.c_str(), 
       pos);
   } 
@@ -61,8 +61,8 @@ bool
 BulkSample::getTotalCopyNumberAt (
   const string chr,
   const TCoord pos,
-  double out_cn_tot,
-  TCoord out_seg_len
+  double& out_cn_tot,
+  TCoord& out_seg_len
 ) const
 {
   typedef interval_map<TCoord, AlleleSpecCopyNum> TCnMap;

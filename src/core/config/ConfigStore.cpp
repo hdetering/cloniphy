@@ -37,6 +37,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_ref_fa = "";
   string fn_tree = "";
   bool seq_read_gen = false;
+  int seq_rc_min = 1;
   bool seq_use_vaf = false;
   bool do_reuse_reads = false;
   bool do_fq_out = true;
@@ -206,6 +207,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       _config["seq-sam-out"] = do_sam_out;
   }
   do_fq_out = _config["seq-sam-out"].as<bool>();
+  // when generating read counts, minimum ALT read count for which to output a VCF line
+  if (!_config["seq-rc-min"]) {
+    _config["seq-rc-min"] = seq_rc_min;
+  }
+  seq_rc_min = _config["seq-rc-min"].as<int>();
   
   //---------------------------------------------------------------------------
   // perform sanity checks
@@ -378,13 +384,16 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "Sequencing data\n");
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
     if (fn_bam_input.length()>0) {
+      fprintf(stderr, "  importing reads from BAM FILE provided by user\n");
       fprintf(stderr, "  input reads:\t%s\n", fn_bam_input.c_str());
-      fprintf(stderr, "  simulate reads:\tno\n");
     } else if (!seq_read_gen) {
+      fprintf(stderr, "  simulating READ COUNTS\n");
       fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
-      fprintf(stderr, "  simulate reads:\tno\n");
+      fprintf(stderr, "  depth dispersion:\t%.1f\n", this->getValue<double>("seq-rc-disp"));
+      fprintf(stderr, "  seq error:\t\t%.2f\n", this->getValue<double>("seq-rc-error"));
+      fprintf(stderr, "  min ALT read count:\t%d\n", this->getValue<int>("seq-rc-min"));
     } else {
-      fprintf(stderr, "  simulate reads:\tyes\n");
+      fprintf(stderr, "  simulating SEQUENCING READS\n");
       fprintf(stderr, "  reuse healthy reads:\t%s\n", do_reuse_reads ? "yes" : "no");
       fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
       fprintf(stderr, "  seq read length:\t%d\n", this->getValue<int>("seq-read-len"));

@@ -286,11 +286,11 @@ fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_coun
 fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n", nuc_freq[0], nuc_freq[1], nuc_freq[2], nuc_freq[3]);
 }
 
-void GenomeReference::getSequence(
-  string id_chr,
-  ulong start,
-  ulong end,
-  map<ulong, string>& seqs
+void GenomeReference::getSequence (
+  const string id_chr,
+  const TCoord start,
+  const TCoord end,
+  map<TCoord, string>& seqs
 ) const
 {
   // perform sanity checks
@@ -318,6 +318,30 @@ void GenomeReference::getSequence(
     seqs[loc_start] = it_start_rec->second->seq.substr(loc_start, loc_len);
     ++it_start_rec;
   }
+}
+
+bool
+GenomeReference::getSequence (
+  const string id_chr,
+  const TCoord pos_start,
+  const TCoord pos_end,
+  string& seq
+) const 
+{
+  // init return variable
+  seq.clear();
+
+  map<TCoord, string> map_start_seq;
+  this->getSequence(id_chr, pos_start, pos_end, map_start_seq);
+  if ( map_start_seq.size() == 0 ) // locus was not found in genome
+    return false;
+
+  // concatenate sequences for output
+  for (auto start_seq : map_start_seq) {
+    seq += start_seq.second;
+  }
+
+  return true;
 }
 
 /*---------------

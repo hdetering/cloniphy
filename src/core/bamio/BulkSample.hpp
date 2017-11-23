@@ -56,6 +56,19 @@ struct BulkSample {
   getCloneLabels () const;
 
   /** 
+   * Get total copy number, depending on clonal mixture of sample.
+   * 
+   * \param chr   affected chromosome
+   * \param pos   affected base pair position
+   * \returns     copy number for sample at locus chr:pos
+   */
+  // double
+  // getTotalCopyNumberAt (
+  //   const std::string chr,
+  //   const seqio::TCoord pos
+  // ) const;
+
+  /** 
    * Return copy number-adjusted expected sequencing coverage for locus.
    * 
    * expected coverage for affected segment S_i is calculated as follows:
@@ -78,10 +91,10 @@ struct BulkSample {
    */
   double 
   getExpectedCoverageAt (
-    std::string chr,
-    seqio::TCoord pos,
-    double cvg_per_bp
-  );
+    const std::string chr,
+    const seqio::TCoord pos,
+    const double cvg_per_bp
+  ) const;
 
   /**
    * Return total copy number state for given genomic position.
@@ -98,8 +111,8 @@ struct BulkSample {
   getTotalCopyNumberAt (
     const std::string chr,
     const seqio::TCoord pos,
-    double out_cn_tot,
-    seqio::TCoord out_seg_len
+    double& out_cn_tot,
+    seqio::TCoord& out_seg_len
   ) const;
 
 };

@@ -5,7 +5,7 @@
 #--------------------#
 
 # output folder
-out-dir: "c4.r4.m100.300kb.100x.test"
+out-dir: "c4.r4.m100.300kb.100x.rc"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -155,12 +155,15 @@ samples:
 seq-coverage      : 100
 # whether to generate sequencing reads
 # (if false, simulate read counts directly)
-seq-read-gen      : true
+seq-read-gen      : false
 # sequencing error (per base.)
 # only applied for generating read counts (i.e. seq-read-gen = false)
-seq-rc-error      : 0.01
+seq-rc-error      : 0.00
 # Dispersion parameter for read count distribution
-seq-rc-disp       : 5
+# WES: low (1-5); WGS: high (30-50)
+seq-rc-disp       : 40
+# minimum alternative read count to report (default: 1)
+seq-rc-min        : 2
 
 # read length
 seq-read-len      : 100

@@ -754,18 +754,13 @@ VariantStore::generateSomaticVariants(
       Variant var;
       var.id = str(format("s%d") % m.id);
       var.chr = loc.id_ref;
-      //var.chr_copy = random_copy(); // TODO: deprecated!
-      //var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
       var.rel_pos = double(nuc_pos)/genome_len;
-      // TODO: assign SegmentCopy
-      //var.reg_copy = 0;
       var.pos = loc.start;
       var.alleles.push_back(ref_nuc);
       var.alleles.push_back(alt_nuc);
       var.idx_mutation = m.id;
       var.is_somatic = true;
       this->map_id_snv[m.id] = var;
-      // TODO: add variant to map_seg_vars
     }
     else { // CNV event
       CopyNumberVariant cnv;

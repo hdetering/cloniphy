@@ -78,6 +78,7 @@ int main (int argc, char* argv[])
   double seq_coverage = config.getValue<double>("seq-coverage");
   double seq_rc_error = config.getValue<double>("seq-rc-error");
   double seq_rc_disp = config.getValue<double>("seq-rc-disp");
+  int    seq_rc_min = config.getValue<int>("seq-rc-min");
   bool seq_read_gen = config.getValue<bool>("seq-read-gen");
   bool seq_use_vaf = config.getValue<bool>("seq-use-vaf");
   unsigned seq_read_len = config.getValue<unsigned>("seq-read-len");
@@ -497,6 +498,7 @@ ofs_dbg_vars.close();
     seq_coverage,
     seq_rc_error,
     seq_rc_disp,
+    seq_rc_min,
     seq_read_gen,
     seq_use_vaf,
     seq_read_len, 

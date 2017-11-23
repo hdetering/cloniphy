@@ -50,8 +50,8 @@ BulkSampleGenerator::initRefSeqs (
     this->m_map_ref_len[id] = chr->length;
     this->m_ref_len += chr->length;
   }
-  
-  this->m_ref_genome = make_shared(ref_genome);
+
+  this->m_ref_genome = make_shared<seqio::GenomeReference>(ref_genome);
   this->has_refseqs = true;
 }
 
@@ -65,6 +65,7 @@ BulkSampleGenerator::generateBulkSamples (
   const double seq_coverage,
   const double seq_rc_error,
   const double seq_rc_disp,
+  const int    seq_rc_min,
   const bool seq_read_gen,
   const bool seq_use_vaf,
   const unsigned seq_read_len,
@@ -74,16 +75,21 @@ BulkSampleGenerator::generateBulkSamples (
   RandomNumberGenerator<>& rng
 )
 {
-  for (auto const sample_weights : mtx_sample_clone_w) {
+  // for (auto const sample_weights : mtx_sample_clone_w) {
 
-    string lbl_sample = sample_weights.first;
-    map<string, double> w = sample_weights.second;
+  //   string lbl_sample = sample_weights.first;
+  //   map<string, double> w = sample_weights.second;
 
-    // initialize new bulk sample
-    BulkSample sample(lbl_sample, w);
-    this->m_samples[lbl_sample] = sample;
+  //   // initialize new bulk sample
+  //   BulkSample sample(lbl_sample, w);
+  //   this->m_samples[lbl_sample] = sample;
+  for (auto const & lbl_smp : this->m_samples) {
+
+    string lbl_sample = lbl_smp.first;
+    BulkSample sample = lbl_smp.second;
 
     // initialize expected SNV allele frequencies
+    map<string, double> w = sample.m_clone_weight;
     this->initAlleleCounts(w, var_store);
 
     // output expected read counts to BED file.
@@ -116,7 +122,8 @@ BulkSampleGenerator::generateBulkSamples (
         lbl_sample, 
         seq_coverage, 
         seq_rc_disp,
-        seq_rc_error, 
+        seq_rc_error,
+        seq_rc_min, 
         var_store,
         rng
       );
@@ -124,6 +131,9 @@ BulkSampleGenerator::generateBulkSamples (
   }
 }
 
+/** 
+ * TODO: how are read counts generated for colliding variants (at same locus) ???
+ * */
 bool
 BulkSampleGenerator::generateReadCounts (
   const path path_out,
@@ -131,23 +141,29 @@ BulkSampleGenerator::generateReadCounts (
   const double seq_coverage,
   const double seq_disp,
   const double seq_error,
+  const int    seq_min_rc,
   const vario::VariantStore& var_store,
   RandomNumberGenerator<>& rng
 ) 
 {
   // sanity checks
+  assert ( this->has_refseqs );
   assert ( this->has_samples );
   assert ( this->has_cn_states );
 
-  // store read counts per chromosome and position
+  // store read counts per chromosome, position and base
+  map<string, map<TCoord, map<string, int>>> map_chr_pos_base_rc;
+
+  // store true variants per chromosome, position and variant
   // (colliding variants identified by their int index)
-  map<string, map<TCoord, map<int, pair<int, int>>>> map_chr_pos_rc;
+  //map<string, map<TCoord, map<int, pair<int, int>>>> map_chr_pos_var_rc;
+  map<string, map<TCoord, vector<string>>> map_chr_pos_var;
 
   // get sample we are dealing with
   BulkSample sample = this->m_samples[lbl_sample];
 
-  // calculate expected coverage per base pair position
-  double cvg_per_bp = double(seq_coverage) * m_ref_len / sample.genome_len_abs;
+  // calculate expected coverage per single copy
+  double cvg_per_cpy = double(seq_coverage) * m_ref_len / sample.genome_len_abs;
 
   // STEP 1: generate read counts for true variants
   //---------------------------------------------------------------------------
@@ -157,7 +173,10 @@ BulkSampleGenerator::generateReadCounts (
     Variant var = var_store.map_id_snv.at(id_snv);
 
     // calculate copy number-adjusted expected coverage
-    double cvg_exp = sample.getExpectedCoverageAt(var.chr, var.pos, cvg_per_bp);
+    double cn_seg;
+    TCoord seg_len;
+    sample.getTotalCopyNumberAt(var.chr, var.pos, cn_seg, seg_len);
+    double cvg_exp = cn_seg * cvg_per_cpy;
 
     // sample total read count from Negative Binomial distribution
     int rc_tot = rng.getRandomNegativeBinomial(cvg_exp, seq_disp);
@@ -165,14 +184,29 @@ BulkSampleGenerator::generateReadCounts (
     // sample alternative read count from Binomial distribution
     int rc_alt = rng.getRandomFunctionBinomial(rc_tot, vaf)();
 
-    // store results
-    if ( map_chr_pos_rc.count(var.chr) == 0 ) {
-      map_chr_pos_rc[var.chr] = map<TCoord, map<int, pair<int, int>>>();
+    // store true variants
+    if ( map_chr_pos_var.count(var.chr) == 0 ) {
+      //map_chr_pos_var_rc[var.chr] = map<TCoord, map<int, pair<int, int>>>();
+      map_chr_pos_var[var.chr] = map<TCoord, vector<string>>();
     }
-    if ( map_chr_pos_rc[var.chr].count(var.pos) == 0 ) {
-      map_chr_pos_rc[var.chr][var.pos] = map<int, pair<int, int>>();
+    if ( map_chr_pos_var[var.chr].count(var.pos) == 0 ) {
+      //map_chr_pos_var_rc[var.chr][var.pos] = map<int, pair<int, int>>();
+      map_chr_pos_var[var.chr][var.pos] = vector<string>();
     }
-    map_chr_pos_rc[var.chr][var.pos][var.idx_mutation] = make_pair(rc_tot, rc_alt);
+    //map_chr_pos_var_rc[var.chr][var.pos][var.idx_mutation] = make_pair(rc_tot, rc_alt);
+    map_chr_pos_var[var.chr][var.pos].push_back(var.id);
+
+    // store per-base read counts
+    if ( map_chr_pos_base_rc.count(var.chr) == 0 ) {
+      map_chr_pos_base_rc[var.chr] = map<TCoord, map<string, int>>();
+    }
+    if ( map_chr_pos_base_rc[var.chr].count(var.pos) > 0 ) {
+      // TODO: How to handle this case consistently?
+fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding variants at '%s_%lu'!", var.chr.c_str(), var.pos);      
+    }
+    map_chr_pos_base_rc[var.chr][var.pos] = map<string, int>();
+    map_chr_pos_base_rc[var.chr][var.pos][var.alleles[0]] = rc_tot - rc_alt;
+    map_chr_pos_base_rc[var.chr][var.pos][var.alleles[1]] = rc_alt;
   } 
 
   // STEP 2: introduce sequencing errors (incl. FP variant loci)
@@ -182,24 +216,150 @@ BulkSampleGenerator::generateReadCounts (
   unsigned n_err_exp = m_ref_len * seq_error * seq_coverage;
   // sample number of seq errors to introduce
   unsigned n_err = rng.getRandomFunctionPoisson(n_err_exp)();
+  // random function to sample relative genome positions
+  function<double()> r_pos_rel = rng.getRandomFunctionReal(0.0, 1.0);
 
   // introduce sequencing errors at random genomic positions
   function<TCoord()> r_unif = rng.getRandomFunctionInt(TCoord(0), m_ref_len);
   for (unsigned i=0; i<n_err; i++) {
     // pick random reference position
+    TCoord pos_abs = r_pos_rel() * this->m_ref_len;
+    // identify chromosome and bp position
+    seqio::Locus loc_err = this->m_ref_genome->getLocusByGlobalPos(pos_abs);
+    string chr_err = loc_err.id_ref;
+    TCoord pos_err = loc_err.start;
+    
+    // init error locus if necessary
+    if ( map_chr_pos_base_rc.count(chr_err) == 0 ) {
+      map_chr_pos_base_rc[chr_err] = map<TCoord, map<string, int>>();
+    }
+    if ( map_chr_pos_base_rc[chr_err].count(pos_err) == 0 ) {
+      // get reference nucleotide for error position
+      string ref_nuc;
+      this->m_ref_genome->getSequence(chr_err, pos_err, pos_err+1, ref_nuc);
+      // calculate copy number-adjusted expected coverage
+      double cn_seg;
+      TCoord seg_len;
+      sample.getTotalCopyNumberAt(chr_err, pos_err, cn_seg, seg_len);
+      double cvg_exp = cn_seg * cvg_per_cpy;
+      // sample total read count from Negative Binomial distribution
+      int rc_tot = rng.getRandomNegativeBinomial(cvg_exp, seq_disp);
+
+      map_chr_pos_base_rc[chr_err][pos_err][ref_nuc] = rc_tot;
+    }
+
+    // change one nucleotide due to error
+
+    // determine alleles present at locus and their read counts
+    vector<string> vec_alleles;
+    vector<int> vec_rc;
+    for (auto kv : map_chr_pos_base_rc[chr_err][pos_err]) {
+      vec_alleles.push_back(kv.first);
+      vec_rc.push_back(kv.second);
+    }
+    // pick allele to be affected by read error
+    int idx_allele = rng.getRandomIndexWeighted(vec_rc)();
+    string allele_old = vec_alleles[idx_allele];
+    // error means read count is reduced by one
+    map_chr_pos_base_rc[chr_err][pos_err][allele_old] -= 1;
+
+    // determine allele that arises due to error
+    short nuc_old = seqio::nuc2idx(allele_old[0]);
+    short shift = rng.getRandomFunctionInt(1, 3)();
+    string nuc_err( 1, seqio::idx2nuc( (nuc_old + shift) % 4 ) );
+
+    // update read count for error allele
+    if ( map_chr_pos_base_rc[chr_err][pos_err].count(nuc_err) == 0 ) {
+      map_chr_pos_base_rc[chr_err][pos_err][nuc_err] = 1;
+    }
+    else { // existing allele increases in read count
+      map_chr_pos_base_rc[chr_err][pos_err][nuc_err] += 1;
+    }
   }
 
   // OUTPUT: Write read counts to file
   //---------------------------------------------------------------------------
   
   // create output file
-  string fn_out = (path_out / str(boost::format("%s.rc.csv") % lbl_sample)).string();
-  ofstream ofs_out(fn_out);
-  
+  string fn_out = (path_out / str(boost::format("%s.rc.vcf") % lbl_sample)).string();
+  writeReadCountsVcf(fn_out, map_chr_pos_base_rc, map_chr_pos_var, seq_min_rc);
 
-  ofs_out.close();
   return true;
 }
+
+bool
+BulkSampleGenerator::writeReadCountsVcf (
+  const string filename,
+  const map<string, map<TCoord, map<string, int>>> map_chr_pos_nuc_rc,
+  const map<string, map<TCoord, vector<string>>> map_chr_pos_var,
+  const int min_rc
+) const
+{
+  ofstream ofs(filename);
+
+  // write header
+  ofs << "##fileformat=VCFv4.1" << endl;
+  ofs << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
+  ofs << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele Count\">" << endl;
+  //ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
+  ofs << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" << endl;
+
+  //string fmt = "DP:AC";
+
+  // write variable positions
+  for (auto & chr_rc : map_chr_pos_nuc_rc) {
+    string chr = chr_rc.first;
+    for (auto & pos_rc : chr_rc.second) {
+      TCoord pos = pos_rc.first;
+      // determine REF allele
+      string ref;
+      this->m_ref_genome->getSequence(chr, pos, pos+1, ref);
+
+      int depth = 0;
+      string alt, ac;
+      bool do_write_line = false;
+      bool is_first_allele = true;
+      for (auto & nuc_rc : pos_rc.second) {
+        string nuc = nuc_rc.first;
+        int rc = nuc_rc.second;
+        depth += rc;
+
+        // check if ALT allele
+        if ( nuc != ref ) {
+          alt += (is_first_allele ? "" : ",") + nuc;
+          ac  += (is_first_allele ? "" : ",") + to_string(rc);
+          is_first_allele = false;
+
+          // check if ALT allele exceeds minimum read count threshold
+          if ( rc >= min_rc ) do_write_line = true;
+        }
+      }
+
+      // check if VCF line is to be exported
+      if ( !do_write_line ) continue;
+
+      // determine IDs of true variants at locus, if any
+      string id_vars = ".";
+      if ( map_chr_pos_var.count(chr) > 0 && 
+           map_chr_pos_var.at(chr).count(pos) > 0 ) {
+        id_vars = map_chr_pos_var.at(chr).at(pos)[0];
+        // there could be >1 variant at locus (violation of infinite sites)
+        for (auto i=1; i<map_chr_pos_var.at(chr).at(pos).size(); i++) {
+          id_vars += "," + map_chr_pos_var.at(chr).at(pos)[i];
+        }
+      }
+
+      string info = str(boost::format("DP=%d;AC=%s") % depth % ac);
+      // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO
+      ofs << boost::format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t%s\n") 
+                           % chr % (pos+1) % id_vars % ref % alt % info;
+    }
+  }
+
+  ofs.close();
+  return true;
+}
+
 
 void
 BulkSampleGenerator::generateBulkSeqReads (

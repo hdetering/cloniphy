@@ -91,6 +91,7 @@ public:
     * \param seq_coverage      Total sequencing coverage (haploid).
     * \param seq_rc_error      Sequencing error (per base). Only applied when generating read counts.
     * \param seq_rc_disp       Sequencing depth overdispersion. Only applies to read count generation.
+    * \param seq_rc_min        Minimum ALT read count at which to report a VCF line.
     * \param seq_read_gen      Generate reads? (false: generate read counts)
     * \param seq_use_vaf       Spike in variants according to VAFs? (breaks haplotypes!)
     * \param seq_read_len      Read length (passed on to read simulator).
@@ -109,6 +110,7 @@ public:
     const double seq_coverage,
     const double seq_rc_error,
     const double seq_rc_disp,
+    const int    seq_rc_min,
     const bool seq_read_gen,
     const bool seq_use_vaf,
     const unsigned seq_read_len,
@@ -141,9 +143,42 @@ public:
     const double seq_coverage,
     const double seq_disp,
     const double seq_error,
+    const int    seq_min_rc,
     const vario::VariantStore& var_store,
     RandomNumberGenerator<>& rng
   ); 
+
+  /** 
+   * Write VCF file containing read count information for each allele.
+   * 
+   * \param filename            Name of the file to create.
+   * \param map_chr_pos_nuc_rc  Read count by chromosome, position, allele.
+   * \param map_chr_var         Variant ids by chromosome, position.
+   * \param min_rc              Minimum read count to export a variant line.
+   * \returns                   true on success, false on error
+   */
+  bool
+  writeReadCountsVcf (
+    const std::string filename,
+    const std::map<
+            std::string, 
+            std::map<
+              seqio::TCoord, 
+              std::map<
+                std::string, 
+                int
+              >
+            >
+          > map_chr_pos_nuc_rc,
+    const std::map<
+            std::string, 
+            std::map<
+              seqio::TCoord, 
+              std::vector<std::string>
+            >
+          > map_chr_pos_var,
+    const int min_rc
+  ) const;
 
   /** 
    * Generate sequencing reads for a bulk seq sample. 
