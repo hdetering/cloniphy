@@ -43,10 +43,10 @@ tree: "data/bulk/bulk.tre"
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
-ref-seq-num: 3
+ref-seq-num: 1
 ## sequence length
-ref-seq-len-mean: 100000
-ref-seq-len-sd:    10000
+ref-seq-len-mean: 3000000
+ref-seq-len-sd:   0
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
@@ -56,7 +56,7 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # germline variants (to generate personal genome from reference)
 #mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-gl-num : 100
+mut-gl-num : 3000
 # ratio of homozygous germline variants (not yet implemented...)
 mut-gl-hom : 0.2
 
@@ -103,7 +103,7 @@ mut-som-sig-mix:
 #------------------------------
 
 # fraction of CNV events among all mutations (set to 0 to disable CNVs)
-mut-som-cnv-ratio: 0.05
+mut-som-cnv-ratio: 0.00
 # minimum length (bp) of CNV events
 mut-som-cnv-len-min: 1000
 # rate parameter for power-law distribution
@@ -158,10 +158,10 @@ seq-coverage      : 100
 seq-read-gen      : false
 # sequencing error (per base.)
 # only applied for generating read counts (i.e. seq-read-gen = false)
-seq-rc-error      : 0.00
+seq-rc-error      : 0.01
 # Dispersion parameter for read count distribution
-# WES: low (1-5); WGS: high (30-50)
-seq-rc-disp       : 40
+# WES: low (1-5); WGS: high (20-50)
+seq-rc-disp       : 30
 # minimum alternative read count to report (default: 1)
 seq-rc-min        : 2
 

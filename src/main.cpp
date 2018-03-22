@@ -394,9 +394,6 @@ for (auto const & cg : map_clone_genome) {
   }
 }
 
-cerr << "N:\t" << *(map_clone_genome["N"].vec_chr[0]->lst_segments.begin()) << endl;
-cerr << "A:\t" << *(map_clone_genome["A"].vec_chr[0]->lst_segments.begin()) << endl;
-
 // DEBUG info: export segment copies to file
 // TODO: move out to Logger class
 string fn_dbg_segs = (path_out / "segments.tsv").string();
@@ -466,6 +463,13 @@ ofs_dbg_vars.close();
 
   // initialize BulkSampleGenerator with reference genome
   bulk_generator.initRefSeqs(ref_genome);
+
+  // initialize BulkSampleGenerator with clone genomes
+  // (copy number segmentation)
+  bulk_generator.initCloneGenomes(
+    map_clone_genome,
+    path_bed
+  );
 
   // export genomic sequences (only if reads are to be generated)
   if ( seq_read_gen ) {

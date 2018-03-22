@@ -27,6 +27,13 @@ private:
   std::map<std::string, BulkSample> m_samples;
   /** Reference genome (sequence required during sim of read errors.) */
   std::shared_ptr<seqio::GenomeReference> m_ref_genome;
+  /** Copy number states by clone, region. */
+  std::map <
+    std::string, 
+    std::map <
+      seqio::TRegion, 
+      seqio::AlleleSpecCopyNum
+  >> m_clone_reg_cn;
   /** Reference genome length. */
   seqio::TCoord m_ref_len;
   /** The set of reference sequences to be included in output header. */
@@ -118,6 +125,27 @@ public:
     const unsigned seq_frag_len_sd,
     const std::string art_bin,
     RandomNumberGenerator<>& rng
+  );
+
+  /** 
+   * Index individual clones genomes, segmenting by copy number state. 
+   *
+   * \param map_lbl_gi     GenomeInstances to be exported, indexed by labels.
+   * \param reference      Reference genome (contains actual DNA sequences).
+   * \param padding        Genomic fragments will be padded by this number of 'A's.
+   * \param min_len        Genomic fragments shorter than this will not be exported. 
+   * \param path_fasta     Output folder for FASTA files.
+   * \param path_bed       Output folder for BED files.
+   * \param map_clone_glen Output param: total genome lengths (sum of all SegmentCopies) for each clone.
+   */
+  void
+  initCloneGenomes (
+    const std::map<std::string, seqio::GenomeInstance> map_lbl_gi,
+    //const seqio::GenomeReference reference,
+    //unsigned padding,
+    //unsigned min_len,
+    //const boost::filesystem::path path_fasta,
+    const boost::filesystem::path path_bed
   );
 
   /**
@@ -377,6 +405,15 @@ public:
     const boost::filesystem::path path_out
   ) const;
 
+  void
+  writeFastaTiled (
+    const std::string lbl_clone,
+    const std::map<seqio::TRegion, seqio::AlleleSpecCopyNum> map_reg_cn,
+    const seqio::TCoord padding,
+    const seqio::TCoord min_len,
+    const boost::filesystem::path path_fasta
+  );
+
   /** Write genomic sequence of a GenomeInstance to FASTA file(s). 
     * Output:
     * - one FASTA file for each copy number (CN) state.
@@ -391,7 +428,7 @@ public:
     * \param path_bed   Path to output BED file to.
     */
   void
-  writeFastaTiled (
+  writeFastaTiledBak (
     const seqio::GenomeInstance genome,
     const seqio::GenomeReference reference,
     const std::string label,
