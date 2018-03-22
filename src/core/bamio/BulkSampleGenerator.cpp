@@ -295,7 +295,7 @@ BulkSampleGenerator::writeReadCountsVcf (
   const int min_rc
 ) const
 {
-  ofstream ofs(filename);
+  std::ofstream ofs(filename);
 
   // write header
   ofs << "##fileformat=VCFv4.1" << endl;
@@ -606,7 +606,7 @@ BulkSampleGenerator::initCloneGenomes (
 
     // write intervals and corresponding CN state to BED file
     string fn_bed = (path_bed / str(boost::format("%s.cn.bed") % lbl_clone)).string();
-    ofstream f_bed(fn_bed);
+    std::ofstream f_bed(fn_bed);
     for (auto& reg_cn : map_reg_cn) {
       string id_chr;
       TCoord ref_start, ref_end;
@@ -1709,7 +1709,7 @@ BulkSampleGenerator::writeFastaTiledBak (
 
   // write intervals and corresponding CN state to BED file
   string fn_bed = (path_bed / str(boost::format("%s.cn.bed") % lbl_clone)).string();
-  ofstream f_bed(fn_bed);
+  std::ofstream f_bed(fn_bed);
   for (auto& reg_cn : map_reg_cn) {
     string id_chr;
     TCoord ref_start, ref_end;
