@@ -6,6 +6,7 @@
 using namespace vario;
 #include "../core/clone.hpp"
 #include "../core/config/ConfigStore.hpp"
+#include "../core/model/DataFrame.hpp"
 #include "../core/random.hpp"
 #include "../core/seqio.cpp"
 using namespace seqio;
@@ -150,7 +151,7 @@ BOOST_AUTO_TEST_CASE( multisample )
 {
   // get parameters from config file
   int num_clones = config.getValue<int>("clones");
-  map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
+  model::DataFrame<double> df_sampling = config.getSamplingScheme();
   int num_mutations = config.getValue<int>("mutations");
   int num_transmuts = config.getValue<int>("init-muts");
 
@@ -214,9 +215,9 @@ BOOST_AUTO_TEST_CASE( multisample )
 
   // create sequencing reads for samples by applying variants to "germline" reads
   VariantSet varset(variants);
-  for (auto row_sample : sample_mtx) {
-    string lbl_sample = row_sample.first;
-    vector<double> w = row_sample.second;
+  for (unsigned i=0; i<df_sampling.n_rows; i++) {
+    string lbl_sample = df_sampling.rownames[i];
+    vector<double> w = df_sampling.data[i];
     string fn_fastq = str(boost::format("%s.fq") % lbl_sample);
     string fn_sam = str(boost::format("%s.sam") % lbl_sample);
     // TODO: use BulkSampleGenerator object!

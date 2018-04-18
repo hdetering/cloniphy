@@ -1,7 +1,10 @@
 #include "ConfigStore.hpp"
+#include "DataFrame.hpp"
+#include "../stringio.hpp"
 #include <gitversion/version.h>
 
 using namespace std;
+using model::DataFrame;
 
 namespace config {
 
@@ -177,6 +180,35 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["seed"] = seed;
   }
   seed = _config["seed"].as<long>();
+
+  //---------------------------------------------------------------------------
+  // sampling-related params
+  //---------------------------------------------------------------------------
+
+  // if sampling scheme was not provided, bail out
+  if (!_config["samples"] || _config["samples"].size() == 0) {
+    fprintf(stderr, "\nArgumentError: Parameter 'sampling' is required.\n");
+    return false;
+  } 
+  // check if file name was provided
+  else if (!_config["samples"].Type() == YAML::NodeType::Scalar) {
+    string fn_sampling = _config["samples"].as<string>();
+    // make sure file exists
+    if (!fileExists(fn_sampling)) {
+      fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", fn_sampling.c_str());
+      return false;
+    }
+    // read sampling scheme from CSV file
+    vector<vector<string>> mtx_sampling;
+    stringio::readCSV(mtx_sampling, fn_sampling);
+    df_sampling = DataFrame<double>(mtx_sampling);
+  } 
+  // check if sampling matrix has been provided in config file
+  else if (!_config["samples"].Type() == YAML::NodeType::Sequence) {
+    // read sampling scheme from YAML node
+    vector<vector<string>> mtx_sampling = getMatrix<string>("samples");
+    df_sampling = DataFrame<double>(mtx_sampling);
+  }
 
   //---------------------------------------------------------------------------
   // sequencing-related params
@@ -409,14 +441,22 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "--------------------------------------------------------------------------------\n");
       fprintf(stderr, "Sampling scheme:\n");
       fprintf(stderr, "--------------------------------------------------------------------------------\n");
-      map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");
-      string s_sampling = stringio::printMatrix(sample_mtx);
-      fprintf(stderr, "%s", s_sampling.c_str());
+      fprintf(stderr, "%s", df_sampling.to_string().c_str());
+      //map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");
+      //string s_sampling = stringio::printMatrix(sample_mtx);
+      //fprintf(stderr, "%s", s_sampling.c_str());
     }
     fprintf(stderr, "################################################################################\n");
   }
 
   return true;
+}
+
+DataFrame<double> 
+ConfigStore::getSamplingScheme ()
+const 
+{
+  return this->df_sampling;
 }
 
 bool fileExists(string filename) {

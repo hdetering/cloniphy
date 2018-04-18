@@ -9,7 +9,7 @@ add_library (cloniphy ${SOURCES} ${HEADERS})
 set_property(TARGET cloniphy PROPERTY CXX_STANDARD 11)
 set_property(TARGET cloniphy PROPERTY CXX_STANDARD_REQUIRED ON)
 
-target_include_directories(cloniphy PUBLIC ${CMAKE_SOURCE_DIR}/include bamio config)
+target_include_directories(cloniphy PUBLIC ${CMAKE_SOURCE_DIR}/include bamio config model)
 
 # add yaml-cpp library
 target_link_libraries(cloniphy yaml-cpp)

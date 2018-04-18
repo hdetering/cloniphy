@@ -419,23 +419,23 @@ void Tree<TNodeType>::dropSomaticMutations(
   for (auto node : m_vecNodes) {
     node->length = node->m_vec_mutations.size();
   }
-
-  // assign mutation type (single nucleotide vs. copy number)
-
 }
 
-/** Drop transforming mutations on immediate children of root node. */
+/** Drop transforming mutations on root (i.e. healthy) node. 
+ */
 template<typename TNodeType>
 void Tree<TNodeType>::dropTransformingMutations(int n_mutations) {
-  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
-  for (unsigned i=0; i<topNodes.size(); ++i) {
-    shared_ptr<TNodeType> node = topNodes[i];
+  shared_ptr<TNodeType> node = m_root;
+//  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
+//  assert ( topNodes.size() == 1 && "Root should have only one child." );
+//  for (unsigned i=0; i<topNodes.size(); ++i) {
+//    shared_ptr<TNodeType> node = topNodes[i];
     for (int m=0; m<n_mutations; ++m) {
 cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
       node->m_vec_mutations.push_back(m);
     }
-  }
+//  }
 }
 
 /** Drop one mutation on a given node and repeat for children. */

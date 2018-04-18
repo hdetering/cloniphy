@@ -1,4 +1,3 @@
-#include <cassert>
 #include "stringio.hpp"
 
 using namespace std;

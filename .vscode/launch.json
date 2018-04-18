@@ -26,7 +26,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/build/src/demo",
-            "args": ["-c", "${workspaceRoot}/config.varcall.yml"],
+            "args": ["-c", "${workspaceRoot}/build/config.c6.r5.us.001.yml"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}/build",
             "environment": [],
