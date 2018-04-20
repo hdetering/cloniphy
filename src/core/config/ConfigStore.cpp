@@ -186,13 +186,15 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   //---------------------------------------------------------------------------
 
   // if sampling scheme was not provided, bail out
-  if (!_config["samples"] || _config["samples"].size() == 0) {
+  if (!_config["sampling"] || _config["sampling"].as<string>().size() == 0) {
+cerr << "#### " << _config["sampling"].as<string>() << endl;
+cerr << "#### size: " << _config["sampling"].size() << endl;
     fprintf(stderr, "\nArgumentError: Parameter 'sampling' is required.\n");
     return false;
   } 
   // check if file name was provided
-  else if (!_config["samples"].Type() == YAML::NodeType::Scalar) {
-    string fn_sampling = _config["samples"].as<string>();
+  else if (!_config["sampling"].Type() == YAML::NodeType::Scalar) {
+    string fn_sampling = _config["sampling"].as<string>();
     // make sure file exists
     if (!fileExists(fn_sampling)) {
       fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", fn_sampling.c_str());
@@ -204,9 +206,9 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     df_sampling = DataFrame<double>(mtx_sampling);
   } 
   // check if sampling matrix has been provided in config file
-  else if (!_config["samples"].Type() == YAML::NodeType::Sequence) {
+  else if (!_config["sampling"].Type() == YAML::NodeType::Sequence) {
     // read sampling scheme from YAML node
-    vector<vector<string>> mtx_sampling = getMatrix<string>("samples");
+    vector<vector<string>> mtx_sampling = getMatrix<string>("sampling");
     df_sampling = DataFrame<double>(mtx_sampling);
   }
 
@@ -353,12 +355,12 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
 
   // does sampling matrix have the expected number of rows (clones + 1)?
-  if (!_config["samples"] || _config["samples"].size() == 0) {
-    fprintf(stderr, "\nArgumentError: Missing sampling matrix - 'samples' param in config file needed.\n");
+  if (!_config["sampling"] || _config["sampling"].size() == 0) {
+    fprintf(stderr, "\nArgumentError: Missing sampling matrix - 'sampling' param in config file needed.\n");
     return false;
   } else if (fn_tree.empty()) {
     double row_sum;
-    for (auto row_sample : _config["samples"]) {
+    for (auto row_sample : _config["sampling"]) {
       if (row_sample.size() != (n_clones + 1)) {
         fprintf(stderr, "\nArgumentError: Columns in sampling matrix must be clones+1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
         return false;
@@ -437,14 +439,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "  number of mutations:\t%d\n", n_mut_somatic);
     fprintf(stderr, "  trunk mutations:\t%d\n", n_mut_trunk);
-    if (_config["samples"]) {
+    if (_config["sampling"]) {
       fprintf(stderr, "--------------------------------------------------------------------------------\n");
       fprintf(stderr, "Sampling scheme:\n");
       fprintf(stderr, "--------------------------------------------------------------------------------\n");
       fprintf(stderr, "%s", df_sampling.to_string().c_str());
-      //map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");
-      //string s_sampling = stringio::printMatrix(sample_mtx);
-      //fprintf(stderr, "%s", s_sampling.c_str());
     }
     fprintf(stderr, "################################################################################\n");
   }
