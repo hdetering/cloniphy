@@ -3,6 +3,9 @@
 
 #include "../stringio.hpp"
 #include "../model/DataFrame.hpp"
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 using boost::format;
 using boost::str;
@@ -25,7 +28,7 @@ class SampleConfig
 public:
   std::string m_label;
   std::vector<double> m_vec_prevalence;
-  SampleConfig(YAML::Node);
+  SampleConfig(std::string label, std::vector<double> weights);
 };
 
 class ConfigStore
@@ -60,7 +63,7 @@ template<typename T>
 T ConfigStore::getValue(const char* key) {
   std::vector<std::string> keys = stringio::split(std::string(key), ':');
   YAML::Node node = _config[keys[0]];
-  for (auto i=1; i<keys.size(); i++)
+  for (unsigned i=1; i<keys.size(); i++)
     node = node[keys[i]];
   return node.as<T>();
 }

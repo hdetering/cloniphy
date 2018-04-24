@@ -101,6 +101,7 @@ unsigned writeCSV (
 {
   std::ofstream filestream;
   filestream.open(filename.c_str());
+  unsigned n_rows = 0;
 
   for (auto row : data) {
     auto it = row.begin();
@@ -109,9 +110,11 @@ unsigned writeCSV (
       filestream << sep << *it;
     }
     filestream << std::endl;
+    n_rows++;
   }
 
   filestream.close();
+  return n_rows;
 }
 
 /** Write map of named vectors to file in CSV format. */
@@ -123,6 +126,7 @@ unsigned writeCSV (
 {
   std::ofstream filestream;
   filestream.open(filename.c_str());
+  unsigned n_rows;
 
   for (auto row : data) {
     filestream << row.first;
@@ -130,9 +134,11 @@ unsigned writeCSV (
       filestream << sep << cell;
     }
     filestream << std::endl;
+    n_rows++;
   }
 
   filestream.close();
+  return n_rows;
 }
 
 /* Templated function definitions. */

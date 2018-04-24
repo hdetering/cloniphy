@@ -3,6 +3,7 @@
 
 #include "../stringio.hpp"
 
+//#include <stdlib.h> /* atof */
 #include <cassert>
 #include <string>
 #include <vector>
@@ -12,11 +13,11 @@ namespace model {
 
 /** Convert data element to string. */
 template <typename T>
-std::string data_to_str(T data);
+std::string data_to_str(const T data);
 
 /** Convert string to data element. */
 template <typename T>
-T str_to_data(std::string);
+T str_to_data(const std::string);
 
 /** A data matrix with named rows and columns. */
 template <typename T>
@@ -88,16 +89,16 @@ struct DataFrame {
   {
     std::string str;
     // print header row
-    if (this->colnames.size() > 0) {
-      for (unsigned j=0; j<this->colnames.size(); j++) {
-        str += printf("\t%s", this->colnames[j].c_str());
+    if (colnames.size() > 0) {
+      for (unsigned j=0; j<colnames.size(); j++) {
+        str += stringio::format("\t%s", colnames[j].c_str());
       }
       str += "\n";
     }
     // print data rows
-    for (unsigned i=0; i<this->n_rows; i++) {
-      str += this->rownames[i];
-      for (unsigned j=0; j<this->n_cols; j++) {
+    for (unsigned i=0; i<n_rows; i++) {
+      str += rownames[i];
+      for (unsigned j=0; j<n_cols; j++) {
         str += data_to_str<T>(this->at(i,j));
       }
       str += "\n";
@@ -110,12 +111,12 @@ struct DataFrame {
 /* Method implementations */
 
 template <>
-inline std::string data_to_str<double>(double value) {
+inline std::string data_to_str<double>(const double value) {
   return stringio::format("\t%.2f", value);
 }
 
 template <>
-inline double str_to_data<double>(std::string str) {
+inline double str_to_data<double>(const std::string str) {
   return stod(str);
 }
 
@@ -137,19 +138,20 @@ DataFrame<T>::DataFrame (
   this->n_cols = d[0].size() - 1;
 
   // read column labels
-  for (unsigned j=1; j<n_cols; j++) {
+  for (unsigned j=1; j<n_cols+1; j++) {
     lbl_col.push_back(d[0][j]);
   }
   // read data rows
-  for (unsigned i=1; i<n_rows; i++) {
+  for (unsigned i=1; i<n_rows+1; i++) {
     // add row label
     lbl_row.push_back(d[i][0]);
-    // add new data row
-    mtx_data.push_back(std::vector<T>(n_cols));
+    std::vector<T> data_row;
     // read elements of current row
-    for (unsigned j=1; j<n_rows; j++) {
-      mtx_data[i][j] = str_to_data<T>(d[i][j]);
+    for (unsigned j=1; j<n_cols+1; j++) {
+      data_row.push_back( str_to_data<T>(d[i][j]) );
     }
+    // add new data row
+    mtx_data.push_back( data_row );
   }
 
   this->rownames = lbl_row;
