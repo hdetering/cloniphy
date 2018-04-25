@@ -1,0 +1,3 @@
+[submodule "GitVersion"]
+	path = include/gitversion
+	url = git@github.com/GitTools/GitVersion
