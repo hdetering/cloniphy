@@ -1,16 +1,22 @@
 #ifndef STRINGIO_H
 #define STRINGIO_H
 
+#include <cassert>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace stringio {
 
-/** Splits a string by a delimitor into an existing vector */
+/** String formatting. */
+template<typename ... Args>
+std::string format(const std::string& format, Args ... args);
+/** Splits a string by a delimiter into an existing vector */
 std::vector<std::string> &split(const std::string&, char, std::vector<std::string>&);
 /** Splits a string by a delimiter into a new vector */
 std::vector<std::string> split(const std::string&, char);
@@ -95,6 +101,7 @@ unsigned writeCSV (
 {
   std::ofstream filestream;
   filestream.open(filename.c_str());
+  unsigned n_rows = 0;
 
   for (auto row : data) {
     auto it = row.begin();
@@ -103,9 +110,11 @@ unsigned writeCSV (
       filestream << sep << *it;
     }
     filestream << std::endl;
+    n_rows++;
   }
 
   filestream.close();
+  return n_rows;
 }
 
 /** Write map of named vectors to file in CSV format. */
@@ -117,6 +126,7 @@ unsigned writeCSV (
 {
   std::ofstream filestream;
   filestream.open(filename.c_str());
+  unsigned n_rows;
 
   for (auto row : data) {
     filestream << row.first;
@@ -124,9 +134,22 @@ unsigned writeCSV (
       filestream << sep << cell;
     }
     filestream << std::endl;
+    n_rows++;
   }
 
   filestream.close();
+  return n_rows;
+}
+
+/* Templated function definitions. */
+
+template<typename ... Args>
+std::string format( const std::string& format, Args ... args )
+{
+  size_t size = std::snprintf( nullptr, 0, format.c_str(), args ... ) + 1; // Extra space for '\0'
+  std::unique_ptr<char[]> buf( new char[ size ] ); 
+  std::snprintf( buf.get(), size, format.c_str(), args ... );
+  return std::string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
 }
 
 } /* namespace stringio */

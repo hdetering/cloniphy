@@ -33,7 +33,10 @@
                 "/usr/local/include",
                 "/usr/include",
                 "/usr/include/x86_64-linux-gnu",
-                "/usr/lib/gcc/x86_64-linux-gnu/5/include"
+                "/usr/lib/gcc/x86_64-linux-gnu/5/include",
+                "${workspaceFolder}/src/core",
+                "${workspaceFolder}/src/core/model",
+                "${workspaceFolder}/build/src/core/messmer_gitversion"
             ],
             "defines": [],
             "browse": {

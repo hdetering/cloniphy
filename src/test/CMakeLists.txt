@@ -4,7 +4,7 @@ file(GLOB SOURCES "*.cpp")
 link_directories(${CMAKE_SOURCE_DIR}/lib)
 
 add_executable (run_tests ${SOURCES})
-target_link_libraries (run_tests cloniphy)
+target_link_libraries (run_tests cloniphycore)
 
 # enforce c++11 standard
 set_property(TARGET run_tests PROPERTY CXX_STANDARD 11)

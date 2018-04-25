@@ -151,7 +151,8 @@ Variant::Variant ()
   idx_mutation(0),
   rel_pos(0.0),
   is_somatic(false),
-  is_het(true)
+  is_het(true),
+  is_error(false)
 {}
 Variant::~Variant () {}
 
@@ -218,7 +219,7 @@ unsigned assignSomaticMutationType(
   const double ratio_cnv,
   RandomNumberGenerator<>& rng)
 {
-  function<double()> random_double = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> random_double = rng.getRandomFunctionReal(0.0, 1.0);
   unsigned num_mut=0;
   unsigned num_cnv=0;
 
@@ -635,7 +636,7 @@ VariantStore::generateGermlineVariants (
   int id_next = -1 * num_variants;
   //vector<Variant> variants = vector<Variant>(num_variants);
   boost::container::flat_set<int> var_pos; // keep track of variant positions
-  function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> random_float = rng.getRandomFunctionReal(0.0, 1.0);
   function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
@@ -726,7 +727,7 @@ VariantStore::generateSomaticVariants(
   function<int()> r_idx_chr = rng.getRandomIndexWeighted(genome.vec_chr_len);
   // random function, selects CNV event length (relative to CHR len)
   // random function, gives a random number between 0 and 1.
-  function<double()> r_prob = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> r_prob = rng.getRandomFunctionReal(0.0, 1.0);
   //------------
 
   for (auto m : vec_mutations) {
@@ -753,18 +754,13 @@ VariantStore::generateSomaticVariants(
       Variant var;
       var.id = str(format("s%d") % m.id);
       var.chr = loc.id_ref;
-      //var.chr_copy = random_copy(); // TODO: deprecated!
-      //var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
       var.rel_pos = double(nuc_pos)/genome_len;
-      // TODO: assign SegmentCopy
-      //var.reg_copy = 0;
       var.pos = loc.start;
       var.alleles.push_back(ref_nuc);
       var.alleles.push_back(alt_nuc);
       var.idx_mutation = m.id;
       var.is_somatic = true;
       this->map_id_snv[m.id] = var;
-      // TODO: add variant to map_seg_vars
     }
     else { // CNV event
       CopyNumberVariant cnv;
@@ -1082,7 +1078,7 @@ vector<Variant> generateVariantsRandomPos(
 {
   vector<Variant> variants = vector<Variant>(num_variants);
   boost::container::flat_set<int> var_pos; // keep track of variant positions
-  function<double()> random_float = rng.getRandomFunctionDouble(0.0, 1.0);
+  function<double()> random_float = rng.getRandomFunctionReal(0.0, 1.0);
   function<long()> random_pos = rng.getRandomFunctionInt<long>(0, genome.length);
   function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices

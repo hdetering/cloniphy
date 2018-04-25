@@ -5,7 +5,7 @@
 #--------------------#
 
 # output folder
-out-dir: "c4.r4.m100.300kb.100x.test"
+out-dir: "c4.r4.m100.300kb.100x.rc"
 
 # how much debug output should be printed to screen? (1: lowest)
 verbosity: 1
@@ -43,10 +43,10 @@ tree: "data/bulk/bulk.tre"
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
-ref-seq-num: 3
+ref-seq-num: 1
 ## sequence length
-ref-seq-len-mean: 100000
-ref-seq-len-sd:    10000
+ref-seq-len-mean: 3000000
+ref-seq-len-sd:   0
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
@@ -56,7 +56,7 @@ ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
 
 # germline variants (to generate personal genome from reference)
 #mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-gl-num : 100
+mut-gl-num : 3000
 # ratio of homozygous germline variants (not yet implemented...)
 mut-gl-hom : 0.2
 
@@ -92,7 +92,8 @@ mut-som-trunk: 40
 
 # Mutational signatures are obtained from COSMIC:
 #   http://cancer.sanger.ac.uk/cosmic/signatures
-mut-som-sig-file: "../resources/signatures_probabilities.txt"
+# Relative path will be resolved relative to executable's directory.
+mut-som-sig-file: "resources/signatures_probabilities.txt"
 
 # The following list defines the relative contribution each signature (1-30).
 # Signatures not present in the list will not be applied.
@@ -103,7 +104,7 @@ mut-som-sig-mix:
 #------------------------------
 
 # fraction of CNV events among all mutations (set to 0 to disable CNVs)
-mut-som-cnv-ratio: 0.05
+mut-som-cnv-ratio: 0.00
 # minimum length (bp) of CNV events
 mut-som-cnv-len-min: 1000
 # rate parameter for power-law distribution
@@ -130,22 +131,26 @@ mut-som-cnv-rate-foc: 0.49
 
 # sampling matrix (samples x clones)
 # row sums must be <= 1.0
-# if < 1.0, the difference to 1.0 is interpreted as normal cell contamination
-# first column contains sample name (used to name output files)
+# If < 1.0, the difference to 1.0 is interpreted as normal cell contamination.
+# First row contains column names (clone ids)
+# First column contains sample name (used to name output files).
 # NOTE: make sure number of columns correspond to "clones" parameter +1
-samples:
+sampling:
   ## only generate healthy reads:
-  #- [ sample1 ]
+  #- [    ]
+  #- [ Rn ]
   ## 3x5 scheme
+  #- [        , C1 , C2 , C3 ,  C4 ,  C5  ]
   #- [ sample1, 0.2, 0.2, 0.1, 0.15, 0.25 ]
   #- [ sample2, 0.1, 0.0, 0.3, 0.25, 0.15 ]
   #- [ sample3, 0.0, 0.4, 0.0, 0.00, 0.3  ]
   ## 4x4 scheme
-  - [ sample1, 1.0, 0.0, 0.0, 0.0 ]
-  - [ sample2, 0.0, 1.0, 0.0, 0.0 ]
-  - [ sample3, 0.0, 0.0, 1.0, 0.0 ]
-  - [ sample4, 0.0, 0.0, 0.0, 1.0 ]
-  - [ sampleN, 0.0, 0.0, 0.0, 0.0 ]
+  - [   , C1 , C2 , C3 , C4  ]
+  - [ R1, 1.0, 0.0, 0.0, 0.0 ]
+  - [ R2, 0.0, 1.0, 0.0, 0.0 ]
+  - [ R3, 0.0, 0.0, 1.0, 0.0 ]
+  - [ R4, 0.0, 0.0, 0.0, 1.0 ]
+  - [ Rn, 0.0, 0.0, 0.0, 0.0 ]
 
 #-------------------------------#
 #     sequencing parameters     #
@@ -153,6 +158,18 @@ samples:
 
 # haploid depth of coverage
 seq-coverage      : 100
+# whether to generate sequencing reads
+# (if false, simulate read counts directly)
+seq-read-gen      : false
+# sequencing error (per base.)
+# only applied for generating read counts (i.e. seq-read-gen = false)
+seq-rc-error      : 0.01
+# Dispersion parameter for read count distribution
+# WES: low (1-5); WGS: high (20-50)
+seq-rc-disp       : 30
+# minimum alternative read count to report (default: 1)
+seq-rc-min        : 2
+
 # read length
 seq-read-len      : 100
 # mean fragment length (only for paired-end reads)
@@ -160,7 +177,11 @@ seq-frag-len-mean : 500
 # standard deviation of fragment length (only for paired-end reads)
 seq-frag-len-sd   : 20
 # path to ART executable
-seq-art-path      : "/home/harry/src/art_src_MountRainier/art_illumina"
+seq-art-path      : "/home/harry/src/art_bin_MountRainier/art_illumina"
+# whether to introduce somatic SNVs solely based on expected VAF.
+# NOTE: Speeds up sample generation considerably, but breaks haplotypes.
+#  (When set to 'false', each read pair is assigned to a genomic segment copy.)
+seq-use-vaf       : false
 # whether to use reads from healthy sample for tumor samples
 # NOTE: setting only applied in SNV-only mode (mut-som-cnv-ratio: 0)
 seq-reuse-reads   : true

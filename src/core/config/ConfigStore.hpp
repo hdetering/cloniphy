@@ -2,6 +2,10 @@
 #define CONFIGSTORE_H
 
 #include "../stringio.hpp"
+#include "../model/DataFrame.hpp"
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 using boost::format;
 using boost::str;
@@ -15,26 +19,33 @@ using boost::str;
 
 namespace config {
 
+/** Simple stand-in for a data matrix with named rows. */
+template <typename T>
+using TDataMatrix = std::vector<std::vector<T>>;
+
 class SampleConfig
 {
 public:
   std::string m_label;
   std::vector<double> m_vec_prevalence;
-  SampleConfig(YAML::Node);
+  SampleConfig(std::string label, std::vector<double> weights);
 };
 
 class ConfigStore
 {
 public:
+  model::DataFrame<double> df_sampling;
   std::vector<SampleConfig> m_vec_samples;
+  
   ConfigStore();
+  model::DataFrame<double> getSamplingScheme() const;
   bool parseArgs(int ac, char* av[]);
   template<typename T>
     T getValue(const char* key);
   template<typename T>
     T getValue(const std::string key);
   template<typename T>
-    std::map<std::string, std::vector<T>> getMatrix(const char* key);
+    TDataMatrix<T> getMatrix(const char* key);
   template<typename T>
     std::map<std::string, T> getMap(const char* key);
 
@@ -52,7 +63,7 @@ template<typename T>
 T ConfigStore::getValue(const char* key) {
   std::vector<std::string> keys = stringio::split(std::string(key), ':');
   YAML::Node node = _config[keys[0]];
-  for (auto i=1; i<keys.size(); i++)
+  for (unsigned i=1; i<keys.size(); i++)
     node = node[keys[i]];
   return node.as<T>();
 }
@@ -63,23 +74,20 @@ T ConfigStore::getValue(const std::string key) {
 }
 
 template<typename T>
-std::map<std::string, std::vector<T>> ConfigStore::getMatrix(const char* key) {
-  std::map<std::string, std::vector<T>> mtx;
+std::vector<std::vector<T>> ConfigStore::getMatrix(const char* key) {
+  std::vector<std::vector<T>> mtx;
   if (!_config[key]) {
     fprintf(stderr, "[ERROR] (ConfigStore::getMatrix) No element found with name '%s'.\n", key);
     return mtx;
   }
   YAML::Node node = _config[key];
-  assert(node.Type() == YAML::NodeType::Sequence);
-  for (auto row : _config[key]) {
-    if (row.size() < 2) {
-      fprintf(stderr, "[ERROR] (ConfigStore::getMatrix) Too few elements while reading parameter '%s' (key: '%s').\n", row[0].as<std::string>().c_str(), key);
-      continue;
-    }
-    std::vector<T> v = std::vector<T>(row.size()-1);
-    for (std::size_t i=1; i<row.size(); i++)
-      v[i-1] = row[i].as<T>();
-    mtx[row[0].as<std::string>()] = v;
+  assert ( node.Type() == YAML::NodeType::Sequence );
+  for (std::size_t i=0; i<node.size(); i++) {
+    auto row = node[i];
+    std::vector<T> v = std::vector<T>(row.size());
+    for (std::size_t j=0; j<row.size(); j++)
+      v[j] = row[j].as<T>();
+    mtx.push_back(v);
   }
   return mtx;
 }

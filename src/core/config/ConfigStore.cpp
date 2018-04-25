@@ -1,17 +1,17 @@
 #include "ConfigStore.hpp"
+#include "DataFrame.hpp"
+#include "../stringio.hpp"
 #include <gitversion/version.h>
 
 using namespace std;
+using model::DataFrame;
+namespace fs = boost::filesystem;
 
 namespace config {
 
-SampleConfig::SampleConfig(YAML::Node row) {
-  this->m_label = row[0].as<string>();
-  this->m_vec_prevalence.clear();
-  for (int i=1; i<row.size(); i++) {
-    this->m_vec_prevalence.push_back(row[i].as<double>());
-  }
-}
+SampleConfig::SampleConfig(string label, vector<double> row) 
+: m_label(label), m_vec_prevalence(row)
+{}
 
 ConfigStore::ConfigStore() {
   _config = YAML::Node();
@@ -30,18 +30,23 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   double mut_som_cnv_ratio = 0.0;
   string mut_gl_model = "JC";
   string dir_out = "output";
+  string fn_config = "";
   string fn_bam_input = "";
   string fn_mut_gl_vcf = "";
   string fn_mut_som_vcf = "";
   string fn_mut_som_sig = "resources/signatures_probabilities.txt";
   string fn_ref_fa = "";
   string fn_tree = "";
+  bool seq_read_gen = false;
+  int seq_rc_min = 1;
+  bool seq_use_vaf = false;
   bool do_reuse_reads = false;
   bool do_fq_out = true;
   bool do_sam_out = true;
   int verb = 1;
   long seed = time(NULL) + clock();
 
+  // program description
   stringstream ss;
   ss << endl << PROGRAM_NAME << " " << version::GIT_TAG_NAME << endl << endl;
   ss << "Available options";
@@ -91,13 +96,33 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   // check: config file exists
   if (var_map.count("config")) {
-    string fn_config = var_map["config"].as<string>();
+    fn_config = var_map["config"].as<string>();
     if (!fileExists(fn_config)) {
       fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", fn_config.c_str());
       return false;
     }
     // initialize global configuration from config file
     _config = YAML::LoadFile(fn_config);
+  }
+
+  // Manage paths / filenames
+  //---------------------------------------------------------------------------
+
+  // get executable's absolute directory
+  fs::path path_exec( fs::initial_path<fs::path>() );
+  path_exec = fs::system_complete( fs::path( av[0] ) ).parent_path();
+  // get working directory
+  fs::path path_work( fs::current_path() );
+  // get config file's absolute directory
+  fs::path path_conf( fs::initial_path<fs::path>() );
+  if ( fn_config.length() > 0 ) { // find files relative to config directory
+    path_conf = fs::path( fn_config );
+    if ( path_conf.is_relative() ) {
+      path_conf = fs::system_complete( path_conf );
+    }
+    path_conf = path_conf.parent_path();
+  } else { // find files relative to current working directory
+    path_conf = path_work;
   }
 
   // overwrite/set config params
@@ -124,11 +149,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
   fn_ref_fa = _config["reference"].as<string>();
   // path to somatic mutation signature file
-  if (_config["mut-som-sig-file"]) {
-    fn_mut_som_sig = _config["mut-som-sig-file"].as<string>();
-  } else {
+  if (!_config["mut-som-sig-file"]) {
     _config["mut-som-sig-file"] = fn_mut_som_sig;
-  }
+  } 
+  fn_mut_som_sig = _config["mut-som-sig-file"].as<string>();
   if (_config["bam-input"]) {
     fn_bam_input = _config["bam-input"].as<string>();
   } else {
@@ -174,6 +198,53 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["seed"] = seed;
   }
   seed = _config["seed"].as<long>();
+
+  //---------------------------------------------------------------------------
+  // sampling-related params
+  //---------------------------------------------------------------------------
+
+  // if sampling scheme was not provided, bail out
+  if ( !_config["sampling"] || _config["sampling"].as<string>().size() == 0 ) {
+    fprintf(stderr, "\nArgumentError: Parameter 'sampling' is required.\n");
+    return false;
+  } 
+  // check if file name was provided
+  else if ( _config["sampling"].Type() == YAML::NodeType::Scalar ) {
+    fs::path path_prev( _config["sampling"].as<string>() );
+    if ( path_prev.is_relative() ) { // relative path: find from config location
+      path_prev = path_conf / path_prev;
+    }
+    // make sure file exists
+    if ( !fileExists(path_prev.string()) ) {
+      fprintf(stderr, "\nArgumentError: File '%s' does not exist.\n", path_prev.c_str());
+      return false;
+    }
+    // read sampling scheme from CSV file
+    vector<vector<string>> mtx_sampling;
+    stringio::readCSV(mtx_sampling, path_prev.string());
+    this->df_sampling = DataFrame<double>(mtx_sampling);
+  } 
+  // check if sampling matrix has been provided in config file
+  else if (_config["sampling"].Type() == YAML::NodeType::Sequence) {
+    // read sampling scheme from YAML node
+    vector<vector<string>> mtx_sampling = getMatrix<string>("sampling");
+    this->df_sampling = DataFrame<double>(mtx_sampling);
+  }
+
+  //---------------------------------------------------------------------------
+  // sequencing-related params
+  //---------------------------------------------------------------------------
+
+  // whether to generate sequencing reads (if not, generate readcounts directly)
+  if (!_config["seq-read-gen"]) {
+    _config["seq-read-gen"] = seq_read_gen;
+  }
+  seq_read_gen = _config["seq-read-gen"].as<bool>();
+  // whether to use VAFs to spike in mutations (if not, assign read pairs to segment copies)
+  if (!_config["seq-use-vaf"]) {
+    _config["seq-use-vaf"] = seq_use_vaf;
+  }
+  seq_use_vaf = _config["seq-use-vaf"].as<bool>();
   // bit to indicate if reads of normal sample are be reused for tumor samples
   if (!_config["seq-reuse-reads"]) {
       _config["seq-reuse-reads"] = do_reuse_reads;
@@ -189,9 +260,15 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       _config["seq-sam-out"] = do_sam_out;
   }
   do_fq_out = _config["seq-sam-out"].as<bool>();
-
-
+  // when generating read counts, minimum ALT read count for which to output a VCF line
+  if (!_config["seq-rc-min"]) {
+    _config["seq-rc-min"] = seq_rc_min;
+  }
+  seq_rc_min = _config["seq-rc-min"].as<int>();
+  
+  //---------------------------------------------------------------------------
   // perform sanity checks
+  //---------------------------------------------------------------------------
 
   // at least one mutation per clone?
   if (n_mut_somatic < n_clones) {
@@ -229,19 +306,28 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     return false;
   }
   // somatic mutation signature file exists?
-  if (fn_mut_som_sig.length()>0 && !fileExists(fn_mut_som_sig)) {
-    fprintf(stderr, "\nArgumentError: Somatic mutation signature file '%s' does not exist.\n", fn_mut_som_sig.c_str());
+  fs::path p_mut_som_sig( fn_mut_som_sig );
+  if ( p_mut_som_sig.is_relative() ) { // relative path: find from executable location
+    p_mut_som_sig = path_exec / p_mut_som_sig;
+  }
+  if ( fn_mut_som_sig.length()>0 && !fileExists( p_mut_som_sig.string() ) ) {
+    fprintf(stderr, "\nArgumentError: Somatic mutation signature file '%s' does not exist.\n", p_mut_som_sig.c_str());
     return false;
   }
+  _config["mut-som-sig-file"] = p_mut_som_sig.string();
   // was a clone tree provided by the user?
-  if (fn_tree.length()>0) {
-    //fprintf(stderr, "\nUser-defined clone tree was specified, parameter '-c/--clones' will be ignored\n");
+  fs::path path_tree( fn_tree );
+  if ( fn_tree.length()>0 ) {
+    if ( path_tree.is_relative() ) { // relative path: find from config location
+      path_tree = path_conf / path_tree;
+    }
     // check: does tree file exist?
-    if (!fileExists(fn_tree)) {
-      fprintf(stderr, "\nArgumentError: Tree file '%s' does not exist.\n", fn_tree.c_str());
+    if ( !fileExists( path_tree.string() ) ) {
+      fprintf(stderr, "\nArgumentError: Tree file '%s' does not exist.\n", path_tree.c_str());
       return false;
     }
   }
+  _config["tree"] = path_tree.string();
 
   // check germline evolutionary model params
   if (!_config["mut-gl-model"]) {
@@ -286,10 +372,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
 
   // check somatic evolution parameters
-  if (!fileExists(fn_mut_som_sig)) {
-    fprintf(stderr, "\nArgumentError: Mutation signature file '%s' does not exist.\n", fn_mut_som_sig.c_str());
-    return false;
-  }
   if (!_config["mut-som-sig-mix"]) {
     fprintf(stderr, "\n[INFO] Missing somatic mutation signatures - assuming signature 1.\n");
     YAML::Node node = YAML::Load("{'Signature 1': 1.0}");
@@ -297,43 +379,41 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   }
 
   // does sampling matrix have the expected number of rows (clones + 1)?
-  if (!_config["samples"] || _config["samples"].size() == 0) {
-    fprintf(stderr, "\nArgumentError: Missing sampling matrix - 'samples' param in config file needed.\n");
-    return false;
-  } else if (fn_tree.empty()) {
-    double row_sum;
-    for (auto row_sample : _config["samples"]) {
-      if (row_sample.size() != (n_clones + 1)) {
-        fprintf(stderr, "\nArgumentError: Columns in sampling matrix must be clones+1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
-        return false;
-      }
-      // check: row sum <= 1?
-      row_sum = 0.0;
-      for (size_t i=1; i<row_sample.size(); i++)
-        row_sum += row_sample[i].as<double>();
-      if (row_sum > 1) {
-        fprintf(stderr, "\nArgumentError: Row sums in sampling matrix must <=1 (violated in '%s').\n", row_sample[0].as<string>().c_str());
-        return false;
-      }
-      this->m_vec_samples.push_back(SampleConfig(row_sample));
+  double row_sum;
+  for (unsigned i=0; i<this->df_sampling.n_rows; i++) {
+    // check: row sum <= 1?
+    row_sum = 0.0;
+    string row_label = this->df_sampling.rownames[i];
+    vector<double> row = this->df_sampling.data[i];
+    for (size_t j=1; j<row.size(); j++)
+      row_sum += row[j];
+    if (row_sum > 1) {
+      fprintf(stderr, "\nArgumentError: Row sums in sampling matrix must <=1 (violated in '%s').\n", row_label.c_str());
+      return false;
     }
+    this->m_vec_samples.push_back(SampleConfig(row_label, row));
   }
 
   if(_config["verbosity"].as<int>() > 0) {
-    fprintf(stderr, "====================================================================\n");
-    fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::GIT_TAG_NAME);
-    fprintf(stderr, "---\n");
+    fprintf(stderr, "################################################################################\n");
+    fprintf(stderr, " / ___| | ___  _ __ (_)  _ \\| |__  _   _ \n");
+    fprintf(stderr, "| |   | |/ _ \\| '_ \\| | |_) | '_ \\| | | |\n");
+    fprintf(stderr, "| |___| | (_) | | | | |  __/| | | | |_| |\n");
+    fprintf(stderr, " \\____|_|\\___/|_| |_|_|_|   |_| |_|\\__, |\n");
+    fprintf(stderr, "                                   |___/  (%s)\n", version::GIT_TAG_NAME);
+    //fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::GIT_TAG_NAME);
+    fprintf(stderr, "================================================================================\n");
     fprintf(stderr, "Running with the following options:\n");
-    fprintf(stderr, "====================================================================\n");
+    fprintf(stderr, "================================================================================\n");
     fprintf(stderr, "  random seed:\t\t%ld\n", seed);
     if (fn_tree.length()>0) {
       fprintf(stderr, "  clone tree:\t\t%s\n", fn_tree.c_str());
     } else {
       fprintf(stderr, "  clones:\t\t%d\n", n_clones);
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Reference genome:\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     if (fn_ref_fa.length()>0) {
       fprintf(stderr, "  input file:\t\t%s\n", fn_ref_fa.c_str());
     } else {
@@ -341,9 +421,9 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  ref seqs:\t\t%d\n", this->getValue<int>("ref-seq-num"));
       fprintf(stderr, "  seq len:\t\t%d (+/-%d)\n", this->getValue<int>("ref-seq-len-mean"), this->getValue<int>("ref-seq-len-mean"));
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Germline mutations:\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     if (fn_mut_gl_vcf.length() > 0) {
       fprintf(stderr, "  germline VCF:\t%s\n", fn_mut_gl_vcf.c_str());
     } else {
@@ -351,35 +431,48 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  number of mutations: %d\n", n_mut_gl);
       fprintf(stderr, "  evolutionary model:\t%s\n", mut_gl_model.c_str());
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Sequencing data\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     if (fn_bam_input.length()>0) {
-      fprintf(stderr, "  simulate reads:\tno\n");
+      fprintf(stderr, "  importing reads from BAM FILE provided by user\n");
       fprintf(stderr, "  input reads:\t%s\n", fn_bam_input.c_str());
+    } else if (!seq_read_gen) {
+      fprintf(stderr, "  simulating READ COUNTS\n");
+      fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
+      fprintf(stderr, "  depth dispersion:\t%.1f\n", this->getValue<double>("seq-rc-disp"));
+      fprintf(stderr, "  seq error:\t\t%.2f\n", this->getValue<double>("seq-rc-error"));
+      fprintf(stderr, "  min ALT read count:\t%d\n", this->getValue<int>("seq-rc-min"));
     } else {
-      fprintf(stderr, "  simulate reads:\tyes\n");
+      fprintf(stderr, "  simulating SEQUENCING READS\n");
       fprintf(stderr, "  reuse healthy reads:\t%s\n", do_reuse_reads ? "yes" : "no");
-      fprintf(stderr, "  ref coverage:\t\t%d\n", this->getValue<int>("seq-coverage"));
+      fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
       fprintf(stderr, "  seq read length:\t%d\n", this->getValue<int>("seq-read-len"));
       fprintf(stderr, "  seq insert size:\t%d (+-%d)\n", this->getValue<int>("seq-frag-len-mean"), this->getValue<int>("seq-frag-len-sd"));
       fprintf(stderr, "  simulator:\t\t%s\n", this->getValue<string>("seq-art-path").c_str());
     }
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Somatic mutations\n");
-    fprintf(stderr, "--------------------------------------------------------------------\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "  number of mutations:\t%d\n", n_mut_somatic);
     fprintf(stderr, "  trunk mutations:\t%d\n", n_mut_trunk);
-    if (_config["samples"]) {
+    if (_config["sampling"]) {
+      fprintf(stderr, "--------------------------------------------------------------------------------\n");
       fprintf(stderr, "Sampling scheme:\n");
-      map<string, vector<double>> sample_mtx = this->getMatrix<double>("samples");
-      string s_sampling = stringio::printMatrix(sample_mtx);
-      fprintf(stderr, "%s", s_sampling.c_str());
+      fprintf(stderr, "--------------------------------------------------------------------------------\n");
+      fprintf(stderr, "%s", df_sampling.to_string().c_str());
     }
-    fprintf(stderr, "====================================================================\n\n");
+    fprintf(stderr, "################################################################################\n");
   }
 
   return true;
+}
+
+DataFrame<double> 
+ConfigStore::getSamplingScheme ()
+const 
+{
+  return this->df_sampling;
 }
 
 bool fileExists(string filename) {

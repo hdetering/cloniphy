@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE( gamma )
 {
   double shape = 2.0;
   double scale = 0.5;
-  function<double()> random_gamma = gen.getRandomGamma(shape, scale);
+  function<double()> random_gamma = gen.getRandomFunctionGamma(shape, scale);
   unsigned num_values = 100000;
   vector<double> vec_values(num_values);
 
@@ -69,6 +69,43 @@ BOOST_AUTO_TEST_CASE( gamma )
   fs.open(fn);
   for (double v : vec_values) {
     fs << format("%f") % v << endl;
+  }
+  fs.close();
+}
+
+/** 
+ * Generate random negative binomial (NB) distributed values.
+ * 
+ * NB distro is often used to generate read counts, which have a higher variability than
+ * can be modeled by the Poisson distro:
+ * https://bioramble.wordpress.com/2016/01/30/why-sequencing-data-is-modeled-as-negative-binomial/
+ * 
+ * The NB has an alternative parameterization which allows to specify the mean and
+ * dispersion of the variate, which is used here:
+ * https://stat.ethz.ch/R-manual/R-devel/library/stats/html/NegBinomial.html
+ */
+BOOST_AUTO_TEST_CASE ( nb )
+{
+  double mean = 100;    // e.g., expected read count
+  double disp =   5;    // dispersion (how much value is expected to diverge from mean)
+  unsigned n  = 100000;
+  vector<int> v(n);
+
+  // generate n random numbers
+  for (auto i=0; i<n; ++i) {
+    int rnbinom = gen.getRandomNegativeBinomial(mean, disp);
+    v[i] = rnbinom;
+  }
+
+  // write numbers to file
+  auto fn = str(format("rnbinom_m%.0f_d%.0f.csv") % mean % disp);
+  BOOST_TEST_MESSAGE( "Writing results to output file" );
+  BOOST_TEST_MESSAGE( str(format("  %s") % fn) );
+  ofstream fs;
+  fs.open(fn);
+  fs << format("# NB(%.2f, %.2f)") % mean % disp << endl;
+  for (int x : v) {
+    fs << format("%d") % x << endl;
   }
   fs.close();
 }
@@ -140,7 +177,7 @@ BOOST_AUTO_TEST_CASE( pareto )
 
   vector<double> vec_values;
   for (int i=0; i<100000; ++i) {
-    vec_values.push_back(gen.getRandomParetoBounded(shape, double(min)/max, 1));
+    vec_values.push_back(gen.getRandomParetoBounded(shape, double(min)/max, 1.0));
   }
 
   auto fn = "random_bp_r1.csv";
