@@ -169,8 +169,8 @@ int main (int argc, char* argv[])
   path path_fasta = path_out / "fasta";
   path path_bam = path_out / "bam";
   path path_bed = path_out / "bed";
-  if (!exists(path_out)) {
-    if (!create_directories(path_out)) {
+  if ( ! exists(path_out) ) {
+    if ( ! create_directories(path_out) ) {
       cerr << "[ERROR] (main) Could not create output directory: " << path_out << endl;
       cerr << "[ERROR] (main) Bailing out..." << endl;
       return EXIT_FAILURE;
@@ -178,10 +178,24 @@ int main (int argc, char* argv[])
     create_directories(path_fasta);
     create_directories(path_bam);
     create_directories(path_bed);
-  } else {
-    cerr << "[ERROR] (main) Output path already exists: " << path_out << "" << endl;
-    cerr << "[ERROR] (main) Please change/remove it and restart." << endl;
+  } else { // output dir exists
+    // bail out with error
+    //cerr << "[ERROR] (main) Output path already exists: " << path_out << "" << endl;
+    //cerr << "[ERROR] (main) Please change/remove it and restart." << endl;
     //return EXIT_FAILURE;
+
+    cerr << "[WARN] (main) Output path already exists: " << path_out << "" << endl;
+
+    // create subdirectories if they don't exist
+    if ( ! exists(path_fasta) ) {
+      create_directories(path_fasta);
+    }
+    if ( ! exists(path_bam) ) {
+      create_directories(path_bam);
+    }
+    if ( ! exists(path_bed) ) {
+      create_directories(path_bed);
+    }
   }
 
   // output file names
