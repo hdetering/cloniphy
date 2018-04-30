@@ -1,7 +1,6 @@
 #include "ConfigStore.hpp"
 #include "DataFrame.hpp"
 #include "../stringio.hpp"
-#include <gitversion/version.h>
 
 using namespace std;
 using model::DataFrame;

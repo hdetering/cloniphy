@@ -28,6 +28,7 @@
             "includePath": [
                 "${workspaceRoot}",
                 "${workspaceRoot}/include",
+                "${workspaceRoot}/include/yaml-cpp/include",
                 "/usr/include/c++/5",
                 "/usr/include/x86_64-linux-gnu/c++/5",
                 "/usr/local/include",

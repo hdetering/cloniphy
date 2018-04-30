@@ -12,6 +12,7 @@ set_property(TARGET cloniphycore PROPERTY CXX_STANDARD_REQUIRED ON)
 target_include_directories(cloniphycore PUBLIC ${CMAKE_SOURCE_DIR}/include bamio config model)
 
 # add yaml-cpp library
+target_include_directories(cloniphycore PUBLIC ${CMAKE_SOURCE_DIR}/include/yaml-cpp/include)
 target_link_libraries(cloniphycore yaml-cpp)
 
 # use gitversion to make Git version info available in code

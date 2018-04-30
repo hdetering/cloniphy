@@ -13,7 +13,8 @@ using boost::str;
 #include <cassert>
 #include <iostream>
 #include <sys/stat.h>
-#include "yaml-cpp/yaml.h"
+#include <gitversion/version.h>
+#include <yaml-cpp/yaml.h>
 
 #define PROGRAM_NAME "CloniPhy"
 
