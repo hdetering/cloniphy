@@ -37,6 +37,9 @@ class ConfigStore
 public:
   model::DataFrame<double> df_sampling;
   std::vector<SampleConfig> m_vec_samples;
+  std::string m_mut_gl_model;
+  double m_mut_gl_model_params_kappa;
+  std::vector<double> m_mut_gl_model_params_nucfreq;
   
   ConfigStore();
   model::DataFrame<double> getSamplingScheme() const;
@@ -66,16 +69,37 @@ T ConfigStore::getValue(const char* key) {
   YAML::Node node = _config[keys[0]];
   for (unsigned i=1; i<keys.size(); i++)
     node = node[keys[i]];
+switch (node.Type()) {
+  case YAML::NodeType::Null:
+    fprintf(stderr, "'%s': Null\n", keys[keys.size()-1].c_str());
+    break;
+  case YAML::NodeType::Scalar:
+    fprintf(stderr, "'%s': Scalar\n", keys[keys.size()-1].c_str());
+    break;
+  case YAML::NodeType::Sequence:
+    fprintf(stderr, "'%s': Sequence\n", keys[keys.size()-1].c_str());
+    break;
+  case YAML::NodeType::Map:
+    fprintf(stderr, "'%s': Map\n", keys[keys.size()-1].c_str());
+    break;
+  case YAML::NodeType::Undefined:
+    fprintf(stderr, "'%s': Undefined\n", keys[keys.size()-1].c_str());
+    break;
+  default:
+    fprintf(stderr, "'%s': WTF?!\n", keys[keys.size()-1].c_str());
+}
   return node.as<T>();
 }
 
 template<typename T>
-T ConfigStore::getValue(const std::string key) {
+T 
+ConfigStore::getValue(const std::string key) {
   return getValue<T>(key.c_str());
 }
 
 template<typename T>
-std::vector<std::vector<T>> ConfigStore::getMatrix(const char* key) {
+std::vector<std::vector<T>> 
+ConfigStore::getMatrix(const char* key) {
   std::vector<std::vector<T>> mtx;
   if (!_config[key]) {
     fprintf(stderr, "[ERROR] (ConfigStore::getMatrix) No element found with name '%s'.\n", key);
@@ -94,7 +118,8 @@ std::vector<std::vector<T>> ConfigStore::getMatrix(const char* key) {
 }
 
 template<typename T>
-std::map<std::string, T> ConfigStore::getMap(const char* key) {
+std::map<std::string, T> 
+ConfigStore::getMap(const char* key) {
   std::map<std::string, T> m;
   if (!_config[key]) {
     fprintf(stderr, "[ERROR] (ConfigStore::getMap) No element found with name '%s'.\n", key);

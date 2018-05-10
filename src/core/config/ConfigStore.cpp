@@ -12,7 +12,14 @@ SampleConfig::SampleConfig(string label, vector<double> row)
 : m_label(label), m_vec_prevalence(row)
 {}
 
-ConfigStore::ConfigStore() {
+// default constructor
+ConfigStore::ConfigStore()
+{
+  // default values
+  m_mut_gl_model = "JC";
+  m_mut_gl_model_params_kappa = 1.0;
+  m_mut_gl_model_params_nucfreq = vector<double>(4, 0.25);
+
   _config = YAML::Node();
 }
 
@@ -27,7 +34,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_mut_trunk = 0;
   int n_mut_gl = 0;
   double mut_som_cnv_ratio = 0.0;
-  string mut_gl_model = "JC";
   string dir_out = "output";
   string fn_config = "";
   string fn_bam_input = "";
@@ -329,33 +335,41 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   _config["tree"] = path_tree.string();
 
   // check germline evolutionary model params
-  if (!_config["mut-gl-model"]) {
+  if (!_config["mut-gl-model"] || _config["mut-gl-model"].as<string>().size() == 0) {
     //fprintf(stderr, "\n[INFO] Missing evolutionary model - assuming '%s'.\n", model.c_str());
-    YAML::Node node = YAML::Load(mut_gl_model);
+    YAML::Node node = YAML::Load(m_mut_gl_model);
     _config["mut-gl-model"] = node;
-  } else {
-    mut_gl_model = _config["mut-gl-model"].as<string>();
   }
-  if (mut_gl_model != "JC" && !_config["mut-gl-model-params"]) {
+  m_mut_gl_model = _config["mut-gl-model"].as<string>();
+  if (!_config["mut-gl-model-params"]) {
+    //fprintf(stderr, "\n[INFO] Missing evolutionary model - assuming '%s'.\n", model.c_str());
+    YAML::Node node;
+    node["kappa"] = m_mut_gl_model_params_kappa;
+    node["nucFreq"] = m_mut_gl_model_params_nucfreq;
+    _config["mut-gl-model-params"] = node;
+  }
+  m_mut_gl_model_params_kappa   = _config["mut-gl-model-params"]["kappa"].as<double>();
+  m_mut_gl_model_params_nucfreq = _config["mut-gl-model-params"]["nucFreq"].as<vector<double>>();
+  if (m_mut_gl_model != "JC" && !_config["mut-gl-model-params"]) {
     fprintf(stderr, "\nArgumentError: Evolutionary models other than 'JC' require parameters (set param 'mut-gl-model-params' in config file.)\n");
     return false;
   }
-  if (mut_gl_model == "F81" || mut_gl_model == "HKY") {
+  if (m_mut_gl_model == "F81" || m_mut_gl_model == "HKY") {
     if (!_config["mut-gl-model-params"]["nucFreq"]) {
-      fprintf(stderr, "\nArgumentError: Model '%s' requires nucleotide frequencies (set param 'mut-gl-model-params':'nucFreq' in config file.)\n", mut_gl_model.c_str());
+      fprintf(stderr, "\nArgumentError: Model '%s' requires nucleotide frequencies (set param 'mut-gl-model-params':'nucFreq' in config file.)\n", m_mut_gl_model.c_str());
       return false;
     } else if (_config["mut-gl-model-params"]["nucFreq"].size() != 4) {
       fprintf(stderr, "\nArgumentError: Parameter 'mut-gl-model-params':'nucFreq' must contain exactly 4 values.\n");
       return false;
     }
   }
-  if (mut_gl_model == "K80" || mut_gl_model == "HKY") {
+  if (m_mut_gl_model == "K80" || m_mut_gl_model == "HKY") {
     if (!_config["mut-gl-model-params"]["kappa"]) {
-      fprintf(stderr, "\nArgumentError: Model '%s' requires transition-transversion ratio (set param 'mut-gl-model-params':'kappa' in config file.)\n", mut_gl_model.c_str());
+      fprintf(stderr, "\nArgumentError: Model '%s' requires transition-transversion ratio (set param 'mut-gl-model-params':'kappa' in config file.)\n", m_mut_gl_model.c_str());
       return false;
     }
   }
-  if (mut_gl_model == "matrix") {
+  if (m_mut_gl_model == "matrix") {
     vector<string> names = { "Qa", "Qc", "Qg", "Qt" };
     for (string n : names) {
       if (!_config["mut-gl-model-params"][n] ) {
@@ -428,7 +442,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     } else {
       // TODO: print germline mutation params
       fprintf(stderr, "  number of mutations: %d\n", n_mut_gl);
-      fprintf(stderr, "  evolutionary model:\t%s\n", mut_gl_model.c_str());
+      fprintf(stderr, "  evolutionary model:\t%s\n", m_mut_gl_model.c_str());
     }
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Sequencing data\n");

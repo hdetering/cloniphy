@@ -76,7 +76,7 @@ int main (int argc, char* argv[])
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref_fa = config.getValue<string>("reference");
   string fn_mut_gl_vcf = config.getValue<string>("mut-gl-vcf");
-  string str_model_gl = config.getValue<string>("mut-gl-model");
+  string str_model_gl = config.m_mut_gl_model;
   string fn_tree = config.getValue<string>("tree");
   string fn_mut_som_vcf = config.getValue<string>("mut-som-vcf");
   string fn_mut_som_sig = config.getValue<string>("mut-som-sig-file");
@@ -135,14 +135,18 @@ int main (int argc, char* argv[])
   if (str_model_gl == "JC") {
     model_gl.init_JC();
   } else if (str_model_gl == "F81") {
-    vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
+    //vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
+    vector<double> vec_freqs = config.m_mut_gl_model_params_nucfreq;
     model_gl.init_F81(&vec_freqs[0]);
   } else if (str_model_gl == "K80") {
-    double kappa = config.getValue<double>("mut-gl-model-params:kappa");
+    //double kappa = config.getValue<double>("mut-gl-model-params:kappa");
+    double kappa = config.m_mut_gl_model_params_kappa;
     model_gl.init_K80(kappa);
   } else if (str_model_gl == "HKY") {
-    vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
-    double kappa = config.getValue<double>("mut-gl-model-params:kappa");
+    //string kappa = config.getValue<string>("mut-gl-model-params:kappa");
+    //vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
+    double kappa = config.m_mut_gl_model_params_kappa;
+    vector<double> vec_freqs = config.m_mut_gl_model_params_nucfreq;
     model_gl.init_HKY(&vec_freqs[0], kappa);
   }
 
