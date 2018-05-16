@@ -466,7 +466,7 @@ void Tree<TNodeType>::dropRandomMutations(int n_mutations, int &mutation_id, Ran
     vec_branch_len = vector<double>(n_nodes, 1);
   }
   // avoid MRCA node receiving random mutations
-  shared_ptr<TNodeType> mrca = this->m_root->m_vecChildren[0];
+  shared_ptr<TNodeType> mrca = this->m_root;
   vec_branch_len[mrca->index] = 0.0;
   f_random_index = rng.getRandomIndexWeighted(vec_branch_len);
   // drop mutations randomly, but in proportion to branch length

@@ -69,7 +69,7 @@ T ConfigStore::getValue(const char* key) {
   YAML::Node node = _config[keys[0]];
   for (unsigned i=1; i<keys.size(); i++)
     node = node[keys[i]];
-switch (node.Type()) {
+/*switch (node.Type()) {
   case YAML::NodeType::Null:
     fprintf(stderr, "'%s': Null\n", keys[keys.size()-1].c_str());
     break;
@@ -87,7 +87,7 @@ switch (node.Type()) {
     break;
   default:
     fprintf(stderr, "'%s': WTF?!\n", keys[keys.size()-1].c_str());
-}
+}*/
   return node.as<T>();
 }
 

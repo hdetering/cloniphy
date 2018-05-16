@@ -10,6 +10,7 @@ target_link_libraries (cloniphy cloniphycore)
 set_property(TARGET cloniphy PROPERTY CXX_STANDARD 11)
 set_property(TARGET cloniphy PROPERTY CXX_STANDARD_REQUIRED ON)
 # NOTE: This should help print string values in GDB sessions, comment out for prod!
+# WARN: Uncommenting this line gave linking errors!!
 #add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
 # ----------------------------------------------------------------------------
