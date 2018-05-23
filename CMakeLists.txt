@@ -13,7 +13,7 @@ project(cloniphy CXX)
 add_subdirectory(src)
 
 # add yaml-cpp
-add_subdirectory(include/yaml-cpp)
+#add_subdirectory(include/yaml-cpp)
 
 # provides "add_test()" command
 enable_testing()

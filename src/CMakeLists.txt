@@ -40,6 +40,13 @@ if(Boost_FOUND)
     target_link_libraries(cloniphy ${Boost_LIBRARIES})
 endif()
 
+# add OpenMP support
+include(FindOpenMP)
+if(OPENMP_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif(OPENMP_FOUND)
+
 # Load the SeqAn module and fail if not found.
 #find_package (SeqAn REQUIRED)
 
