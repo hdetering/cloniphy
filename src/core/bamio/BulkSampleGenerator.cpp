@@ -83,19 +83,28 @@ BulkSampleGenerator::generateBulkSamples (
   //   // initialize new bulk sample
   //   BulkSample sample(lbl_sample, w);
   //   this->m_samples[lbl_sample] = sample;
-  for (auto const & lbl_smp : this->m_samples) {
+fprintf(stderr, "running through %d samples...\n", this->m_samples.size());
+  #pragma omp parallel
+  {
+  #pragma omp single
+  {
+  for (auto lbl_smp : this->m_samples) {
+    #pragma omp task
+    {
+      int ithread = omp_get_thread_num();
+      int nthreads = omp_get_num_threads();
 
     string lbl_sample = lbl_smp.first;
     BulkSample sample = lbl_smp.second;
-
+fprintf(stderr, "lbl_sample: %s (thread %d of %d)\n", lbl_sample.c_str(), ithread, nthreads);
     // initialize expected SNV allele frequencies
     map<string, double> w = sample.m_clone_weight;
-    this->initAlleleCounts(w, var_store);
+    sample.initAlleleCounts(w, var_store, m_map_clone_chr_seg);
 
     // output expected read counts to BED file.
     path fn_vaf = path_bed / str(boost::format("%s.vaf.bed") % lbl_sample) ;
     std::ofstream ofs_vaf(fn_vaf.string(), std::ofstream::out);
-    writeExpectedReadCounts(ofs_vaf, seq_coverage, var_store);
+    writeExpectedReadCounts(ofs_vaf, seq_coverage, var_store, sample.m_map_snv_vaf);
     ofs_vaf.close();
 
     fprintf(stdout, "Generating bulk sample '%s'\n", lbl_sample.c_str());
@@ -128,7 +137,10 @@ BulkSampleGenerator::generateBulkSamples (
         rng
       );
     }
+    } // pragma omp task
   }
+  } // pragma omp single
+  } // pragma omp parallel
 }
 
 /** 
@@ -167,7 +179,7 @@ BulkSampleGenerator::generateReadCounts (
 
   // STEP 1: generate read counts for true variants
   //---------------------------------------------------------------------------
-  for (auto snv_vaf : m_map_snv_vaf) {
+  for (auto snv_vaf : sample.m_map_snv_vaf) {
     int id_snv = snv_vaf.first;
     double vaf = snv_vaf.second;
     Variant var = var_store.map_id_snv.at(id_snv);
@@ -515,11 +527,28 @@ fprintf(stderr, "### %s\n", fn_bam_in.c_str());
       // (clone label -> read group id)
       if ( seq_use_vaf ) {
 fprintf(stderr, "### BulkSampleGenerator::transformBamTileVaf (%s).\n", fn_bam_in);
-        transformBamTileVaf(bam_out, bam_in, lbl_clone, var_store, rng, map_var_cvg, map_var_alt);        
+        transformBamTileVaf (
+          bam_out, 
+          bam_in, 
+          lbl_clone, 
+          var_store, 
+          m_samples[lbl_sample].m_map_snv_vaf, 
+          rng, 
+          map_var_cvg, 
+          map_var_alt
+        );
       }
       else {
 fprintf(stderr, "### BulkSampleGenerator::transformBamTile (%s).\n", fn_bam_in);
-        transformBamTileSeg(bam_out, bam_in, lbl_clone, var_store, rng, map_var_cvg, map_var_alt);
+        transformBamTileSeg (
+          bam_out, 
+          bam_in, 
+          lbl_clone, 
+          var_store, 
+          rng, 
+          map_var_cvg, 
+          map_var_alt
+        );
       }
 
       close(bam_in);
@@ -1079,6 +1108,7 @@ BulkSampleGenerator::transformBamTileVaf (
   BamFileIn& bam_in,
   const string id_clone,
   const vario::VariantStore& var_store,
+  const map<int, double>& map_snv_vaf,
   RandomNumberGenerator<>& rng,
   map<string, unsigned>& map_var_cvg,
   map<string, unsigned>& map_var_alt
@@ -1235,7 +1265,7 @@ if (num_reads % 10000 == 0) {
       vector<int> vec_snv = it_snv->second;
       for (int id_snv : vec_snv) {
         // get variant allele frequency for SNV in this sample
-        double vaf = this->m_map_snv_vaf[id_snv];
+        double vaf = map_snv_vaf.at(id_snv);
 
         Variant snv = var_store.map_id_snv.at(id_snv);
 
@@ -1367,6 +1397,7 @@ bool BulkSampleGenerator::mutateReadPairVaf (
   BamAlignmentRecord& read2,
   const map<seqio::TCoord, vector<int>>& map_pos_snv,
   const map<int, vario::Variant>& map_id_snv,
+  const map<int, double>& map_snv_vaf,
   function<double()>& r_dbl,
   const int r1_begin,
   const int r2_begin,
@@ -1395,7 +1426,7 @@ bool BulkSampleGenerator::mutateReadPairVaf (
     vector<int> vec_snv = it_snv->second;
     for (int id_snv : vec_snv) {
       // get variant allele frequency for SNV in this sample
-      double vaf = this->m_map_snv_vaf[id_snv];
+      double vaf = map_snv_vaf.at(id_snv);
 
       // decide if read pair is to be mutated (with probability VAF)
       if (r_dbl() > vaf) continue;
@@ -1418,101 +1449,12 @@ bool BulkSampleGenerator::mutateReadPairVaf (
   return true;
 }
 
-bool
-BulkSampleGenerator::initAlleleCounts (
-  const map<string, double> map_clone_ccf,
-  const vario::VariantStore& var_store
-  //vario::TMapChrPosVaf& out_map_chr_pos_vaf
-)
-{
-  // requires genome instances to be initialized
-  assert(has_clone_genomes);
-
-  this->m_map_clone_snv_vac.clear();
-  this->m_map_snv_vaf.clear();
-
-  // loop over clone genomes
-  for (auto clone_chr_seg : m_map_clone_chr_seg) {
-
-    string id_clone = clone_chr_seg.first;
-    // segment copy map for clone, indexed by chromosome
-    map<string, seqio::TSegMap> map_chr_seg = clone_chr_seg.second;
-
-    // initialize map for clone
-    m_map_clone_snv_vac[id_clone] = map<int, vario::VariantAlleleCount>();
-
-    // populate allele counts for SNVs
-    for (auto const & kv : var_store.map_id_snv) {
-      int id_var = kv.first;
-      Variant var = kv.second;
-      
-      TCoord pos_var = var.pos;
-      string id_chr = var.chr;
-
-      // if (out_map_chr_pos_vaf.count(id_chr) == 0) {
-      //   out_map_chr_pos_vaf[id_chr] = TMapPosVaf();
-      // }
-      
-      // get segment copies overlapping SNV position
-      seqio::TSegMap imap_seg_chr = this->m_map_clone_chr_seg[id_clone][id_chr];
-      seqio::TSegSet iset_read;
-      iset_read.add(interval<TCoord>::right_open(pos_var, pos_var+1));
-      seqio::TSegMap imap_seg_ovlp = imap_seg_chr & iset_read;
-
-      short num_tot = 0;
-      short num_alt = 0;
-
-      for (auto const & itvl_iset : imap_seg_ovlp) {
-        for (const SegmentCopy & segment : itvl_iset.second) {
-          num_tot++; // increase total allele count
-          // check if current segment copy carries current SNV
-          auto it_seg_vars = var_store.map_seg_vars.find(segment.id);
-          if (it_seg_vars == var_store.map_seg_vars.end()) 
-            continue;
-          vector<int> vec_seg_vars = it_seg_vars->second;
-
-          // increase alternative allele count if variant associated to segment copy
-          if(find(vec_seg_vars.begin(), vec_seg_vars.end(), id_var) != vec_seg_vars.end())
-            num_alt++;
-        }
-      }
-
-      vario::VariantAlleleCount vac;
-      vac.num_tot = num_tot;
-      vac.num_alt = num_alt;
-      m_map_clone_snv_vac[id_clone][id_var] = vac;
-    }
-  }
-
-  // Initialize expected bulk variant allele frequencies (VAFs) for somatic SNVs.
-  // Formula:
-  //   VAF_i = \sum_k ( CP_k * A_k,i / N_k,i )
-  // With
-  //   CCF_k := Cancer cell fraction (frequency) of clone k within the bulk sample
-  //   A_k,i := Alternative alleles of clone k at variant i
-  //   N_k,i := Total alleles of clone k at variant i
-
-  for (auto const & kv : var_store.map_id_snv) {
-    int id_snv = kv.first;
-    double vaf = 0.0;
-
-    for (auto const & clone_ccf : map_clone_ccf) {
-      string id_clone = clone_ccf.first;
-      double ccf = clone_ccf.second;
-      vario::VariantAlleleCount vac = this->m_map_clone_snv_vac[id_clone][id_snv];
-
-      vaf += ccf * vac.num_alt / vac.num_tot;
-    }
-
-    this->m_map_snv_vaf[id_snv] = vaf;
-  }
-}
-
 int
 BulkSampleGenerator::writeExpectedReadCounts (
   std::ofstream& ofs_out,
   const int cvg_depth,
-  const vario::VariantStore& var_store
+  const vario::VariantStore& var_store,
+  const map<int, double>& map_snv_vaf
 ) const
 {
   // write header
@@ -1520,7 +1462,7 @@ BulkSampleGenerator::writeExpectedReadCounts (
   ofs_out << "# id_snv,chr,pos,ref,alt" << endl;
 
   // loop over variants
-  for (auto const & snv_vaf : this->m_map_snv_vaf) {
+  for (auto const & snv_vaf : map_snv_vaf) {
     int id_snv = snv_vaf.first;
     double vaf = snv_vaf.second;
 

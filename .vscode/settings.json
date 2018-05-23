@@ -49,6 +49,8 @@
         "type_traits": "cpp",
         "typeinfo": "cpp",
         "utility": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp"
     }
 }

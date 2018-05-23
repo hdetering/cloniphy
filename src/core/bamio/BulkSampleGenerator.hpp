@@ -47,9 +47,9 @@ private:
   /** Stores for each FASTA file the number of contained sequences. */
   std::map<boost::filesystem::path, unsigned> m_map_fasta_nseq;
   /** Allele counts of SNVs indexed by clone, SNV id. */
-  std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
+  //std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
   /** Allele frequencies of SNVs indexed by SNV id. */
-  std::map<int, double> m_map_snv_vaf;
+  //std::map<int, double> m_map_snv_vaf;
 
 public:
   /** Default c'tor. */
@@ -287,6 +287,7 @@ public:
     seqan::BamFileIn& bam_in,
     const std::string id_clone,
     const vario::VariantStore& var_store,
+    const std::map<int, double>& map_snv_vaf,
     RandomNumberGenerator<>& rng,
     std::map<std::string, unsigned>& map_var_cvg,
     std::map<std::string, unsigned>& map_var_alt
@@ -321,6 +322,7 @@ public:
     * \param read2       Second read in pair.
     * \param map_pos_snv SNV ids indexed by position (for quick lookup).
     * \param map_id_snv  SNV Variant objects indexed by id.
+    * \param map_snv_vaf Variant allele frequency of SNVs in this sample.
     * \param r_dbl       Random function (value decides if read receives mutation).
     * \param r1_begin    Start coordinate of read1.
     * \param r2_begin    Start coordinate of read2.
@@ -334,6 +336,7 @@ public:
     seqan::BamAlignmentRecord& read2,
     const std::map<seqio::TCoord, std::vector<int>>& map_pos_snv,
     const std::map<int, vario::Variant>& map_id_snv,
+    const std::map<int, double>& map_snv_vaf,
     std::function<double()>& r_dbl,
     const int r1_begin,
     const int r2_begin,
@@ -439,21 +442,6 @@ public:
   );
 
   /** 
-   * Calculate allele counts at variant positions for all clones.
-   * Initializes m_map_clone_snv_vac, m_map_snv_vaf.
-   *
-   * \param map_clone_ccf  Cancer cell fraction (CCF) for each clone in the sample.
-   * \param var_store      Variant store keeping track of SNV -> segment copy mappings.
-   * \returns              True on success, false on error.
-   */
-  bool
-  initAlleleCounts (
-    const std::map<std::string, double> map_clone_ccf,
-    const vario::VariantStore& var_store
-    //vario::TMapChrPosVaf& out_vars
-  );
-
-  /** 
    * Write expected variant allele frequency (VAF) for a sample to CSV file.
    * Expected read counts for each variant are calculated as:
    *   (\sum_i A_i / R_i * F_i) * C
@@ -469,13 +457,15 @@ public:
    * \param ofs_bed_out  Output stream to write output to.
    * \param cvg_depth    Coverage depth during read simulation.
    * \param var_store    Variant store, contains details about variants.
+   * \param map_snv_vaf  Variant allele frequencies for SNVs.
    * \returns            Number of output variants on success, -1 on error.
    */
   int
   writeExpectedReadCounts (
     std::ofstream& ofs_bed_out,
     const int cvg_depth,
-    const vario::VariantStore& var_store
+    const vario::VariantStore& var_store,
+    const std::map<int, double>& map_snv_vaf
   ) const;
 };
 

@@ -30,6 +30,11 @@ struct BulkSample {
     >
   > m_chr_cn;
 
+  /** Allele counts of SNVs indexed by clone, SNV id. */
+  std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
+  /** Allele frequencies of SNVs indexed by SNV id. */
+  std::map<int, double> m_map_snv_vaf;
+
   /* METHODS */
 
   /** std c'tor */
@@ -115,6 +120,21 @@ struct BulkSample {
     seqio::TCoord& out_seg_len
   ) const;
 
+  /** 
+   * Calculate allele counts at variant positions for all clones.
+   * Initializes m_map_clone_snv_vac, m_map_snv_vaf.
+   *
+   * \param map_clone_ccf      Cancer cell fraction (CCF) for each clone in the sample.
+   * \param var_store          Variant store keeping track of SNV -> segment copy mappings.
+   * \param map_clone_chr_seg  Genomic segment copies for each chromosome and clone.
+   * \returns                  True on success, false on error.
+   */
+  bool
+  initAlleleCounts (
+    const std::map<std::string, double> map_clone_ccf,
+    const vario::VariantStore& var_store,
+    const std::map<std::string, std::map<std::string, seqio::TSegMap>> map_clone_chr_seg
+  );
 };
 
 } // namespace bamio
