@@ -35,6 +35,7 @@ public:
 class ConfigStore
 {
 public:
+  int threads;
   model::DataFrame<double> df_sampling;
   std::vector<SampleConfig> m_vec_samples;
   std::string m_mut_gl_model;

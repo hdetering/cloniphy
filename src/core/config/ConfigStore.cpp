@@ -74,6 +74,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
     ("out-dir,o", po::value<string>(&dir_out), "output directory")
     ("verbosity,v", po::value<int>(&verb), "detail level of console output")
+    ("threads,p", po::value<int>(&threads)->default_value(1), "number of parallel threads")
     ("seed,s", po::value<long>(&seed), "random seed")
   ;
 

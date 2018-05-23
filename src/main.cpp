@@ -13,8 +13,6 @@
 #include "core/seqio.hpp"
 #include "core/treeio.hpp"
 #include "core/vario.hpp"
-//#include "core/basicclonetree.hpp"
-//#include "core/coalescentclonetree.hpp"
 
 #include <boost/filesystem.hpp> // absolute(),
 #include <boost/format.hpp>
@@ -49,9 +47,6 @@ using vario::VariantStore;
 using evolution::GermlineSubstitutionModel;
 using evolution::SomaticSubstitutionModel;
 using evolution::SomaticCnvModel;
-
-// for debugging use only - remove for final release
-//template class std::map<int, GenomeInstance>;
 
 // global constants
 const string lbl_clone_normal = "N"; // TODO: make this a config param?
@@ -97,6 +92,7 @@ int main (int argc, char* argv[])
   bool seq_fq_out = config.getValue<bool>("seq-fq-out");
   bool seq_sam_out = config.getValue<bool>("seq-sam-out");
   int verbosity = config.getValue<int>("verbosity");
+  int num_threads = config.threads;
   long seed = config.getValue<long>("seed");
   //string pfx_out = config.getValue<string>("out-pfx");
   string dir_out = config.getValue<string>("out-dir");
@@ -130,6 +126,9 @@ int main (int argc, char* argv[])
   // TODO: check previous variables, maybe consolidate functionality?
   VariantStore var_store; // manages somatic variants
   bamio::BulkSampleGenerator bulk_generator; // simulates bulk samples
+
+  // set number of parallel threads
+  omp_set_num_threads(num_threads);
 
   // inititalize germline model of sequence evolution
   if (str_model_gl == "JC") {
