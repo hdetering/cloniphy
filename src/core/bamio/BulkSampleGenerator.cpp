@@ -83,7 +83,6 @@ BulkSampleGenerator::generateBulkSamples (
   //   // initialize new bulk sample
   //   BulkSample sample(lbl_sample, w);
   //   this->m_samples[lbl_sample] = sample;
-fprintf(stderr, "running through %d samples...\n", this->m_samples.size());
   #pragma omp parallel
   {
   #pragma omp single

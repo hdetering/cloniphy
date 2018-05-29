@@ -640,11 +640,11 @@ VariantStore::generateGermlineVariants (
   function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
-  // determine base mutation probs from model (marginal sums)
+  // determine base mutation probs from model (row sums)
   vector<double> p_i(4, 0);
   for (int i=0; i<4; ++i) {
     for (int j=0; j<4; ++j) {
-      p_i[i] += model.Qij[i][j];
+      p_i[i] += model.Q[i][j];
     }
   }
   function<int()> random_nuc_idx = rng.getRandomIndexWeighted(p_i);

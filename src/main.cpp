@@ -23,6 +23,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <iterator> // begin(), end()
 #include <map>
 #include <math.h>
 #include <memory>
@@ -146,7 +147,23 @@ int main (int argc, char* argv[])
     //vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
     double kappa = config.m_mut_gl_model_params_kappa;
     vector<double> vec_freqs = config.m_mut_gl_model_params_nucfreq;
-    model_gl.init_HKY(&vec_freqs[0], kappa);
+    double pi_i[4];
+    copy(vec_freqs.begin(), vec_freqs.end(), pi_i);
+    model_gl.init_HKY(pi_i, kappa);
+  }
+  // print substitution rate matrix for germline mutations?
+  if (verbosity >= 2) {
+    map<string, vector<double>> Q;
+    int i = 0;
+    for (auto row = begin(model_gl.Q); row!=end(model_gl.Q); ++row, i++) {
+      //string nuc_from = stringio::format("%s", seqio::idx2nuc(i));
+      stringstream ss;
+      string nuc_from;
+      ss << seqio::idx2nuc(i);
+      ss >> nuc_from;
+      Q[nuc_from] = vector<double>(begin(*row), end(*row));
+    }
+    fprintf(stdout, "Germline nucleotide substitution rates:\n%s", stringio::printMatrix(Q).c_str());
   }
 
   // initialize somatic model of sequence evolution

@@ -10,16 +10,16 @@
 namespace evolution {
 
 struct GermlineSubstitutionModel {
-  double Qij[4][4]; // mutation rate matrix (diagonal entries 0)
-  double Pij[4][4]; // per-site substitution rate matrix
+  double Q[4][4]; // mutation rate matrix (diagonal entries 0)
+  double P[4][4]; // per-site substitution rate matrix
   double kappa;   // transition-transversion rate
 
   /** default c'tor */
   GermlineSubstitutionModel();
-  /** custom transition probabilities */
-  GermlineSubstitutionModel(double Qij[4][4]);
+  /** Initialize rate matrix with transition probabilities. */
+  GermlineSubstitutionModel(const double Qij[4][4]);
   /** default model: HKY with titv=0.5 */
-  GermlineSubstitutionModel(double p_i[4], double titv);
+  GermlineSubstitutionModel(const double p_i[4], const double titv);
   // calculate nucleotide substitution matrix (Q/mu)
   void init_JC();
   void init_F81(double p[4]);
@@ -28,9 +28,9 @@ struct GermlineSubstitutionModel {
 };
 
 // calculate per-site substitution rates
-void HKY (double Pij[4][4], double branchLength, double kappa, double varRate, double p_i[4]);
-void GTR (double Pij[4][4], double branchLength, double varRate, double p_i[4]);
-void GTnR (double Pij[4][4], double branchLength, double varRate, double p_i[4]);
+void HKY (double P[4][4], double branchLength, double kappa, double varRate, double p_i[4]);
+void GTR (double P[4][4], double branchLength, double varRate, double p_i[4]);
+void GTnR (double P[4][4], double branchLength, double varRate, double p_i[4]);
 int EigenREV (double Root[], double Cijk[]);
 
 /** Provides access to somatic mutation profiles. */
