@@ -402,8 +402,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     for (size_t j=1; j<row.size(); j++)
       row_sum += row[j];
     if (row_sum > 1) {
-      fprintf(stderr, "\nArgumentError: Row sums in sampling matrix must <=1 (violated in '%s').\n", row_label.c_str());
-      return false;
+      fprintf(stderr, "\n[WARN]: Sampling matrix contains row sums >1 (sample '%s'). Normalizing...\n", row_label.c_str());
+      for (size_t j=1; j<row.size(); j++) {
+        row[j] /= row_sum;
+      }
     }
     this->m_vec_samples.push_back(SampleConfig(row_label, row));
   }
