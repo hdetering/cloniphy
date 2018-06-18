@@ -47,7 +47,7 @@ struct FixtureBamio {
   }
 
   long seed = 123456789;
-  RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
+  RandomNumberGenerator rng = RandomNumberGenerator(seed);
   GermlineSubstitutionModel model_gl;
   SomaticSubstitutionModel model_sm;
   SomaticCnvModel model_cnv;

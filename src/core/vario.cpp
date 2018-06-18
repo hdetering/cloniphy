@@ -217,7 +217,7 @@ VariantAlleleCount::VariantAlleleCount ()
 unsigned assignSomaticMutationType(
   std::vector<Mutation>& vec_mutations,
   const double ratio_cnv,
-  RandomNumberGenerator<>& rng)
+  RandomNumberGenerator& rng)
 {
   function<double()> random_double = rng.getRandomFunctionReal(0.0, 1.0);
   unsigned num_mut=0;
@@ -629,7 +629,7 @@ VariantStore::generateGermlineVariants (
   const GenomeReference& genome,
   GermlineSubstitutionModel& model,
   const double rate_hom,
-  RandomNumberGenerator<>& rng,
+  RandomNumberGenerator& rng,
   const bool inf_sites)
 {
   // NOTE: germline variants carry negative indices
@@ -697,7 +697,7 @@ VariantStore::generateSomaticVariants(
   const GenomeReference& genome,
   SomaticSubstitutionModel& model_snv,
   SomaticCnvModel& model_cnv,
-  RandomNumberGenerator<>& rng,
+  RandomNumberGenerator& rng,
   const bool inf_sites)
 {
   // SNV events
@@ -824,7 +824,7 @@ VariantStore::generateSomaticVariants(
 bool 
 VariantStore::applyGermlineVariants (
   GenomeInstance& genome,
-  RandomNumberGenerator<>& rng
+  RandomNumberGenerator& rng
 )
 {
   random_selector<> selector(rng.generator); // used to pick random SegmentCopy
@@ -870,7 +870,7 @@ void
 VariantStore::applyMutation (
   Mutation mut,
   GenomeInstance& genome,
-  RandomNumberGenerator<>& rng
+  RandomNumberGenerator& rng
 )
 {
   // perform some sanity checks
@@ -1073,7 +1073,7 @@ vector<Variant> generateVariantsRandomPos(
   const int num_variants,
   const GenomeReference& genome,
   GermlineSubstitutionModel& model,
-  RandomNumberGenerator<>& rng,
+  RandomNumberGenerator& rng,
   const bool inf_sites)
 {
   vector<Variant> variants = vector<Variant>(num_variants);

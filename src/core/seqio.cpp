@@ -114,7 +114,7 @@ void GenomeReference::addChromosome(shared_ptr<ChromosomeReference> sp_chr) {
 void GenomeReference::generate(
   const unsigned long total_len,
   const vector<double> nuc_freqs,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator &rng
 ) {
   this->generate(total_len, 1, nuc_freqs, rng);
 }
@@ -131,7 +131,7 @@ void GenomeReference::generate(
   const unsigned long total_len,
   const unsigned short num_chr,
   const vector<double> nuc_freqs,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator &rng
 ) {
   // generate random genomic sequence
   string seq;
@@ -178,7 +178,7 @@ void GenomeReference::generate(
   const unsigned long mean_len,
   const unsigned long sd_len,
   const std::vector<double> nuc_freqs,
-  RandomNumberGenerator<>& rng)
+  RandomNumberGenerator& rng)
 {
   // set sequence lengths
   vector<unsigned long> vec_seq_len(num_seqs);
@@ -1063,7 +1063,7 @@ unsigned long generateRandomDnaSeq(
   string &seq,
   const unsigned long total_len,
   const vector<double>nuc_freqs,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator &rng
 ) {
   function<short()> ridx = rng.getRandomIndexWeighted(nuc_freqs);
 

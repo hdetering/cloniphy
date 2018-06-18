@@ -19,7 +19,7 @@ struct FixtureTreeio {
   }
 
   long seed = 123456789;
-  RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
+  RandomNumberGenerator rng = RandomNumberGenerator(seed);
 };
 
 BOOST_FIXTURE_TEST_SUITE( treeio, FixtureTreeio )

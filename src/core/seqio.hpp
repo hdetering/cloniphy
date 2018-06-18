@@ -310,7 +310,7 @@ struct GenomeReference
   void generate (
     const unsigned long,
     const std::vector<double>,
-    RandomNumberGenerator<>&
+    RandomNumberGenerator&
   );
 
   /**
@@ -325,7 +325,7 @@ struct GenomeReference
     const unsigned long,
     const unsigned short,
     const std::vector<double>,
-    RandomNumberGenerator<>&
+    RandomNumberGenerator&
   );
 
   /**
@@ -342,7 +342,7 @@ struct GenomeReference
     const unsigned long mean_len,
     const unsigned long sd_len,
     const std::vector<double> nuc_freqs,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   );
 
   /**
@@ -418,7 +418,7 @@ unsigned long generateRandomDnaSeq(
   std::string &seq,
   const unsigned long total_len,
   const std::vector<double> nuc_freqs,
-  RandomNumberGenerator<> &rng);
+  RandomNumberGenerator &rng);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
 void simulateADO_old(const std::string, const float, const int, std::function<double()>&);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */

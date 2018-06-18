@@ -218,7 +218,7 @@ struct VariantStore
     const GenomeReference& genome_ref,
     GermlineSubstitutionModel& model,
     const double rate_hom,
-    RandomNumberGenerator<>& rng,
+    RandomNumberGenerator& rng,
     const bool inf_sites = true
   );
 
@@ -230,7 +230,7 @@ struct VariantStore
     const GenomeReference& genome,
     SomaticSubstitutionModel& model_snv,
     SomaticCnvModel& model_cnv,
-    RandomNumberGenerator<>& rng,
+    RandomNumberGenerator& rng,
     const bool infinite_sites = false
   );
 
@@ -242,7 +242,7 @@ struct VariantStore
   bool
   applyGermlineVariants (
     GenomeInstance& genome,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   );
 
   /** Apply a mutation to a GenomeInstance.
@@ -250,7 +250,7 @@ struct VariantStore
    *  - CNV (gain): new SequenceCopies will be introduced
    *  - CNV (loss): existing SequenceCopies will be split
    */
-  void applyMutation(Mutation m, GenomeInstance& g, RandomNumberGenerator<>& r);
+  void applyMutation(Mutation m, GenomeInstance& g, RandomNumberGenerator& r);
 
   /** Transfer mutations from existing SegmentCopies to new ones. */
   void transferMutations(std::vector<seqio::seg_mod_t> vec_seg_mod);
@@ -281,7 +281,7 @@ struct VariantStore
 unsigned assignSomaticMutationType(
   std::vector<Mutation>& vec_mutations,
   const double ratio_cnv,
-  RandomNumberGenerator<>& rng);
+  RandomNumberGenerator& rng);
 
 /** Read VCF file and return list of variants. */
 void readVcf(
@@ -355,7 +355,7 @@ std::vector<Variant> generateVariantsRandomPos(
   const int num_variants,
   const GenomeReference& genome,
   GermlineSubstitutionModel& model,
-  RandomNumberGenerator<>&,
+  RandomNumberGenerator&,
   const bool infinite_sites = false
 );
 /** Apply variants to a given reference sequence */

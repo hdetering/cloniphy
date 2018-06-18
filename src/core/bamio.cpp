@@ -219,7 +219,7 @@ void mutateReads (
   vector<double> weights,
   string id_sample,
   const short ploidy,
-  RandomNumberGenerator<> &rng,
+  RandomNumberGenerator &rng,
   bool do_write_fastq)
 {
   // sanity check: make sure input files exist

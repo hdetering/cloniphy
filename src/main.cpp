@@ -14,6 +14,8 @@
 #include "core/treeio.hpp"
 #include "core/vario.hpp"
 
+#include "pcg-cpp/pcg_random.hpp"
+
 #include <boost/filesystem.hpp> // absolute(),
 #include <boost/format.hpp>
 #include <algorithm> // find()
@@ -27,6 +29,7 @@
 #include <map>
 #include <math.h>
 #include <memory>
+#include <random> // std::random_device
 #include <sstream>
 #include <stdlib.h> // system()
 #include <string>
@@ -227,7 +230,8 @@ int main (int argc, char* argv[])
   // initialize random functions
   //seed = time(NULL) + clock();
   fprintf(stderr, "random seed: %ld\n", seed);
-  RandomNumberGenerator<> rng(seed);
+  //RandomNumberGenerator<> rng(seed);
+  RandomNumberGenerator rng(seed);
   function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
   function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
 

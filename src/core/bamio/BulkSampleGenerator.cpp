@@ -72,7 +72,7 @@ BulkSampleGenerator::generateBulkSamples (
   const unsigned seq_frag_len_mean,
   const unsigned seq_frag_len_sd,
   const std::string art_bin,
-  RandomNumberGenerator<>& rng
+  RandomNumberGenerator& rng
 )
 {
   // for (auto const sample_weights : mtx_sample_clone_w) {
@@ -154,7 +154,7 @@ BulkSampleGenerator::generateReadCounts (
   const double seq_error,
   const int    seq_min_rc,
   const vario::VariantStore& var_store,
-  RandomNumberGenerator<>& rng
+  RandomNumberGenerator& rng
 ) 
 {
   // sanity checks
@@ -463,7 +463,7 @@ BulkSampleGenerator::mergeBulkSeqReads (
   const vector<BamHeaderRecord>& vec_rg,
   const vario::VariantStore var_store,
   const bool seq_use_vaf,
-  RandomNumberGenerator<>& rng
+  RandomNumberGenerator& rng
 )
 {
   BamFileIn bam_in;
@@ -859,7 +859,7 @@ BulkSampleGenerator::transformBamTileSeg (
   BamFileIn& bam_in,
   const string id_clone,
   const vario::VariantStore& var_store,
-  RandomNumberGenerator<>& rng,
+  RandomNumberGenerator& rng,
   map<string, unsigned>& map_var_cvg,
   map<string, unsigned>& map_var_alt
 )
@@ -1108,7 +1108,7 @@ BulkSampleGenerator::transformBamTileVaf (
   const string id_clone,
   const vario::VariantStore& var_store,
   const map<int, double>& map_snv_vaf,
-  RandomNumberGenerator<>& rng,
+  RandomNumberGenerator& rng,
   map<string, unsigned>& map_var_cvg,
   map<string, unsigned>& map_var_alt
 )

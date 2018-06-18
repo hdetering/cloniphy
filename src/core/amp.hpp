@@ -29,7 +29,7 @@ void simulateMda(
   double amplicon_size_mean,
   double amplicon_size_sd,
   int fold,
-  RandomNumberGenerator<> rng
+  RandomNumberGenerator &rng
 );
 
 //! Simulate Multiple Displacement Amplification (MDA) of a single DNA molecule.
@@ -46,7 +46,7 @@ void simulateMdaProcessHaploid(
   double amplicon_size_mean,
   double amplicon_size_sd,
   int fold,
-  RandomNumberGenerator<> rng
+  RandomNumberGenerator &rng
 );
 
 //! Simulate Multiple Displacement Amplification (MDA) of a diploid chromosome.
@@ -63,7 +63,7 @@ void simulateMdaProcessDiploid(
   double amplicon_size_mean,
   double amplicon_size_sd,
   int fold,
-  RandomNumberGenerator<> rng
+  RandomNumberGenerator &rng
 );
 
 
