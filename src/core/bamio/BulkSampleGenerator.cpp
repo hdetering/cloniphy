@@ -1522,6 +1522,9 @@ BulkSampleGenerator::writeFastaTiled (
     // create output file for CN state if not exists
     if ( map_cn_file.count(cn_total) == 0 ) {
       path filepath = path_fasta / format("%s.%d.fa", lbl_clone.c_str(), cn_total);
+#ifndef NDEBUG
+      fprintf(stderr, "### [BulkSampleGenerator::writeFastaTiled] Creating file '%s'\n", filepath.string().c_str());
+#endif
       shared_ptr<std::ofstream> ofs(new std::ofstream(filepath.string(), std::ofstream::out));
       map_cn_file[cn_total] = ofs;
     }
