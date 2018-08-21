@@ -440,10 +440,12 @@ BulkSampleGenerator::generateBulkSeqReads (
     //double cvg = map_clone_cvg[id_clone] / 2 * copy_number;
 
     if ( cvg > 0.0 ) {
-cout << "#reads total: " << n_reads_tot << endl;
-cout << "#reads clone " << id_clone << ": "  << map_clone_reads[id_clone] << endl;
-cout << "fraction of genome: " << seq_frac << " (" << seq_len << "*" << copy_number << "/" << genome_len << ")" << endl;
-cout << "clone: " << id_clone << "; CN: " << copy_number << "; cvg: " << cvg << endl;
+#ifndef NDEBUG
+      cout << "#reads total: " << n_reads_tot << endl;
+      cout << "#reads clone " << id_clone << ": "  << map_clone_reads[id_clone] << endl;
+      cout << "fraction of genome: " << seq_frac << " (" << seq_len << "*" << copy_number << "/" << genome_len << ")" << endl;
+      cout << "clone: " << id_clone << "; CN: " << copy_number << "; cvg: " << cvg << endl;
+#endif
       art.fold_cvg = cvg;
       //art.num_reads = round(n_reads / 2); // actually specifies read pairs
       art.fn_ref_fa = path_fa.string();
@@ -452,6 +454,8 @@ cout << "clone: " << id_clone << "; CN: " << copy_number << "; cvg: " << cvg << 
       // output files are named: <sample>.<clone>.<CN>.sam
       string fn_pfx_out = (path_bam / (lbl_sample+"."+fn_pfx)).string();
       int res_art = art.run(fn_pfx_out);
+// TODO: sort and compress SAM output
+// TODO: transform BAM tiles by skipping ahead between variant positions
     }
   }
 }
@@ -538,7 +542,7 @@ fprintf(stderr, "### BulkSampleGenerator::transformBamTileVaf (%s).\n", fn_bam_i
         );
       }
       else {
-fprintf(stderr, "### BulkSampleGenerator::transformBamTile (%s).\n", fn_bam_in);
+fprintf(stderr, "### BulkSampleGenerator::transformBamTileSeg (%s).\n", fn_bam_in);
         transformBamTileSeg (
           bam_out, 
           bam_in, 
@@ -984,7 +988,7 @@ auto t_start_10k = chrono::steady_clock::now();
     //--- MUTATE READ PAIR (BEGIN) ---
     // Code copied from mutateReadPairSeg() for increased runtime performance. 
 
-    SegmentCopy seg;
+    SegmentCopy seg(0);
   
     // determine read pair coordinates
     TCoord pos_begin, pos_end;

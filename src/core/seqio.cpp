@@ -33,6 +33,31 @@ SeqRecord::~SeqRecord() {}
     SegmentCopy
   ---------------*/
 
+SegmentCopy::SegmentCopy ()
+: id(boost::uuids::random_generator()()) {}
+
+SegmentCopy::SegmentCopy (int i) {}
+
+SegmentCopy::~SegmentCopy () {}
+
+SegmentCopy::SegmentCopy (
+  const TCoord start, 
+  const TCoord end,
+  const char allele
+)
+: id(boost::uuids::random_generator()()), 
+  ref_start(start), 
+  ref_end(end),
+  gl_allele(allele)
+{}
+
+ostream& operator<<(ostream& lhs, const SegmentCopy& seg) {
+  lhs << "SegmentCopy<uuid=" << seg.id << "> ";
+  lhs << "[" << seg.ref_start << ", " << seg.ref_end << ")";
+  lhs << endl;
+  return lhs;
+}
+
 bool
 operator==(const SegmentCopy& lhs, const SegmentCopy& rhs) {
   return lhs.id == rhs.id;
@@ -937,33 +962,6 @@ ostream& operator<<(ostream& lhs, const GenomeInstance& gi) {
       lhs << *ci;
     }
   }
-  return lhs;
-}
-
-/*-------------
-   SegmentCopy
-  -------------*/
-
-SegmentCopy::SegmentCopy ()
-: id(boost::uuids::random_generator()()) {}
-
-SegmentCopy::~SegmentCopy () {}
-
-SegmentCopy::SegmentCopy (
-  const TCoord start, 
-  const TCoord end,
-  const char allele
-)
-: id(boost::uuids::random_generator()()), 
-  ref_start(start), 
-  ref_end(end),
-  gl_allele(allele)
-{}
-
-ostream& operator<<(ostream& lhs, const SegmentCopy& seg) {
-  lhs << "SegmentCopy<uuid=" << seg.id << "> ";
-  lhs << "[" << seg.ref_start << ", " << seg.ref_end << ")";
-  lhs << endl;
   return lhs;
 }
 

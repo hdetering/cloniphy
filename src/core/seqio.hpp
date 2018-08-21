@@ -129,6 +129,8 @@ struct SegmentCopy {
 
   /** default c'tor */
   SegmentCopy();
+  /** dummy c'tor to avoid UUID init (to avoid performance overhead) */
+  SegmentCopy(int);
   /** default d'tor */
   ~SegmentCopy();
 

@@ -222,10 +222,10 @@ int main (int argc, char* argv[])
   }
 
   // output file names
-  path fn_mm = path_out / "mm.csv"; // mutation map
-  path fn_newick = path_out / "clone.tree"; // clone tree
-  path fn_dot = path_out / "clone.tree.dot"; // DOT graph for clone tree
-  path fn_sampling_csv = path_out / "prevalences.csv"; // sampling scheme
+  const path fn_mm = path_out / "mm.csv"; // mutation map
+  const path fn_newick = path_out / "clone.tree"; // clone tree
+  const path fn_dot = path_out / "clone.tree.dot"; // DOT graph for clone tree
+  const path fn_sampling_csv = path_out / "prevalences.csv"; // sampling scheme
 
   // initialize random functions
   //seed = time(NULL) + clock();
