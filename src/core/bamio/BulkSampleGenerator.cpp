@@ -1044,7 +1044,8 @@ auto t_start_10k = chrono::steady_clock::now();
     //----------------------------------------------
   
     map<seqio::TCoord, vector<Variant>> map_pos_mut;
-    var_store.getSnvsForSegmentCopy(map_pos_mut, seg.id);
+    //var_store.getSnvsForSegmentCopy(map_pos_mut, seg.id);
+    var_store.getSnvsForSegmentCopy(map_pos_mut, seg.id, r1_begin, r2_end);
   
     // 3. Apply variants overlapping read pair.
     //------------------------------------------
@@ -1363,7 +1364,8 @@ bool BulkSampleGenerator::mutateReadPairSeg (
   //----------------------------------------------
 
   map<seqio::TCoord, vector<Variant>> map_pos_var;
-  var_store.getSnvsForSegmentCopy(map_pos_var, seg.id);
+  //var_store.getSnvsForSegmentCopy(map_pos_var, seg.id);
+  var_store.getSnvsForSegmentCopy(map_pos_var, seg.id, r1_begin, r2_end);
 
   // 3. Apply variants overlapping read pair.
   //------------------------------------------
