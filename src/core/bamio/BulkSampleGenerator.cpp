@@ -10,6 +10,7 @@ using seqio::GenomeInstance;
 using seqio::GenomeReference;
 using seqio::TCoord;
 using seqio::TRegion;
+using stringio::format;
 
 namespace bamio {
 
@@ -101,7 +102,7 @@ fprintf(stderr, "lbl_sample: %s (thread %d of %d)\n", lbl_sample.c_str(), ithrea
     sample.initAlleleCounts(w, var_store, m_map_clone_chr_seg);
 
     // output expected read counts to BED file.
-    path fn_vaf = path_bed / stringio::format("%s.vaf.bed", lbl_sample) ;
+    path fn_vaf = path_bed / format("%s.vaf.bed", lbl_sample.c_str()) ;
     std::ofstream ofs_vaf(fn_vaf.string(), std::ofstream::out);
     writeExpectedReadCounts(ofs_vaf, seq_coverage, var_store, sample.m_map_snv_vaf);
     ofs_vaf.close();
@@ -292,7 +293,7 @@ fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding varian
   //---------------------------------------------------------------------------
   
   // create output file
-  string fn_out = (path_out / str(boost::format("%s.rc.vcf") % lbl_sample)).string();
+  string fn_out = (path_out / format("%s.rc.vcf", lbl_sample.c_str())).string();
   writeReadCountsVcf(fn_out, map_chr_pos_base_rc, map_chr_pos_var, seq_min_rc);
 
   return true;
@@ -360,10 +361,11 @@ BulkSampleGenerator::writeReadCountsVcf (
         }
       }
 
-      string info = str(boost::format("DP=%d;AC=%s") % depth % ac);
+      string info = format("DP=%d;AC=%s", depth, ac.c_str());
       // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO
-      ofs << boost::format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t%s\n") 
-                           % chr % (pos+1) % id_vars % ref % alt % info;
+      ofs << format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t%s\n", 
+                    chr.c_str(), (pos+1), id_vars.c_str(), 
+                    ref.c_str(), alt.c_str(), info.c_str());
     }
   }
 
@@ -563,7 +565,7 @@ fprintf(stderr, "### Removing input SAM (%s).\n", fn_bam_in);
   }
 
   // output read counts for variable positions within sample
-  path fn_read_counts = path_bam / str(boost::format("%s.vars.csv") % lbl_sample);
+  path fn_read_counts = path_bam / format("%s.vars.csv", lbl_sample.c_str());
   std::ofstream ofs_read_counts(fn_read_counts.string(), std::ofstream::out);
   for (const auto var_cvg : map_var_cvg) {
     ofs_read_counts << var_cvg.first << "\t";
@@ -637,8 +639,8 @@ BulkSampleGenerator::initCloneGenomes (
     this->m_map_clone_chr_seg[lbl_clone] = map_chr_seg;
 
     // write intervals and corresponding CN state to BED file
-    string fn_bed = (path_bed / str(boost::format("%s.cn.bed") % lbl_clone)).string();
-    std::ofstream f_bed(fn_bed);
+    path fn_bed = path_bed / format("%s.cn.bed", lbl_clone.c_str());
+    std::ofstream f_bed(fn_bed.string());
     for (auto& reg_cn : map_reg_cn) {
       string id_chr;
       TCoord ref_start, ref_end;
@@ -646,9 +648,9 @@ BulkSampleGenerator::initCloneGenomes (
       seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
       double cn_total = cn_state.count_A + cn_state.count_B;
 
-      f_bed << str(boost::format("%s\t%lu\t%lu\t%.2f\t%.2f\n") 
-                  % id_chr % ref_start % ref_end 
-                  % cn_state.count_A % cn_state.count_B);
+      f_bed << format("%s\t%lu\t%lu\t%.2f\t%.2f\n", 
+                  id_chr.c_str(), ref_start, ref_end, 
+                  cn_state.count_A, cn_state.count_B);
     }
   }
 }
@@ -764,8 +766,8 @@ BulkSampleGenerator::writeBulkCopyNumber (
     map<string, TCnMap> map_chr_cn = id_smp.second.m_chr_cn;
 
     // create BED file for sample
-    string fn_bed = (path_out / str(boost::format("%s.cn.bed") % id_sample)).string();
-    std::ofstream ofs_bed(fn_bed, std::ofstream::out);
+    path fn_bed = path_out / format("%s.cn.bed", id_sample.c_str());
+    std::ofstream ofs_bed(fn_bed.string(), std::ofstream::out);
 
     // write genomic intervals and CN state to BED file
     for (auto const & chr_seg : map_chr_cn) {
@@ -777,8 +779,8 @@ BulkSampleGenerator::writeBulkCopyNumber (
         ref_start = reg.lower();
         ref_end = reg.upper();
         seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
-        ofs_bed << str(boost::format("%s\t%lu\t%lu\t%0.2f\t%0.2f\n") % 
-                       id_chr % ref_start % ref_end % cn_state.count_A % cn_state.count_B);
+        ofs_bed << format("%s\t%lu\t%lu\t%0.2f\t%0.2f\n", 
+          id_chr.c_str(), ref_start, ref_end, cn_state.count_A, cn_state.count_B);
       }
     }
   }
@@ -976,7 +978,7 @@ auto t_start_10k = chrono::steady_clock::now();
     }
 
     // assign read group
-    CharString tagRG = str(boost::format("RG:Z:%s") % id_clone);
+    CharString tagRG = format("RG:Z:%s", toCString(id_clone));
     appendTagsSamToBam(read1.tags, tagRG);
     appendTagsSamToBam(read2.tags, tagRG);
 
@@ -1230,20 +1232,22 @@ auto t_start_10k = chrono::steady_clock::now();
     r2_end += off_glob;
 
     // assign read group
-    CharString tagRG = str(boost::format("RG:Z:%s") % id_clone);
+    CharString tagRG = format("RG:Z:%s", toCString(id_clone));
     appendTagsSamToBam(read1.tags, tagRG);
     appendTagsSamToBam(read2.tags, tagRG);
 
     // spike in mutations
     string chr(toCString(contigNames(context_out)[rid_new]));
 
-if (num_reads % 10000 == 0) {
-  auto t_end_10k = chrono::steady_clock::now();
-  auto t_diff = t_end_10k - t_start_10k;
-  fprintf(stderr, "### Mutated %07d read pairs.\n", num_reads);
-  fprintf(stderr, "### TIME: %.2f ms for 10000 read pairs.\n", chrono::duration <double, milli> (t_diff).count());
-  t_start_10k = chrono::steady_clock::now();
-}
+#ifndef NDEBUG 
+    if (num_reads % 10000 == 0) {
+      auto t_end_10k = chrono::steady_clock::now();
+      auto t_diff = t_end_10k - t_start_10k;
+      fprintf(stderr, "### Mutated %07d read pairs.\n", num_reads);
+      fprintf(stderr, "### TIME: %.2f ms for 10000 read pairs.\n", chrono::duration <double, milli> (t_diff).count());
+      t_start_10k = chrono::steady_clock::now();
+    }
+#endif
 
     //auto map_pos_snv = var_store.map_chr_pos_snvs.at(chr); 
     //auto map_id_snv = var_store.map_id_snv;
@@ -1517,7 +1521,7 @@ BulkSampleGenerator::writeFastaTiled (
 
     // create output file for CN state if not exists
     if ( map_cn_file.count(cn_total) == 0 ) {
-      path filepath = path_fasta / str(boost::format("%s.%d.fa") % lbl_clone % cn_total);
+      path filepath = path_fasta / format("%s.%d.fa", lbl_clone.c_str(), cn_total);
       shared_ptr<std::ofstream> ofs(new std::ofstream(filepath.string(), std::ofstream::out));
       map_cn_file[cn_total] = ofs;
     }
@@ -1531,7 +1535,7 @@ BulkSampleGenerator::writeFastaTiled (
       TCoord start = start_seq.first;
       string seq = start_seq.second;
       TCoord end = start + seq.length();
-      string id_rec = str( boost::format("%s_%lu_%lu_%u") % chr % start % end % padding );
+      string id_rec = format("%s_%lu_%lu_%u", chr.c_str(), start, end, padding);
       shared_ptr<SeqRecord> rec(new SeqRecord(id_rec, "", str_pad+seq+str_pad));
       sequences.push_back(rec);
 
@@ -1568,7 +1572,7 @@ BulkSampleGenerator::writeFastaTiled (
     unsigned num_seqs = map_cn_nseq[cn_state];
 
     // update FASTA file indices
-    path filepath = path_fasta / str(boost::format("%s.%d.fa") % lbl_clone % cn_state);
+    path filepath = path_fasta / format("%s.%d.fa", lbl_clone.c_str(), cn_state);
     this->m_map_fasta_len[filepath] = seq_len;
     this->m_map_fasta_nseq[filepath] = num_seqs;
 
@@ -1617,7 +1621,7 @@ BulkSampleGenerator::writeFastaTiledBak (
       double cn_total = cn_state.count_A + cn_state.count_B;
       // create output file for CN state if not exists
       if ( map_cn_file.count(cn_total) == 0 ) {
-        path filepath = path_fasta / str(boost::format("%s.%d.fa") % lbl_clone % cn_total);
+        path filepath = path_fasta / format("%s.%d.fa", lbl_clone.c_str(), cn_total);
         shared_ptr<std::ofstream> ofs(new std::ofstream(filepath.string(), std::ofstream::out));
         map_cn_file[cn_total] = ofs;
       }
@@ -1630,7 +1634,7 @@ BulkSampleGenerator::writeFastaTiledBak (
         TCoord start = start_seq.first;
         string seq = start_seq.second;
         TCoord end = start + seq.length();
-        string id_rec = str( boost::format("%s_%lu_%lu_%u") % id_chr % start % end % padding );
+        string id_rec = format("%s_%lu_%lu_%u", id_chr.c_str(), start, end, padding);
         shared_ptr<SeqRecord> rec(new SeqRecord(id_rec, "", str_pad+seq+str_pad));
         sequences.push_back(rec);
 
@@ -1655,8 +1659,8 @@ BulkSampleGenerator::writeFastaTiledBak (
   map<int, unsigned> map_cn_nseq;
 
   // write intervals and corresponding CN state to BED file
-  string fn_bed = (path_bed / str(boost::format("%s.cn.bed") % lbl_clone)).string();
-  std::ofstream f_bed(fn_bed);
+  path fn_bed = path_bed / format("%s.cn.bed", lbl_clone.c_str());
+  std::ofstream f_bed(fn_bed.string());
   for (auto& reg_cn : map_reg_cn) {
     string id_chr;
     TCoord ref_start, ref_end;
@@ -1664,9 +1668,9 @@ BulkSampleGenerator::writeFastaTiledBak (
     seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
     double cn_total = cn_state.count_A + cn_state.count_B;
 
-    f_bed << str(boost::format("%s\t%lu\t%lu\t%.2f\t%.2f\n") 
-                 % id_chr % ref_start % ref_end 
-                 % cn_state.count_A % cn_state.count_B);
+    f_bed << format("%s\t%lu\t%lu\t%.2f\t%.2f\n", 
+                    id_chr.c_str(), ref_start, ref_end, 
+                    cn_state.count_A, cn_state.count_B);
 
     // add fragment length to CN->len index
     if (map_cn_len.count(cn_total) == 0) {
@@ -1691,7 +1695,7 @@ BulkSampleGenerator::writeFastaTiledBak (
     unsigned num_seqs = map_cn_nseq[cn_state];
 
     // update FASTA file indices
-    path filepath = path_fasta / str(boost::format("%s.%d.fa") % lbl_clone % cn_state);
+    path filepath = path_fasta / format("%s.%d.fa", lbl_clone.c_str(), cn_state);
     this->m_map_fasta_len[filepath] = seq_len;
     this->m_map_fasta_nseq[filepath] = num_seqs;
 

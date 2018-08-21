@@ -8,7 +8,6 @@
 #include "vario/VariantStore.hpp"
 #include "stringio.hpp"
 #include <boost/filesystem.hpp> // absolute(),
-#include <boost/format.hpp>
 #include <memory>
 #include <seqan/bam_io.h>
 #include <string>
