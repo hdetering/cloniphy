@@ -5,6 +5,7 @@
 #include "random.hpp"
 #include "seqio.hpp"
 #include "vario.hpp"
+#include "vario/VariantStore.hpp"
 #include "stringio.hpp"
 #include <boost/filesystem.hpp> // absolute(),
 #include <boost/format.hpp>

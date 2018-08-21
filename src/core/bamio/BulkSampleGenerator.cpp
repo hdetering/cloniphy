@@ -101,7 +101,7 @@ fprintf(stderr, "lbl_sample: %s (thread %d of %d)\n", lbl_sample.c_str(), ithrea
     sample.initAlleleCounts(w, var_store, m_map_clone_chr_seg);
 
     // output expected read counts to BED file.
-    path fn_vaf = path_bed / str(boost::format("%s.vaf.bed") % lbl_sample) ;
+    path fn_vaf = path_bed / stringio::format("%s.vaf.bed", lbl_sample) ;
     std::ofstream ofs_vaf(fn_vaf.string(), std::ofstream::out);
     writeExpectedReadCounts(ofs_vaf, seq_coverage, var_store, sample.m_map_snv_vaf);
     ofs_vaf.close();

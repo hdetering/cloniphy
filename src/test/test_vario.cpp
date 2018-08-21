@@ -4,12 +4,12 @@
 #include "../core/random.hpp"
 #include "../core/seqio.hpp"
 #include "../core/vario.hpp"
-#include <boost/format.hpp>
+#include "../core/vario/VariantStore.hpp"
 #include <boost/icl/interval_map.hpp>
 using namespace boost::icl;
 #include <fstream>
 #include <vector>
-using boost::format;
+using stringio::format;
 using evolution::GermlineSubstitutionModel;
 using namespace std;
 using namespace seqio;
@@ -82,10 +82,10 @@ BOOST_AUTO_TEST_CASE( vcf_sumstats )
 
   BOOST_TEST_MESSAGE( "\tnucleotide substitution frequencies:" );
   BOOST_TEST_MESSAGE( "   |    A   |    C   |    G   |    T   " );
-  BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ") % f[0][0] % f[0][1] % f[0][2] % f[0][3] );
-  BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ") % f[1][0] % f[1][1] % f[1][2] % f[1][3] );
-  BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ") % f[2][0] % f[2][1] % f[2][2] % f[2][3] );
-  BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ") % f[3][0] % f[3][1] % f[3][2] % f[3][3] );
+  BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ", f[0][0], f[0][1], f[0][2], f[0][3]) );
+  BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ", f[1][0], f[1][1], f[1][2], f[1][3]) );
+  BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ", f[2][0], f[2][1], f[2][2], f[2][3]) );
+  BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ", f[3][0], f[3][1], f[3][2], f[3][3]) );
 }
 
 /* generate set of novel variants */
@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE( germline )
   BOOST_TEST_MESSAGE( "done generating 1000 variants, here are the first 10: " );
   BOOST_TEST_MESSAGE( "  id, chr, bp, ref, alt" );
   for (int i=0; i<10; ++i) {
-    BOOST_TEST_MESSAGE( format("%s,%s,%d,%s,%s") % variants[i].id % variants[i].chr % variants[i].pos % variants[i].alleles[0] % variants[i].alleles[1] );
+    BOOST_TEST_MESSAGE( format("%s,%s,%d,%s,%s", variants[i].id, variants[i].chr, variants[i].pos, variants[i].alleles[0], variants[i].alleles[1]) );
   }
 
   // export variants to file
@@ -150,10 +150,10 @@ BOOST_AUTO_TEST_CASE( var_dist )
   double (&f)[4][4] = varset_model.mat_freqs;
   BOOST_TEST_MESSAGE( "\tnucleotide substitution frequencies:" );
   BOOST_TEST_MESSAGE( "   |    A   |    C   |    G   |    T   " );
-  BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ") % f[0][0] % f[0][1] % f[0][2] % f[0][3] );
-  BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ") % f[1][0] % f[1][1] % f[1][2] % f[1][3] );
-  BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ") % f[2][0] % f[2][1] % f[2][2] % f[2][3] );
-  BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ") % f[3][0] % f[3][1] % f[3][2] % f[3][3] );
+  BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ", f[0][0], f[0][1], f[0][2], f[0][3]) );
+  BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ", f[1][0], f[1][1], f[1][2], f[1][3]) );
+  BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ", f[2][0], f[2][1], f[2][2], f[2][3]) );
+  BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ", f[3][0], f[3][1], f[3][2], f[3][3]) );
 
   BOOST_TEST_MESSAGE( "generating 10000 genomic variants (random positions)..." );
   vector<Variant> vars_random = generateVariantsRandomPos(10000, ref_genome, model, rng);
@@ -163,10 +163,10 @@ BOOST_AUTO_TEST_CASE( var_dist )
   double (&g)[4][4] = varset_random.mat_freqs;
   BOOST_TEST_MESSAGE( "\tnucleotide substitution frequencies:" );
   BOOST_TEST_MESSAGE( "   |    A   |    C   |    G   |    T   " );
-  BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ") % g[0][0] % g[0][1] % g[0][2] % g[0][3] );
-  BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ") % g[1][0] % g[1][1] % g[1][2] % g[1][3] );
-  BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ") % g[2][0] % g[2][1] % g[2][2] % g[2][3] );
-  BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ") % g[3][0] % g[3][1] % g[3][2] % g[3][3] );
+  BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ", g[0][0], g[0][1], g[0][2], g[0][3]) );
+  BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ", g[1][0], g[1][1], g[1][2], g[1][3]) );
+  BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ", g[2][0], g[2][1], g[2][2], g[2][3]) );
+  BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ", g[3][0], g[3][1], g[3][2], g[3][3]) );
 }
 
 /* test data structures for CNVs */
