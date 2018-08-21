@@ -41,7 +41,7 @@ struct VariantStore
   int
   getSnvsForSegmentCopy (
     std::map<seqio::TCoord, std::vector<Variant>>& map_vars,
-    boost::uuids::uuid id_seg
+    const boost::uuids::uuid id_seg
   ) const;
 
   /** Get Variants associated with SegmentCopy between given positions. 
@@ -54,9 +54,9 @@ struct VariantStore
   int
   getSnvsForSegmentCopy (
     std::map<seqio::TCoord, std::vector<Variant>>& map_vars,
-    boost::uuids::uuid id_seg,
-    seqio::TCoord pos_start,
-    seqio::TCoord pos_end
+    const boost::uuids::uuid id_seg,
+    const seqio::TCoord pos_start,
+    const seqio::TCoord pos_end
   ) const;
 
   /** Import germline variants from outside source.

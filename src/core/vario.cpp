@@ -365,7 +365,7 @@ writeVcfHeader (
   for (size_t i=0; i<vec_seq_id.size(); i++) {
     string seq_id = vec_seq_id[i];
     TCoord seq_len = vec_seq_len[i];
-    out << format("##contig=<ID=%d, length=%lu>", seq_id, seq_len) << endl;
+    out << format("##contig=<ID=%s, length=%lu>", seq_id, seq_len) << endl;
   }
   //out << "##phasing=complete" << endl;
   out << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples With Data\">" << endl;
@@ -399,12 +399,13 @@ writeVcfRecords (
   for (Variant var : sorted_vars) {
     string ref = var.alleles[0];
     string alt = var.alleles[1];
-    out << format("%s\t%d\t%d\t%s\t%s\t%s\tPASS\t%d\t%s",
-                  (var.chr), (var.pos+1), (var.id),
-                  ref, alt, var_qual, var_info, var_fmt);
+    out << format("%s\t%d\t%s\t%s\t%s\t%s\tPASS\t%s\t%s",
+                  var.chr.c_str(), (var.pos+1), var.id.c_str(),
+                  ref.c_str(), alt.c_str(), var_qual.c_str(), 
+                  var_info.c_str(), var_fmt.c_str());
     for (auto sid : vec_id_samples) {
       string genotype = mtx_mut[sid][var.idx_mutation] ? "0/1" : "0/0";
-      out << format("\t%s:%d", genotype, gt_qual);
+      out << format("\t%s:%d", genotype.c_str(), gt_qual);
     }
     out << endl;
   }
@@ -428,10 +429,10 @@ writeVcfRecords (
     string ref = var.alleles[0];
     string alt = var.alleles[1];
     string var_geno = (var.is_het ? "0/1" : "1/1");
-    out << format("%s\t%d\t%d\t%s\t%s\t%s\tPASS\t%d\t%s\t%s:%d",
-                  (var.chr), (var.pos+1), (var.id),
-                  ref, alt, var_qual, var_info, var_fmt,
-                  var_geno, gt_qual);
+    out << format("%s\t%d\t%s\t%s\t%s\t%s\tPASS\t%s\t%s\t%s:%d",
+                  var.chr.c_str(), (var.pos+1), var.id.c_str(),
+                  ref.c_str(), alt.c_str(), var_qual.c_str(), var_info.c_str(), 
+                  var_fmt.c_str(), var_geno.c_str(), gt_qual);
     out << endl;
   }
 }
@@ -467,9 +468,10 @@ void writeVcf (
   for (Variant var : sorted_vars) {
     string ref = var.alleles[0];
     string alt = var.alleles[1];
-    out << format("%s\t%d\t%d\t%s\t%s\t%s\tPASS\t%d\t%s",
-                  (var.chr), (var.pos+1), (var.id),
-                  ref, alt, var_qual, var_info, var_fmt);
+    out << format("%s\t%d\t%s\t%s\t%s\t%s\tPASS\t%s\t%s",
+                  var.chr.c_str(), (var.pos+1), var.id.c_str(),
+                  ref.c_str(), alt.c_str(), var_qual.c_str(), 
+                  var_info.c_str(), var_fmt.c_str());
     for (auto sid : id_samples) {
       string genotype = "";
       if (mutMatrix[sid][var.idx_mutation] == true)
