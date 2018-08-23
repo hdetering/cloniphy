@@ -1,7 +1,4 @@
 #include "amp.hpp"
-/*#include <boost/format.hpp>
-using boost::format;
-using boost::str;*/
 #include <cmath>
 #include <functional>
 //#include <iostream>

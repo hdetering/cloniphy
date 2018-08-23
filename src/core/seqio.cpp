@@ -8,7 +8,6 @@
 using namespace std;
 using boost::icl::interval_map;
 using boost::icl::interval;
-using boost::str;
 
 namespace seqio {
 
@@ -183,7 +182,7 @@ void GenomeReference::generate(
   for (auto i=0; i<num_chr; ++i) {
     it_start = it_end;
     advance(it_end, chr_ends[i+1]-chr_ends[i]);
-    string id_chr = (boost::format("chr%d") % i).str();
+    string id_chr = stringio::format("chr%d", i);
     shared_ptr<SeqRecord> sp_rec(new SeqRecord(id_chr, "random sequence", string(it_start, it_end)));
     this->records.push_back(sp_rec);
     // instantiate new referennce chromosome
@@ -221,7 +220,7 @@ void GenomeReference::generate(
   for (auto l : vec_seq_len) {
     string seq;
     generateRandomDnaSeq(seq, l, nuc_freqs, rng);
-    string id_chr = (boost::format("chr%d") % idx_chr++).str();
+    string id_chr = stringio::format("chr%d", idx_chr++);
     shared_ptr<SeqRecord> sp_rec(new SeqRecord(id_chr, "random sequence", seq));
     sp_rec->id_ref = sp_rec->id;
     this->records.push_back(sp_rec);
@@ -1038,7 +1037,7 @@ int writeFasta(
   for (auto const & rec : seqs) {
     // seq description confuses ART (mismatch of SAM header with REF field)
     //output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
-    output << str(boost::format(">%s\n") % rec->id);
+    output << stringio::format(">%s\n", rec->id).c_str();
     string::const_iterator it_seq = rec->seq.begin();
     while (it_seq != rec->seq.end()) {
       for (int i=0; i<line_width && it_seq!=rec->seq.end(); ++i)
@@ -1164,7 +1163,8 @@ fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
         float r = random();
         if (r <= r_frag) {
           is_fragment = true;
-          f_bed << boost::format("%s\t%u\t%u\n") % g.records[idx_chr]->id % idx_nuc % min(idx_nuc+frag_len, seq_len);
+          f_bed << stringio::format("%s\t%u\t%u\n", (g.records[idx_chr]->id).c_str(), 
+                                    idx_nuc, min(idx_nuc+frag_len, seq_len)).c_str();
         }
       }
       if (is_fragment) {

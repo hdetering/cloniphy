@@ -2,7 +2,7 @@
 #include <cstdio> // std::remove
 #include <cstdlib> // system()
 #include <map>
-using boost::str;
+using stringio::format;
 using namespace std;
 using namespace seqan;
 namespace fs = boost::filesystem;
@@ -29,11 +29,11 @@ int ArtWrapper::run(string out_pfx) {
 
   // build ART command line
   string art_cmd = bin_path;
-  art_cmd += str(boost::format(" -l %d") % read_len);
-  art_cmd += str(boost::format(" -p -m %d -s %d") % frag_len_mean % frag_len_sd);
+  art_cmd += format(" -l %u", read_len);
+  art_cmd += format(" -p -m %u -s %u", frag_len_mean, frag_len_sd);
   art_cmd += num_reads > 0 ? 
-               str(boost::format(" -c %u") % num_reads) : 
-               str(boost::format(" -f %.2f") % fold_cvg);
+               format(" -c %lu", num_reads) : 
+               format(" -f %.2f", fold_cvg);
   art_cmd += " -ss " + seq_sys;
   art_cmd += " -i " + fn_ref_fa;
   art_cmd += " -o " + out_pfx;
@@ -349,7 +349,7 @@ void mutateReads (
     }
     else if (do_phase) { // add custom field
       phase = rphase(); // pick random phase for read pair
-      CharString tagXP = str(boost::format("XP:A:%s") % phase);
+      CharString tagXP = format("XP:A:%d", phase);
       appendTagsSamToBam(read1.tags, tagXP);
       appendTagsSamToBam(read2.tags, tagXP);
     }
@@ -361,18 +361,16 @@ void mutateReads (
       copy = char_copy - '0';
     }
     else { // add custom field
-      string tagXC = str(boost::format("XC:A:%s") % copy);
+      string tagXC = format("XC:A:%d", copy);
       appendTagsSamToBam(read1.tags, tagXC);
       appendTagsSamToBam(read2.tags, tagXC);
     }
-    fs_log << str(boost::format("%s:%s(%d,%d) -- %s:%s(%d,%d)\n")
-      % r1_ref % r1_rc % r1_begin % (r1_begin+r1_len)
-      % r2_ref % r2_rc % r2_begin % (r2_begin+r2_len));
+    fs_log << format("%s:%c(%d,%d) -- %s:%c(%d,%d)\n",
+      r1_ref, r1_rc, r1_begin, (r1_begin+r1_len),
+      r2_ref, r2_rc, r2_begin, (r2_begin+r2_len));
 
     // modify read pair to match assigned clone, phase and copy
-    //read1.qName += str(boost::format("-%d") % c_idx);
-    //read2.qName += str(boost::format("-%d") % c_idx);
-    CharString tagRG = str(boost::format("RG:Z:%s") % vec_clone_lbl[r_idx]);
+    CharString tagRG = format("RG:Z:%s", vec_clone_lbl[r_idx].c_str());
     appendTagsSamToBam(read1.tags, tagRG);
     appendTagsSamToBam(read2.tags, tagRG);
 
@@ -401,7 +399,8 @@ void mutateReads (
           map_var_cvg[var.id]++;
           if (is_mutated) { // mutate read1
             map_var_vaf[var.id]++;
-            fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            fs_log << format("%s:%d\t%s->%s\n", toCString(read1.qName), r1_var_pos, 
+                             var.alleles[0].c_str(), var.alleles[1].c_str());
             read1.seq[r1_var_pos] = var.alleles[1][0];
           }
         }
@@ -410,7 +409,8 @@ void mutateReads (
           map_var_cvg[var.id]++;
           if (is_mutated) { // mutate read2
             map_var_vaf[var.id]++;
-            fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
+            fs_log << format("%s:%d\t%s->%s\n", toCString(read2.qName), r2_var_pos, 
+                             var.alleles[0].c_str(), var.alleles[1].c_str());
             read2.seq[r2_var_pos] = var.alleles[1][0];
           }
         }
@@ -436,8 +436,8 @@ void mutateReads (
       }
 
       // write (potentially modified) reads to FASTQ file
-      fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read1.qName % read1.seq % r1_qual);
-      fs_fq << str(boost::format("@%s\n%s\n+\n%s\n") % read2.qName % read2.seq % r2_qual);
+      fs_fq << format("@%s\n%s\n+\n%s\n", toCString(read1.qName), toCString(read1.seq), r1_qual.c_str());
+      fs_fq << format("@%s\n%s\n+\n%s\n", toCString(read2.qName), toCString(read2.seq), r2_qual.c_str());
     }
   }
 
@@ -448,16 +448,16 @@ void mutateReads (
   fs_log.close();
 
   // write coverage and variant read counts for all variants to file
-  string fn_varout = str(boost::format("%s.vars.csv") % fn_sam_out.c_str());
+  string fn_varout = format("%s.vars.csv", fn_sam_out.c_str());
   ofstream fs_varout;
   fs_varout.open(fn_varout.c_str());
   for (Variant v : variants.vec_variants) {
     // only output somatic variants
     if (!v.is_somatic) continue;
-    string id = str(boost::format("%s:%ld") % v.chr % (v.pos+1));
+    string id = format("%s:%ld", v.chr.c_str(), (v.pos+1));
     unsigned alt = map_var_vaf[v.id];
     unsigned ref = map_var_cvg[v.id] - alt;
-    string line = str(boost::format("%d\t%s\t%s\t%s\n") % v.id % id % ref % alt);
+    string line = format("%s\t%s\t%u\t%u\n", v.id.c_str(), id.c_str(), ref, alt);
     fs_varout << line;
   }
   fs_varout.close();
@@ -771,7 +771,7 @@ void addCloneReadGroups(BamHeader &header, string id_sample, const vector<string
     assign(back(record.tags).i2, lbl, Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "SM", Exact());
-    assign(back(record.tags).i2, str(boost::format("%s_%s") % id_sample % lbl), Exact());
+    assign(back(record.tags).i2, format("%s_%s", id_sample.c_str(), lbl.c_str()), Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "LB", Exact());
     assign(back(record.tags).i2, id_sample, Exact());

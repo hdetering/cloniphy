@@ -96,7 +96,9 @@ BulkSampleGenerator::generateBulkSamples (
 
     string lbl_sample = lbl_smp.first;
     BulkSample sample = lbl_smp.second;
-fprintf(stderr, "lbl_sample: %s (thread %d of %d)\n", lbl_sample.c_str(), ithread, nthreads);
+#ifndef NDEBUG
+    fprintf(stderr, "lbl_sample: %s (thread %d of %d)\n", lbl_sample.c_str(), ithread, nthreads);
+#endif
     // initialize expected SNV allele frequencies
     map<string, double> w = sample.m_clone_weight;
     sample.initAlleleCounts(w, var_store, m_map_clone_chr_seg);
@@ -834,8 +836,6 @@ BulkSampleGenerator::generateReadGroups (
 {
   seqan::BamHeaderRecord record;
   for (auto lbl : vec_tag_id) {
-  //for (size_t i=0; i<vec_tag_id.size(); i++) {
-    //string lbl = vec_tag_id[i];
     clear(record);
     record.type = seqan::BAM_HEADER_READ_GROUP;
     appendValue(record.tags, Pair<CharString>());
@@ -843,7 +843,6 @@ BulkSampleGenerator::generateReadGroups (
     assign(back(record.tags).i2, lbl, Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "SM", Exact());
-    //assign(back(record.tags).i2, str(boost::format("%s_%s") % id_sample % lbl), Exact());
     assign(back(record.tags).i2, lbl, Exact());
     appendValue(record.tags, Pair<CharString>());
     assign(back(record.tags).i1, "LB", Exact());
@@ -1061,14 +1060,12 @@ auto t_start_10k = chrono::steady_clock::now();
         int r1_var_pos = var.pos - r1_begin;
         if (r1_var_pos >= 0 && r1_var_pos < r1_len) { // read1 overlaps with variant
           map_var_alt[var.id]++;
-          //fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read1.qName) % r1_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
           read1.seq[r1_var_pos] = var.alleles[1][0];
         }
   
         int r2_var_pos = var.pos - r2_begin;
         if (r2_var_pos >= 0 && r2_var_pos < r2_len) { // read2 overlaps with variant
           map_var_alt[var.id]++;
-          //fs_log << str(boost::format("%s:%d\t%s->%s\n") % toCString(read2.qName) % r2_var_pos % var.alleles[0].c_str() % var.alleles[1].c_str());
           read2.seq[r2_var_pos] = var.alleles[1][0];
         }
       }
@@ -1517,7 +1514,7 @@ BulkSampleGenerator::writeFastaTiled (
     if ( end-start < min_len ) 
       continue;
 
-    double cn_total = cn.count_A + cn.count_B;
+    int cn_total = cn.count_A + cn.count_B;
 
     // create output file for CN state if not exists
     if ( map_cn_file.count(cn_total) == 0 ) {

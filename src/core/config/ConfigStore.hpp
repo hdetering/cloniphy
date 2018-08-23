@@ -6,9 +6,6 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/format.hpp>
-using boost::format;
-using boost::str;
 #include <boost/program_options.hpp>
 #include <cassert>
 #include <iostream>

@@ -5,7 +5,6 @@
 #include "stringio.hpp"
 #include <algorithm>
 #include <boost/circular_buffer.hpp>
-#include <boost/format.hpp>
 #include <boost/icl/interval.hpp>
 #include <boost/icl/interval_map.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -30,7 +29,7 @@ typedef unsigned long ulong;
 /** Represents genomic coordinates. */
 typedef unsigned long TCoord;
 /** Represents genomic regions (chromosome, start, end). */
-typedef std::tuple<std::string, ulong, ulong> TRegion;
+typedef std::tuple<std::string, TCoord, TCoord> TRegion;
 /** Set of valid nucleotides. */
 enum Nuc { A, C, G, T, N };
 
