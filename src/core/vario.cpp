@@ -480,7 +480,7 @@ void writeVcf (
       else
         //genotype = "0|0";
         genotype = "0/0";
-      out << format("\t%s:%d", genotype, gt_qual);
+      out << format("\t%s:%d", genotype.c_str(), gt_qual);
     }
     out << endl;
   }

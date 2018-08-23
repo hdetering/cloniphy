@@ -1037,7 +1037,7 @@ int writeFasta(
   for (auto const & rec : seqs) {
     // seq description confuses ART (mismatch of SAM header with REF field)
     //output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
-    output << stringio::format(">%s\n", rec->id).c_str();
+    output << stringio::format(">%s\n", rec->id.c_str()).c_str();
     string::const_iterator it_seq = rec->seq.begin();
     while (it_seq != rec->seq.end()) {
       for (int i=0; i<line_width && it_seq!=rec->seq.end(); ++i)

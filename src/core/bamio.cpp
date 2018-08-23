@@ -366,8 +366,8 @@ void mutateReads (
       appendTagsSamToBam(read2.tags, tagXC);
     }
     fs_log << format("%s:%c(%d,%d) -- %s:%c(%d,%d)\n",
-      r1_ref, r1_rc, r1_begin, (r1_begin+r1_len),
-      r2_ref, r2_rc, r2_begin, (r2_begin+r2_len));
+      r1_ref.c_str(), r1_rc, r1_begin, (r1_begin+r1_len),
+      r2_ref.c_str(), r2_rc, r2_begin, (r2_begin+r2_len));
 
     // modify read pair to match assigned clone, phase and copy
     CharString tagRG = format("RG:Z:%s", vec_clone_lbl[r_idx].c_str());
