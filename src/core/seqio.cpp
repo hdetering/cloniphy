@@ -8,7 +8,6 @@
 using namespace std;
 using boost::icl::interval_map;
 using boost::icl::interval;
-using boost::str;
 
 namespace seqio {
 
@@ -32,6 +31,31 @@ SeqRecord::~SeqRecord() {}
 /*---------------
     SegmentCopy
   ---------------*/
+
+SegmentCopy::SegmentCopy ()
+: id(boost::uuids::random_generator()()) {}
+
+SegmentCopy::SegmentCopy (int i) {}
+
+SegmentCopy::~SegmentCopy () {}
+
+SegmentCopy::SegmentCopy (
+  const TCoord start, 
+  const TCoord end,
+  const char allele
+)
+: id(boost::uuids::random_generator()()), 
+  ref_start(start), 
+  ref_end(end),
+  gl_allele(allele)
+{}
+
+ostream& operator<<(ostream& lhs, const SegmentCopy& seg) {
+  lhs << "SegmentCopy<uuid=" << seg.id << "> ";
+  lhs << "[" << seg.ref_start << ", " << seg.ref_end << ")";
+  lhs << endl;
+  return lhs;
+}
 
 bool
 operator==(const SegmentCopy& lhs, const SegmentCopy& rhs) {
@@ -114,7 +138,7 @@ void GenomeReference::addChromosome(shared_ptr<ChromosomeReference> sp_chr) {
 void GenomeReference::generate(
   const unsigned long total_len,
   const vector<double> nuc_freqs,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator &rng
 ) {
   this->generate(total_len, 1, nuc_freqs, rng);
 }
@@ -131,7 +155,7 @@ void GenomeReference::generate(
   const unsigned long total_len,
   const unsigned short num_chr,
   const vector<double> nuc_freqs,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator &rng
 ) {
   // generate random genomic sequence
   string seq;
@@ -158,7 +182,7 @@ void GenomeReference::generate(
   for (auto i=0; i<num_chr; ++i) {
     it_start = it_end;
     advance(it_end, chr_ends[i+1]-chr_ends[i]);
-    string id_chr = (boost::format("chr%d") % i).str();
+    string id_chr = stringio::format("chr%d", i);
     shared_ptr<SeqRecord> sp_rec(new SeqRecord(id_chr, "random sequence", string(it_start, it_end)));
     this->records.push_back(sp_rec);
     // instantiate new referennce chromosome
@@ -178,7 +202,7 @@ void GenomeReference::generate(
   const unsigned long mean_len,
   const unsigned long sd_len,
   const std::vector<double> nuc_freqs,
-  RandomNumberGenerator<>& rng)
+  RandomNumberGenerator& rng)
 {
   // set sequence lengths
   vector<unsigned long> vec_seq_len(num_seqs);
@@ -196,7 +220,7 @@ void GenomeReference::generate(
   for (auto l : vec_seq_len) {
     string seq;
     generateRandomDnaSeq(seq, l, nuc_freqs, rng);
-    string id_chr = (boost::format("chr%d") % idx_chr++).str();
+    string id_chr = stringio::format("chr%d", idx_chr++);
     shared_ptr<SeqRecord> sp_rec(new SeqRecord(id_chr, "random sequence", seq));
     sp_rec->id_ref = sp_rec->id;
     this->records.push_back(sp_rec);
@@ -940,33 +964,6 @@ ostream& operator<<(ostream& lhs, const GenomeInstance& gi) {
   return lhs;
 }
 
-/*-------------
-   SegmentCopy
-  -------------*/
-
-SegmentCopy::SegmentCopy ()
-: id(boost::uuids::random_generator()()) {}
-
-SegmentCopy::~SegmentCopy () {}
-
-SegmentCopy::SegmentCopy (
-  const TCoord start, 
-  const TCoord end,
-  const char allele
-)
-: id(boost::uuids::random_generator()()), 
-  ref_start(start), 
-  ref_end(end),
-  gl_allele(allele)
-{}
-
-ostream& operator<<(ostream& lhs, const SegmentCopy& seg) {
-  lhs << "SegmentCopy<uuid=" << seg.id << "> ";
-  lhs << "[" << seg.ref_start << ", " << seg.ref_end << ")";
-  lhs << endl;
-  return lhs;
-}
-
 
 /*------------------------------------*/
 /*           Utility methods          */
@@ -1040,7 +1037,7 @@ int writeFasta(
   for (auto const & rec : seqs) {
     // seq description confuses ART (mismatch of SAM header with REF field)
     //output << str(boost::format(">%s id_ref=%s\n") % rec.id % rec.id_ref);
-    output << str(boost::format(">%s\n") % rec->id);
+    output << stringio::format(">%s\n", rec->id.c_str()).c_str();
     string::const_iterator it_seq = rec->seq.begin();
     while (it_seq != rec->seq.end()) {
       for (int i=0; i<line_width && it_seq!=rec->seq.end(); ++i)
@@ -1063,7 +1060,7 @@ unsigned long generateRandomDnaSeq(
   string &seq,
   const unsigned long total_len,
   const vector<double>nuc_freqs,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator &rng
 ) {
   function<short()> ridx = rng.getRandomIndexWeighted(nuc_freqs);
 
@@ -1166,7 +1163,8 @@ fprintf(stderr, "Simulating ADO for file '%s'\n", fn_input.c_str());
         float r = random();
         if (r <= r_frag) {
           is_fragment = true;
-          f_bed << boost::format("%s\t%u\t%u\n") % g.records[idx_chr]->id % idx_nuc % min(idx_nuc+frag_len, seq_len);
+          f_bed << stringio::format("%s\t%u\t%u\n", (g.records[idx_chr]->id).c_str(), 
+                                    idx_nuc, min(idx_nuc+frag_len, seq_len)).c_str();
         }
       }
       if (is_fragment) {

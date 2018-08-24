@@ -14,8 +14,9 @@
 #include "core/treeio.hpp"
 #include "core/vario.hpp"
 
+#include "pcg-cpp/pcg_random.hpp"
+
 #include <boost/filesystem.hpp> // absolute(),
-#include <boost/format.hpp>
 #include <algorithm> // find()
 #include <cassert>
 #include <cstdio> // remove(), rename()
@@ -27,16 +28,16 @@
 #include <map>
 #include <math.h>
 #include <memory>
+#include <random> // std::random_device
 #include <sstream>
 #include <stdlib.h> // system()
 #include <string>
 
 using namespace std;
 using namespace boost::filesystem;
-using boost::format;
-using boost::str;
 using config::ConfigStore;
 using model::DataFrame;
+using stringio::format;
 using seqio::SeqRecord;
 using seqio::GenomeReference;
 using seqio::GenomeInstance;
@@ -219,15 +220,16 @@ int main (int argc, char* argv[])
   }
 
   // output file names
-  path fn_mm = path_out / "mm.csv"; // mutation map
-  path fn_newick = path_out / "clone.tree"; // clone tree
-  path fn_dot = path_out / "clone.tree.dot"; // DOT graph for clone tree
-  path fn_sampling_csv = path_out / "prevalences.csv"; // sampling scheme
+  const path fn_mm = path_out / "mm.csv"; // mutation map
+  const path fn_newick = path_out / "clone.tree"; // clone tree
+  const path fn_dot = path_out / "clone.tree.dot"; // DOT graph for clone tree
+  const path fn_sampling_csv = path_out / "prevalences.csv"; // sampling scheme
 
   // initialize random functions
   //seed = time(NULL) + clock();
   fprintf(stderr, "random seed: %ld\n", seed);
-  RandomNumberGenerator<> rng(seed);
+  //RandomNumberGenerator<> rng(seed);
+  RandomNumberGenerator rng(seed);
   function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
   function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
 
@@ -322,7 +324,7 @@ int main (int argc, char* argv[])
       fprintf(stderr, "---\nGenerating baseline sequencing reads for %us samples...\n", df_sampling.n_rows);
       for (unsigned i=0; i<df_sampling.n_rows; i++) {
         string id_sample = df_sampling.rownames[i];
-        art_out_pfx = path_out / path(str(format("%s.baseline") % id_sample));
+        art_out_pfx = path_out / path(format("%s.baseline", id_sample.c_str()));
         res_art = art.run(art_out_pfx.string());
       }
     }
@@ -342,7 +344,7 @@ int main (int argc, char* argv[])
     //varset_gl = VariantSet(vec_var_gl);
     var_store.generateGermlineVariants(n_mut_germline, ref_genome, model_gl, mut_gl_hom, rng);
 
-    fn_mut_gl_vcf = str(format("%s/germline.vcf") % path_out.c_str());
+    fn_mut_gl_vcf = format("%s/germline.vcf", path_out.c_str());
     fprintf(stderr, "writing generated variants to file: %s\n", fn_mut_gl_vcf.c_str());
     //vario::writeVcf(ref_genome.records, vec_var_gl, "germline", fn_mut_gl_vcf);
     var_store.writeGermlineSnvsToVcf(fn_mut_gl_vcf, ref_genome);

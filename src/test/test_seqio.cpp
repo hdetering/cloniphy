@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE( gen )
   unsigned long frag_len_sd = 10000;
   vector<double> nuc_freqs = {0.3, 0.2, 0.2, 0.3};
   long seed = 123456789;
-  RandomNumberGenerator<> rng(seed);
+  RandomNumberGenerator rng(seed);
 
   BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
   ref_genome = GenomeReference();
@@ -87,7 +87,7 @@ BOOST_AUTO_TEST_CASE( exome )
   unsigned long frag_len_sd = 200;
   vector<double> nuc_freqs = {0.25, 0.25, 0.25, 0.25};
   long seed = 123456789;
-  RandomNumberGenerator<> rng(seed);
+  RandomNumberGenerator rng(seed);
 
   BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
   ref_genome = GenomeReference();
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE( tile )
   unsigned long frag_len_sd = 0;
   vector<double> nuc_freqs = {0.3, 0.2, 0.2, 0.3};
   long seed = 42;
-  RandomNumberGenerator<> rng(seed);
+  RandomNumberGenerator rng(seed);
 
   BOOST_TEST_MESSAGE( "--------------------------------" );
   BOOST_TEST_MESSAGE( " Generate genome:" );

@@ -23,7 +23,7 @@ struct FixtureRandom {
   }
 
   long seed = 123456789;
-  RandomNumberGenerator<> gen = RandomNumberGenerator<>(seed);
+  RandomNumberGenerator gen = RandomNumberGenerator(seed);
 };
 
 BOOST_FIXTURE_TEST_SUITE( rng , FixtureRandom )

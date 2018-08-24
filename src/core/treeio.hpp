@@ -81,7 +81,7 @@ struct Tree
   virtual void dropSomaticMutations(
     int n_mut_total,
     int n_mut_trunk,
-    RandomNumberGenerator<>& rng);
+    RandomNumberGenerator& rng);
   void printNewick(const std::string);
   void printNewick(std::ostream&);
   void printNewick(std::shared_ptr<TNodeType>, std::ostream&, bool first=true);
@@ -102,7 +102,7 @@ private:
   /** Make sure each clone has at least 1 mutation difference to every other clone. */
   void dropMandatoryMutations(std::shared_ptr<TNodeType>, int&);
   /** Drop free mutations on random clone nodes. */
-  void dropRandomMutations(int, int&, RandomNumberGenerator<>&);
+  void dropRandomMutations(int, int&, RandomNumberGenerator&);
   /** Reset mutation ids to follow pre-oder traversal sequence. */
   void _relabelMutationsRec(std::shared_ptr<TNodeType>, int&);
   void _varyBranchLengthsRec(std::shared_ptr<TNodeType>, std::function<double()>&);

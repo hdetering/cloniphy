@@ -5,9 +5,9 @@
 #include "random.hpp"
 #include "seqio.hpp"
 #include "vario.hpp"
+#include "vario/VariantStore.hpp"
 #include "stringio.hpp"
 #include <boost/filesystem.hpp> // absolute(),
-#include <boost/format.hpp>
 #include <memory>
 #include <seqan/bam_io.h>
 #include <string>
@@ -48,7 +48,7 @@ void mutateReads(
   const std::string fn_sam_in,
   const vario::VariantSet &variants,
   const short ploidy,
-  RandomNumberGenerator<> &rng
+  RandomNumberGenerator &rng
 );
 
 /** DEPRECATED Takes an existing SAM/BAM file and adds subclonal mutations to reads.
@@ -64,7 +64,7 @@ mutateReads (
   std::vector<double> weights,
   std::string id_sample,
   const short ploidy,
-  RandomNumberGenerator<> &rng,
+  RandomNumberGenerator &rng,
   bool do_write_fastq = false
 );
 
@@ -82,7 +82,7 @@ mutateReads (
   std::vector<double> weights,
   std::string id_sample,
   const short ploidy,
-  RandomNumberGenerator<> &rng,
+  RandomNumberGenerator &rng,
   bool do_write_fastq = false
 );
 

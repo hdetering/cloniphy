@@ -5,7 +5,6 @@
 #include "stringio.hpp"
 #include <algorithm>
 #include <boost/circular_buffer.hpp>
-#include <boost/format.hpp>
 #include <boost/icl/interval.hpp>
 #include <boost/icl/interval_map.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -30,7 +29,7 @@ typedef unsigned long ulong;
 /** Represents genomic coordinates. */
 typedef unsigned long TCoord;
 /** Represents genomic regions (chromosome, start, end). */
-typedef std::tuple<std::string, ulong, ulong> TRegion;
+typedef std::tuple<std::string, TCoord, TCoord> TRegion;
 /** Set of valid nucleotides. */
 enum Nuc { A, C, G, T, N };
 
@@ -129,6 +128,8 @@ struct SegmentCopy {
 
   /** default c'tor */
   SegmentCopy();
+  /** dummy c'tor to avoid UUID init (to avoid performance overhead) */
+  SegmentCopy(int);
   /** default d'tor */
   ~SegmentCopy();
 
@@ -310,7 +311,7 @@ struct GenomeReference
   void generate (
     const unsigned long,
     const std::vector<double>,
-    RandomNumberGenerator<>&
+    RandomNumberGenerator&
   );
 
   /**
@@ -325,7 +326,7 @@ struct GenomeReference
     const unsigned long,
     const unsigned short,
     const std::vector<double>,
-    RandomNumberGenerator<>&
+    RandomNumberGenerator&
   );
 
   /**
@@ -342,7 +343,7 @@ struct GenomeReference
     const unsigned long mean_len,
     const unsigned long sd_len,
     const std::vector<double> nuc_freqs,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   );
 
   /**
@@ -418,7 +419,7 @@ unsigned long generateRandomDnaSeq(
   std::string &seq,
   const unsigned long total_len,
   const std::vector<double> nuc_freqs,
-  RandomNumberGenerator<> &rng);
+  RandomNumberGenerator &rng);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
 void simulateADO_old(const std::string, const float, const int, std::function<double()>&);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */

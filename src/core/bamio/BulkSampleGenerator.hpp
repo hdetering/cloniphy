@@ -3,6 +3,7 @@
 
 #include "../bamio.hpp"
 #include "BulkSample.hpp"
+#include "../vario/VariantStore.hpp"
 
 namespace bamio {
 
@@ -124,7 +125,7 @@ public:
     const unsigned seq_frag_len_mean,
     const unsigned seq_frag_len_sd,
     const std::string art_bin,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   );
 
   /** 
@@ -173,7 +174,7 @@ public:
     const double seq_error,
     const int    seq_min_rc,
     const vario::VariantStore& var_store,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   ); 
 
   /** 
@@ -249,7 +250,7 @@ public:
     const std::vector<seqan::BamHeaderRecord>& vec_rg,
     const vario::VariantStore var_store,
     const bool seq_use_vaf,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   );
 
   /** Handle a tiled BAM file (representing a genomic region with consistent copy number). 
@@ -275,7 +276,7 @@ public:
     seqan::BamFileIn& bam_in,
     const std::string id_clone,
     const vario::VariantStore& var_store,
-    RandomNumberGenerator<>& rng,
+    RandomNumberGenerator& rng,
     std::map<std::string, unsigned>& map_var_cvg,
     std::map<std::string, unsigned>& map_var_alt
   );
@@ -288,7 +289,7 @@ public:
     const std::string id_clone,
     const vario::VariantStore& var_store,
     const std::map<int, double>& map_snv_vaf,
-    RandomNumberGenerator<>& rng,
+    RandomNumberGenerator& rng,
     std::map<std::string, unsigned>& map_var_cvg,
     std::map<std::string, unsigned>& map_var_alt
   );

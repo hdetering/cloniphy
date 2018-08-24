@@ -1,7 +1,4 @@
 #include "amp.hpp"
-/*#include <boost/format.hpp>
-using boost::format;
-using boost::str;*/
 #include <cmath>
 #include <functional>
 //#include <iostream>
@@ -22,7 +19,7 @@ void simulateMda(
   double amp_size_mean,
   double amp_size_sd,
   int fold,
-  RandomNumberGenerator<> rng
+  RandomNumberGenerator& rng
 ) {
   // coverage evenness (parameter for exponential dist.)
   double lambda = 0.1;
@@ -53,7 +50,7 @@ void simulateMdaProcessHaploid(
   double amp_size_mean,
   double amp_size_sd,
   int fold,
-  RandomNumberGenerator<> rng
+  RandomNumberGenerator& rng
 ) {
   int min_amplicon_size = 2000;
   cvg = vector<unsigned>(seq_len, 1); // one copy is the primary sequence itself
@@ -101,7 +98,7 @@ void simulateMdaProcessDiploid(
   double amp_size_mean,
   double amp_size_sd,
   int fold,
-  RandomNumberGenerator<> rng
+  RandomNumberGenerator& rng
 ) {
   const short ploidy = 2;
   int min_amplicon_size = 2000;

@@ -388,7 +388,7 @@ template<typename TNodeType>
 void Tree<TNodeType>::dropSomaticMutations(
   int n_mutations,
   int n_transforming,
-  RandomNumberGenerator<> &rng)
+  RandomNumberGenerator &rng)
 {
   this->m_numMutations = n_mutations;
 #ifdef DEBUG
@@ -456,7 +456,12 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 
 /** Drop mutations randomly along tree. */
 template<typename TNodeType>
-void Tree<TNodeType>::dropRandomMutations(int n_mutations, int &mutation_id, RandomNumberGenerator<>& rng) {
+void 
+Tree<TNodeType>::dropRandomMutations (
+  int n_mutations, 
+  int &mutation_id, 
+  RandomNumberGenerator& rng
+) {
   long n_nodes = this->m_vecNodes.size();
   function<int()> f_random_index;
   // are branch lengths specified?

@@ -1,6 +1,8 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
+#include "pcg-cpp/pcg_random.hpp" // pcg32, pcg_extras::seed_seq_from()
+
 #include <algorithm> // std::sort()
 #include <cassert>
 #include <cmath> // pow()
@@ -8,20 +10,22 @@
 #include <random>
 #include <vector>
 // Choosing the random number generator. (mt19937: Mersenne-Twister)
-typedef std::mt19937 base_generator_type;
+//typedef std::mt19937 base_generator_type;
+typedef pcg32 base_generator_type;
 using std::pow;
 // defined in <functional>
 using std::bind;
 using std::ref;
 
-template <typename GeneratorType = base_generator_type>
+//template <typename GeneratorType = base_generator_type>
 struct RandomNumberGenerator {
 
-  GeneratorType generator;
+  //GeneratorType generator;
+  base_generator_type generator;
 
   //RandomNumberGenerator(long seed);
   RandomNumberGenerator(long seed) {
-	  generator.seed(seed);
+    generator.seed(seed);
   }
 
   template <typename RealType = double>
