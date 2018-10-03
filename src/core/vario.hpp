@@ -38,6 +38,7 @@ struct Variant
   double rel_pos;     /** relative position in genome (use for sorting) */
   bool is_somatic;    /** is this Variant somatic or germline? (different output channels) */
   bool is_het;        /** true: Variant is heterozygous; false: homozygous (only applies if not is_somatic) */
+  bool is_error;      /** true: Variant due to sequencing error (only applies to read count sim) */
 
   Variant();
   Variant(std::string id, std::string chr, unsigned long pos);
@@ -141,7 +142,7 @@ struct CopyNumberVariant
 /** Encapsulates the allele counts (reference, alternative) for a given variant and genome. */
 struct VariantAlleleCount {
   //int idx_var; // this should rather be an index under which to store VariantAlleleCount elements.
-  /** Number of reference alleles. */
+  /** Total number of copies. */
   short num_tot;
   /** Number of alternative alleles. */
   short num_alt;
@@ -154,123 +155,6 @@ struct VariantAlleleCount {
 typedef std::map<seqio::TCoord, VariantAlleleCount> TMapPosVaf;
 typedef std::map<std::string, TMapPosVaf> TMapChrPosVaf;
 
-/** Keeps somatic variants (SNVs, CNVs) as well as their association to
- *  genomic segment copies.
- */
-struct VariantStore
-{
-  /** map of single-nucleotide variants */
-  std::map<int, Variant> map_id_snv;
-  /** map of somatic copy-number variants */
-  std::map<int, CopyNumberVariant> map_id_cnv;
-  /** remember SNVs affecting each SegmentCopy */
-  std::map<boost::uuids::uuid, std::vector<int>> map_seg_vars;
-  /** index SNVs by chromosome and ref position for fast lookup during spike-in. */
-  std::map<std::string, std::map<seqio::TCoord, std::vector<int>>> map_chr_pos_snvs;
-
-  /** Index variants by chromosome and position. 
-   *  \returns Number of indexed SNVs.
-   */
-  unsigned indexSnvs ();
-
-  /** Get vector of germline SNVs. */
-  std::vector<Variant> getGermlineSnvVector ();
-
-  /** Get vector of somatic SNVs. */
-  std::vector<Variant> getSomaticSnvVector ();
-
-  /** Get VariantSet of SNVs. */
-  VariantSet getSnvSet ();
-
-  /** Get Variants associated with SegmentCopy. 
-    * \param map_vars  Output param: Variants indexed by position.
-    * \param id_seg    SegmentCopy id for which to retrieve variants.
-    * \returns         Number of variants returned.
-    */
-  int
-  getSnvsForSegmentCopy (
-    std::map<seqio::TCoord, std::vector<Variant>>& map_vars,
-    boost::uuids::uuid id_seg
-  ) const;
-
-  /** Import germline variants from outside source.
-   *  \returns true on success, false on error.
-   */
-  bool
-  importGermlineVariants (
-    VariantSet variants
-  );
-
-  /** Generate variants for a reference genome based on an evolutionary model.
-   *  Nucleotide substitution probabilities guide selection of loci.
-   *  \param num_variants Number of germline variants to generate.
-   *  \param genome_ref   Reference genome containing DNA sequences to be mutated.
-   *  \param model        Sequence subtitution model to generate mutations.
-   *  \param rate_hom     Ratio of homozygous germline variants to generate.
-   *  \param rng          Random number generator.
-   *  \param inf_sites    Should infinite sites assumption be enforced?
-   *  \returns            True on success, false on error.
-   */
-  bool
-  generateGermlineVariants (
-    const int num_variants,
-    const GenomeReference& genome_ref,
-    GermlineSubstitutionModel& model,
-    const double rate_hom,
-    RandomNumberGenerator<>& rng,
-    const bool inf_sites = true
-  );
-
-  /** Generate variant loci in a given genome based on somatic mutation model.
-      Use context-dependent mutation signature to select loci. */
-  bool
-  generateSomaticVariants (
-    const std::vector<Mutation>& vec_mutations,
-    const GenomeReference& genome,
-    SomaticSubstitutionModel& model_snv,
-    SomaticCnvModel& model_cnv,
-    RandomNumberGenerator<>& rng,
-    const bool infinite_sites = false
-  );
-
-  /** Loop over variants and for each germline variant, pick affected segment copies in genome instance.
-   *  \param genome  Genome instance to which to apply germline variants.
-   *  \param rng     Random number generator (used to pick segment copies to mutate).
-   *  \returns       true on success, false on error.
-   */
-  bool
-  applyGermlineVariants (
-    GenomeInstance& genome,
-    RandomNumberGenerator<>& rng
-  );
-
-  /** Apply a mutation to a GenomeInstance.
-   *  - SNV: A SegmentCopy will be chosen from the affected ChromosomeInstance.
-   *  - CNV (gain): new SequenceCopies will be introduced
-   *  - CNV (loss): existing SequenceCopies will be split
-   */
-  void applyMutation(Mutation m, GenomeInstance& g, RandomNumberGenerator<>& r);
-
-  /** Transfer mutations from existing SegmentCopies to new ones. */
-  void transferMutations(std::vector<seqio::seg_mod_t> vec_seg_mod);
-
-  /** Write somatic SNVs to VCF file.
-   *  \param filename  Output file name.
-   *  \param genome    Reference genome (contains lengths of ref seqs).
-   *  \returns         Number of exported variants.
-   */
-  unsigned 
-  writeGermlineSnvsToVcf (
-    const std::string filename,
-    const GenomeReference& genome
-  );
-
-  /** Write CNVs to output file.
-   *  \param filename Output file name.
-   */
-  unsigned writeCnvsToFile(std::string filename);
-};
-
 /** Inititalize a list of mutations, assigning a type (single-nucleotide vs. copy-number).
  *  \param vec_mutations list of (uninitialized) mutation objects
  *  \param ratio_cnv fraction of mutations that should be assigned CNV type
@@ -280,7 +164,7 @@ struct VariantStore
 unsigned assignSomaticMutationType(
   std::vector<Mutation>& vec_mutations,
   const double ratio_cnv,
-  RandomNumberGenerator<>& rng);
+  RandomNumberGenerator& rng);
 
 /** Read VCF file and return list of variants. */
 void readVcf(
@@ -354,7 +238,7 @@ std::vector<Variant> generateVariantsRandomPos(
   const int num_variants,
   const GenomeReference& genome,
   GermlineSubstitutionModel& model,
-  RandomNumberGenerator<>&,
+  RandomNumberGenerator&,
   const bool infinite_sites = false
 );
 /** Apply variants to a given reference sequence */

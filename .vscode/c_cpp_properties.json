@@ -28,12 +28,16 @@
             "includePath": [
                 "${workspaceRoot}",
                 "${workspaceRoot}/include",
+                "${workspaceRoot}/include/yaml-cpp/include",
                 "/usr/include/c++/5",
                 "/usr/include/x86_64-linux-gnu/c++/5",
                 "/usr/local/include",
                 "/usr/include",
                 "/usr/include/x86_64-linux-gnu",
-                "/usr/lib/gcc/x86_64-linux-gnu/5/include"
+                "/usr/lib/gcc/x86_64-linux-gnu/5/include",
+                "${workspaceFolder}/src/core",
+                "${workspaceFolder}/src/core/model",
+                "${workspaceFolder}/build/src/core/messmer_gitversion"
             ],
             "defines": [],
             "browse": {
@@ -48,7 +52,10 @@
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
             },
-            "intelliSenseMode": "clang-x64"
+            "intelliSenseMode": "clang-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++11"
         },
         {
             "name": "Win32",
@@ -71,5 +78,5 @@
             "intelliSenseMode": "msvc-x64"
         }
     ],
-    "version": 3
+    "version": 4
 }

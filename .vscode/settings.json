@@ -1,4 +1,6 @@
 {
+    "C_Cpp.intelliSenseEngine": "Default",
+    
     "files.associations": {
         "array": "cpp",
         "atomic": "cpp",
@@ -47,6 +49,8 @@
         "type_traits": "cpp",
         "typeinfo": "cpp",
         "utility": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp"
     }
 }

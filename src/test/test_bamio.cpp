@@ -6,6 +6,7 @@
 using namespace vario;
 #include "../core/clone.hpp"
 #include "../core/config/ConfigStore.hpp"
+#include "../core/model/DataFrame.hpp"
 #include "../core/random.hpp"
 #include "../core/seqio.cpp"
 using namespace seqio;
@@ -46,7 +47,7 @@ struct FixtureBamio {
   }
 
   long seed = 123456789;
-  RandomNumberGenerator<> rng = RandomNumberGenerator<>(seed);
+  RandomNumberGenerator rng = RandomNumberGenerator(seed);
   GermlineSubstitutionModel model_gl;
   SomaticSubstitutionModel model_sm;
   SomaticCnvModel model_cnv;
@@ -67,8 +68,8 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // TODO: this should be replaced by loading a tree from file (see above)
   // -> integrate flags "is_visible" and "weight" into Newick format
-  function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
-  function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
+  function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
+  function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
   int num_clones = 5;
   treeio::Tree<Clone> tree(num_clones);
   tree.generateRandomTopologyLeafsOnly(random_dbl);
@@ -150,13 +151,13 @@ BOOST_AUTO_TEST_CASE( multisample )
 {
   // get parameters from config file
   int num_clones = config.getValue<int>("clones");
-  map<string, vector<double>> sample_mtx = config.getMatrix<double>("samples");
+  model::DataFrame<double> df_sampling = config.getSamplingScheme();
   int num_mutations = config.getValue<int>("mutations");
   int num_transmuts = config.getValue<int>("init-muts");
 
   // initialize random functions
-  function<double()> random_dbl = rng.getRandomFunctionDouble(0.0, 1.0);
-  function<double()> random_gamma = rng.getRandomGamma(2.0, 0.25);
+  function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
+  function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
 
   // generate clone tree
   treeio::Tree<Clone> tree(num_clones);
@@ -214,9 +215,9 @@ BOOST_AUTO_TEST_CASE( multisample )
 
   // create sequencing reads for samples by applying variants to "germline" reads
   VariantSet varset(variants);
-  for (auto row_sample : sample_mtx) {
-    string lbl_sample = row_sample.first;
-    vector<double> w = row_sample.second;
+  for (unsigned i=0; i<df_sampling.n_rows; i++) {
+    string lbl_sample = df_sampling.rownames[i];
+    vector<double> w = df_sampling.data[i];
     string fn_fastq = str(boost::format("%s.fq") % lbl_sample);
     string fn_sam = str(boost::format("%s.sam") % lbl_sample);
     // TODO: use BulkSampleGenerator object!
@@ -276,7 +277,7 @@ BOOST_AUTO_TEST_CASE ( bsg )
   // 2. initialize BulkSampleGenerator
   BOOST_TEST_MESSAGE( "\nInitializing BulkSampleGenerator.\n" );
   BulkSampleGenerator bulk_gen;
-  bulk_gen.initializeRefSeqs(ref_genome);
+  bulk_gen.initRefSeqs(ref_genome);
 
   // 3. generate read groups to assign read pairs to clones
   BOOST_TEST_MESSAGE( "\nGenerating Read Groups.\n" );
@@ -286,7 +287,8 @@ BOOST_AUTO_TEST_CASE ( bsg )
 
   // 4. merge existing reads (won't work without BAM files in path_bam)
   BOOST_TEST_MESSAGE( "\nNow merging BAM files...\n" );
-  bulk_gen.mergeBulkSeqReads(path_bam, "sample1", vec_rg, var_store, rng);
+  bool seq_use_vaf = false; // assign read pairs to segment copies
+  bulk_gen.mergeBulkSeqReads(path_bam, "sample1", vec_rg, var_store, seq_use_vaf, rng);
 }
 
 /* Test BOOST interval container library */

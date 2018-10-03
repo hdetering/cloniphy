@@ -388,7 +388,7 @@ template<typename TNodeType>
 void Tree<TNodeType>::dropSomaticMutations(
   int n_mutations,
   int n_transforming,
-  RandomNumberGenerator<> &rng)
+  RandomNumberGenerator &rng)
 {
   this->m_numMutations = n_mutations;
 #ifdef DEBUG
@@ -419,23 +419,23 @@ void Tree<TNodeType>::dropSomaticMutations(
   for (auto node : m_vecNodes) {
     node->length = node->m_vec_mutations.size();
   }
-
-  // assign mutation type (single nucleotide vs. copy number)
-
 }
 
-/** Drop transforming mutations on immediate children of root node. */
+/** Drop transforming mutations on root (i.e. healthy) node. 
+ */
 template<typename TNodeType>
 void Tree<TNodeType>::dropTransformingMutations(int n_mutations) {
-  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
-  for (unsigned i=0; i<topNodes.size(); ++i) {
-    shared_ptr<TNodeType> node = topNodes[i];
+  shared_ptr<TNodeType> node = m_root;
+//  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
+//  assert ( topNodes.size() == 1 && "Root should have only one child." );
+//  for (unsigned i=0; i<topNodes.size(); ++i) {
+//    shared_ptr<TNodeType> node = topNodes[i];
     for (int m=0; m<n_mutations; ++m) {
 cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
       node->m_vec_mutations.push_back(m);
     }
-  }
+//  }
 }
 
 /** Drop one mutation on a given node and repeat for children. */
@@ -456,7 +456,12 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 
 /** Drop mutations randomly along tree. */
 template<typename TNodeType>
-void Tree<TNodeType>::dropRandomMutations(int n_mutations, int &mutation_id, RandomNumberGenerator<>& rng) {
+void 
+Tree<TNodeType>::dropRandomMutations (
+  int n_mutations, 
+  int &mutation_id, 
+  RandomNumberGenerator& rng
+) {
   long n_nodes = this->m_vecNodes.size();
   function<int()> f_random_index;
   // are branch lengths specified?
@@ -466,7 +471,7 @@ void Tree<TNodeType>::dropRandomMutations(int n_mutations, int &mutation_id, Ran
     vec_branch_len = vector<double>(n_nodes, 1);
   }
   // avoid MRCA node receiving random mutations
-  shared_ptr<TNodeType> mrca = this->m_root->m_vecChildren[0];
+  shared_ptr<TNodeType> mrca = this->m_root;
   vec_branch_len[mrca->index] = 0.0;
   f_random_index = rng.getRandomIndexWeighted(vec_branch_len);
   // drop mutations randomly, but in proportion to branch length

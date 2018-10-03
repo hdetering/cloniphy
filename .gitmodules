@@ -1,0 +1,3 @@
+[submodule "include/gitversion"]
+	path = include/gitversion
+	url = https://github.com/smessmer/gitversion

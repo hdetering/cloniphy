@@ -2,6 +2,8 @@
 #define BULKSAMPLEGENERATOR_H
 
 #include "../bamio.hpp"
+#include "BulkSample.hpp"
+#include "../vario/VariantStore.hpp"
 
 namespace bamio {
 
@@ -14,10 +16,27 @@ typedef seqan::BamIOContext<TNameStore, TNameStoreCache, seqan::Dependent<> > TB
 class BulkSampleGenerator {
 
 private:
+  /** Flag that indicates if bulk samples have been initialized. */
+  bool has_samples;
   /** Flag that indicates if reference sequences have been set. */
   bool has_refseqs;
   /** Flag that indicates if clone genomes have been exported. */
   bool has_clone_genomes;
+  /** Flag that indicates if copy number states have been initialized. */
+  bool has_cn_states;
+  /** Bulk samples (contain info about mixture, CN state, etc.). */
+  std::map<std::string, BulkSample> m_samples;
+  /** Reference genome (sequence required during sim of read errors.) */
+  std::shared_ptr<seqio::GenomeReference> m_ref_genome;
+  /** Copy number states by clone, region. */
+  std::map <
+    std::string, 
+    std::map <
+      seqio::TRegion, 
+      seqio::AlleleSpecCopyNum
+  >> m_clone_reg_cn;
+  /** Reference genome length. */
+  seqio::TCoord m_ref_len;
   /** The set of reference sequences to be included in output header. */
   std::map<std::string, seqio::TCoord> m_map_ref_len;
   /** Index of genomic segments for each clone and chromosome. */
@@ -29,17 +48,30 @@ private:
   /** Stores for each FASTA file the number of contained sequences. */
   std::map<boost::filesystem::path, unsigned> m_map_fasta_nseq;
   /** Allele counts of SNVs indexed by clone, SNV id. */
-  std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
+  //std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
   /** Allele frequencies of SNVs indexed by SNV id. */
-  std::map<int, double> m_map_snv_vaf;
+  //std::map<int, double> m_map_snv_vaf;
 
 public:
   /** Default c'tor. */
   BulkSampleGenerator();
 
-  /** Extract the context of reference sequences (name, length) from reference genome. */
+  /**
+   * Initialize bulk samples from sampling matrix.
+   * 
+   * \param mtx_sample_clone  Sampling matrix (sample x clone x weight).
+   * \returns                 true on success, false on error
+   */
+  bool
+  initSamples (
+    const std::map<std::string, std::map<std::string, double>> mtx_sampling
+  );
+
+  /** 
+   * Extract the context of reference sequences (name, length) from reference genome. 
+   */
   void
-  initializeRefSeqs (
+  initRefSeqs (
     const seqio::GenomeReference& ref_genome
   );
 
@@ -64,10 +96,15 @@ public:
     * \param path_fasta        Directory with clone genome sequences (tiled by copy number state).
     * \param path_bam          Directory to which reads (BAM) will be output.
     * \param path_bam          Directory to which allele counts (BED) will be output.
+    * \param seq_coverage      Total sequencing coverage (haploid).
+    * \param seq_rc_error      Sequencing error (per base). Only applied when generating read counts.
+    * \param seq_rc_disp       Sequencing depth overdispersion. Only applies to read count generation.
+    * \param seq_rc_min        Minimum ALT read count at which to report a VCF line.
+    * \param seq_read_gen      Generate reads? (false: generate read counts)
+    * \param seq_use_vaf       Spike in variants according to VAFs? (breaks haplotypes!)
     * \param seq_read_len      Read length (passed on to read simulator).
     * \param seq_frag_len_mean Insert size mean (passed on to read simulator).
     * \param seq_read_len_sd   Insert size std dev (passed on to read simulator).
-    * \param seq_coverage      Haploid total sequencing coverage.
     * \param art_bin           Binary of read simulator to be called.
     * \param rng               Random number generator.
     */
@@ -78,25 +115,112 @@ public:
     const boost::filesystem::path path_fasta,
     const boost::filesystem::path path_bam,
     const boost::filesystem::path path_bed,
+    const double seq_coverage,
+    const double seq_rc_error,
+    const double seq_rc_disp,
+    const int    seq_rc_min,
+    const bool seq_read_gen,
+    const bool seq_use_vaf,
     const unsigned seq_read_len,
     const unsigned seq_frag_len_mean,
     const unsigned seq_frag_len_sd,
-    const double seq_coverage,
     const std::string art_bin,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   );
 
-  /** Generate sequencing reads for a bulk seq sample. 
-    * Output files naming convention: 
-    *   <bulk_sample>.<clone>.<copy_number>.sam
-    *
-    * \param path_fasta       Directory with clone genome sequences (tiled by copy number state).
-    * \param path_bam         Directory to which reads (BAM) will be output.
-    * \param lbl_sample       Label of the bulk sample (bulk_sample above).
-    * \param map_clone_weight Clone weights, used to calculate read coverage for each clone.
-    * \param seq_coverage     Haploid total sequencing coverage.
-    * \param art              ArtWrapper object, called to generate reads from genomes.
-    */
+  /** 
+   * Index individual clones genomes, segmenting by copy number state. 
+   *
+   * \param map_lbl_gi     GenomeInstances to be exported, indexed by labels.
+   * \param reference      Reference genome (contains actual DNA sequences).
+   * \param padding        Genomic fragments will be padded by this number of 'A's.
+   * \param min_len        Genomic fragments shorter than this will not be exported. 
+   * \param path_fasta     Output folder for FASTA files.
+   * \param path_bed       Output folder for BED files.
+   * \param map_clone_glen Output param: total genome lengths (sum of all SegmentCopies) for each clone.
+   */
+  void
+  initCloneGenomes (
+    const std::map<std::string, seqio::GenomeInstance> map_lbl_gi,
+    //const seqio::GenomeReference reference,
+    //unsigned padding,
+    //unsigned min_len,
+    //const boost::filesystem::path path_fasta,
+    const boost::filesystem::path path_bed
+  );
+
+  /**
+   * Generate read counts for variant loci for each sample.
+   * 
+   * Output files naming convention:
+   *   <sample>.vars.csv
+   * 
+   * Output file column format:
+   *   <mutId>,<total_reads>,<alternative_reads>
+   * 
+   * \param path_out          Path at which to write output files.
+   * \param lbl_sample        Label for the sample.
+   * \param seq_coverage      Sequencing depth mean.
+   * \param seq_disp          Sequencing depth dispersion.
+   * \param seq_error         Sequencing error (per base).
+   * \returns                 true on success, false on error
+   */
+  bool
+  generateReadCounts (
+    const boost::filesystem::path path_out,
+    const std::string lbl_sample,
+    const double seq_coverage,
+    const double seq_disp,
+    const double seq_error,
+    const int    seq_min_rc,
+    const vario::VariantStore& var_store,
+    RandomNumberGenerator& rng
+  ); 
+
+  /** 
+   * Write VCF file containing read count information for each allele.
+   * 
+   * \param filename            Name of the file to create.
+   * \param map_chr_pos_nuc_rc  Read count by chromosome, position, allele.
+   * \param map_chr_var         Variant ids by chromosome, position.
+   * \param min_rc              Minimum read count to export a variant line.
+   * \returns                   true on success, false on error
+   */
+  bool
+  writeReadCountsVcf (
+    const std::string filename,
+    const std::map<
+            std::string, 
+            std::map<
+              seqio::TCoord, 
+              std::map<
+                std::string, 
+                int
+              >
+            >
+          > map_chr_pos_nuc_rc,
+    const std::map<
+            std::string, 
+            std::map<
+              seqio::TCoord, 
+              std::vector<std::string>
+            >
+          > map_chr_pos_var,
+    const int min_rc
+  ) const;
+
+  /** 
+   * Generate sequencing reads for a bulk seq sample. 
+   * Output files naming convention: 
+   *   <bulk_sample>.<clone>.<copy_number>.sam
+   *
+   * \param path_fasta       Directory with clone genome sequences (tiled by copy number state).
+   * \param path_bam         Directory to which reads (BAM) will be output.
+   * \param lbl_sample       Label of the bulk sample (bulk_sample above).
+   * \param map_clone_weight Clone weights, used to calculate read coverage for each clone.
+   * \param seq_coverage     Haploid total sequencing coverage.
+   * \param art              ArtWrapper object, called to generate reads from genomes.
+   */
   void
   generateBulkSeqReads (
     const boost::filesystem::path path_fasta,
@@ -111,12 +235,13 @@ public:
     * Output files naming convention: 
     *   <bulk_sample>.sam
     *
-    * \param path_bam   directory containg read BAMs, output will be written there
-    * \param lbl_sample label of the bulk sample (bulk_sample above)
-    * \param vec_rg     read groups to include in the output BAM header
-    * \param var_store  VariantStore containing germline and somatic variants.
-    * \param rng        Random number generator.
-    * \returns          true on success, false on error
+    * \param path_bam     Directory containg read BAMs, output will be written there.
+    * \param lbl_sample   Label of the bulk sample (bulk_sample above).
+    * \param vec_rg       Read groups to include in the output BAM header.
+    * \param var_store    VariantStore containing germline and somatic variants.
+    * \param seq_use_vaf  Spike in variants according to VAFs? (breaks haplotypes!)
+    * \param rng          Random number generator.
+    * \returns            true on success, false on error
     */
   bool
   mergeBulkSeqReads (
@@ -124,7 +249,8 @@ public:
     const std::string lbl_sample,
     const std::vector<seqan::BamHeaderRecord>& vec_rg,
     const vario::VariantStore var_store,
-    RandomNumberGenerator<>& rng
+    const bool seq_use_vaf,
+    RandomNumberGenerator& rng
   );
 
   /** Handle a tiled BAM file (representing a genomic region with consistent copy number). 
@@ -145,24 +271,25 @@ public:
     * \returns            true on success, false on error
     */
   bool
-  transformBamTile (
+  transformBamTileSeg (
     seqan::BamFileOut& bam_out,
     seqan::BamFileIn& bam_in,
     const std::string id_clone,
     const vario::VariantStore& var_store,
-    RandomNumberGenerator<>& rng,
+    RandomNumberGenerator& rng,
     std::map<std::string, unsigned>& map_var_cvg,
     std::map<std::string, unsigned>& map_var_alt
   );
 
   /** Using mutateReadPairOpt code, but directly (without function call). */
   bool
-  transformBamTileOpt (
+  transformBamTileVaf (
     seqan::BamFileOut& bam_out,
     seqan::BamFileIn& bam_in,
     const std::string id_clone,
     const vario::VariantStore& var_store,
-    RandomNumberGenerator<>& rng,
+    const std::map<int, double>& map_snv_vaf,
+    RandomNumberGenerator& rng,
     std::map<std::string, unsigned>& map_var_cvg,
     std::map<std::string, unsigned>& map_var_alt
   );
@@ -180,7 +307,7 @@ public:
     * \returns          True on success, false on error.
     */
   bool
-  mutateReadPair (
+  mutateReadPairSeg (
     seqan::BamAlignmentRecord& read1, 
     seqan::BamAlignmentRecord& read2,
     const seqio::TSegMap& segments,
@@ -189,14 +316,14 @@ public:
   );
 
   /** Spike in mutations into reads.
-    * 1. Select genomic SegmentCopy from interval map.
-    * 2. Get variants associated with SegmentCopy from VariantStore.
-    * 3. Identify variants overlapping read pair and apply them.
+    * 1. Identify first variant downstream of read pair start.
+    * 2. Apply variants overlapping read pair according to their expected VAF.
     *  
     * \param read1       First read in pair.
     * \param read2       Second read in pair.
     * \param map_pos_snv SNV ids indexed by position (for quick lookup).
     * \param map_id_snv  SNV Variant objects indexed by id.
+    * \param map_snv_vaf Variant allele frequency of SNVs in this sample.
     * \param r_dbl       Random function (value decides if read receives mutation).
     * \param r1_begin    Start coordinate of read1.
     * \param r2_begin    Start coordinate of read2.
@@ -205,11 +332,12 @@ public:
     * \returns           True on success, false on error.
     */
   bool
-  mutateReadPairOpt (
+  mutateReadPairVaf (
     seqan::BamAlignmentRecord& read1, 
     seqan::BamAlignmentRecord& read2,
     const std::map<seqio::TCoord, std::vector<int>>& map_pos_snv,
     const std::map<int, vario::Variant>& map_id_snv,
+    const std::map<int, double>& map_snv_vaf,
     std::function<double()>& r_dbl,
     const int r1_begin,
     const int r2_begin,
@@ -253,21 +381,42 @@ public:
     const boost::filesystem::path path_bed
   );
 
-  /** Writes expected absolute copy number (CN) states for each bulk sample to a BED file.
-    * Output: One BED file for each sample. 
-    *         Naming convention: <sample>.cn.bed
+  /** Stores absolute copy number (CN) states for each bulk sample in internal index map.
     *
     * \param   mtx_sample sampling matrix, contains clone abundances for each sample.
     * \param   map_lbl_gi GenomeInstances making up bulk samples, indexed by clone labels.
-    * \param   path_out   Output directory for BED files.
     * \returns true on success, false on error
     */
   bool
+  calculateBulkCopyNumber (
+    //const std::map<std::string, std::map<std::string, double>> mtx_sample,
+    const std::map<std::string, seqio::GenomeInstance> map_lbl_gi
+  );
+
+  /** 
+   * Writes expected absolute copy number (CN) states for each bulk sample to a BED file.
+   *
+   * NOTE: Requires calling "calculateBulkCopyNumber()" first!
+   *  
+   * Output: One BED file for each sample. 
+   *         Naming convention: <sample>.cn.bed
+   *
+   * \param   path_out   Output directory for BED files.
+   * \returns true on success, false on error
+   */
+  bool
   writeBulkCopyNumber (
-    const std::map<std::string, std::map<std::string, double>> mtx_sample,
-    const std::map<std::string, seqio::GenomeInstance> map_lbl_gi,
     const boost::filesystem::path path_out
   ) const;
+
+  void
+  writeFastaTiled (
+    const std::string lbl_clone,
+    const std::map<seqio::TRegion, seqio::AlleleSpecCopyNum> map_reg_cn,
+    const seqio::TCoord padding,
+    const seqio::TCoord min_len,
+    const boost::filesystem::path path_fasta
+  );
 
   /** Write genomic sequence of a GenomeInstance to FASTA file(s). 
     * Output:
@@ -283,7 +432,7 @@ public:
     * \param path_bed   Path to output BED file to.
     */
   void
-  writeFastaTiled (
+  writeFastaTiledBak (
     const seqio::GenomeInstance genome,
     const seqio::GenomeReference reference,
     const std::string label,
@@ -291,21 +440,6 @@ public:
     unsigned int min_len,
     const boost::filesystem::path path_fasta,
     const boost::filesystem::path path_bed
-  );
-
-  /** 
-   * Calculate allele counts at variant positions for all clones.
-   * Initializes m_map_clone_snv_vac, m_map_snv_vaf.
-   *
-   * \param map_clone_ccf  Cancer cell fraction (CCF) for each clone in the sample.
-   * \param var_store      Variant store keeping track of SNV -> segment copy mappings.
-   * \returns              True on success, false on error.
-   */
-  bool
-  initAlleleCounts (
-    const std::map<std::string, double> map_clone_ccf,
-    const vario::VariantStore& var_store
-    //vario::TMapChrPosVaf& out_vars
   );
 
   /** 
@@ -324,13 +458,15 @@ public:
    * \param ofs_bed_out  Output stream to write output to.
    * \param cvg_depth    Coverage depth during read simulation.
    * \param var_store    Variant store, contains details about variants.
+   * \param map_snv_vaf  Variant allele frequencies for SNVs.
    * \returns            Number of output variants on success, -1 on error.
    */
   int
   writeExpectedReadCounts (
     std::ofstream& ofs_bed_out,
     const int cvg_depth,
-    const vario::VariantStore& var_store
+    const vario::VariantStore& var_store,
+    const std::map<int, double>& map_snv_vaf
   ) const;
 };
 

@@ -5,7 +5,6 @@
 #include "stringio.hpp"
 #include <algorithm>
 #include <boost/circular_buffer.hpp>
-#include <boost/format.hpp>
 #include <boost/icl/interval.hpp>
 #include <boost/icl/interval_map.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -30,7 +29,7 @@ typedef unsigned long ulong;
 /** Represents genomic coordinates. */
 typedef unsigned long TCoord;
 /** Represents genomic regions (chromosome, start, end). */
-typedef std::tuple<std::string, ulong, ulong> TRegion;
+typedef std::tuple<std::string, TCoord, TCoord> TRegion;
 /** Set of valid nucleotides. */
 enum Nuc { A, C, G, T, N };
 
@@ -102,13 +101,13 @@ struct SeqRecord
 /** Represents a genomic location */
 struct Locus
 {
-  ulong       idx_record; // index of genomic sequence
-  ulong       start;      // global start position in sequence (0-based, inclusive)
-  ulong       end;        // global end position in sequence (0-based, exclusive)
+  ulong       idx_record; // index of genomic 
+  TCoord      start;      // global start position in sequence (0-based, inclusive)
+  TCoord      end;        // global end position in sequence (0-based, exclusive)
   std::string id_ref;     // seq id in ref genome
 
   Locus();
-  Locus(std::string id, ulong start, ulong end);
+  Locus(std::string id, TCoord start, TCoord end);
   ~Locus();
 };
 
@@ -129,6 +128,8 @@ struct SegmentCopy {
 
   /** default c'tor */
   SegmentCopy();
+  /** dummy c'tor to avoid UUID init (to avoid performance overhead) */
+  SegmentCopy(int);
   /** default d'tor */
   ~SegmentCopy();
 
@@ -310,7 +311,7 @@ struct GenomeReference
   void generate (
     const unsigned long,
     const std::vector<double>,
-    RandomNumberGenerator<>&
+    RandomNumberGenerator&
   );
 
   /**
@@ -325,7 +326,7 @@ struct GenomeReference
     const unsigned long,
     const unsigned short,
     const std::vector<double>,
-    RandomNumberGenerator<>&
+    RandomNumberGenerator&
   );
 
   /**
@@ -342,7 +343,7 @@ struct GenomeReference
     const unsigned long mean_len,
     const unsigned long sd_len,
     const std::vector<double> nuc_freqs,
-    RandomNumberGenerator<>& rng
+    RandomNumberGenerator& rng
   );
 
   /**
@@ -366,19 +367,40 @@ struct GenomeReference
    */
   Locus getAbsoluteLocusMasked(double) const;
 
-  /** Get DNA sequence for a genomic region.
-   *  In the case of discontinuous reference (e.g. exome, targeted seq),
-   *  the output may be shorter than coordinates indicate.
-   *  \param id_chr  reference chromosome id
-   *  \param start   start coordinate
-   *  \param end     end coordinate
-   *  \param seqs    output parameter, sequences located within given coordinates
+  /** 
+   * Get DNA sequence for a genomic region.
+   * 
+   * In the case of discontinuous reference (e.g. exome, targeted seq),
+   * the output may be shorter than coordinates indicate.
+   * 
+   * \param id_chr  reference chromosome id
+   * \param start   start coordinate
+   * \param end     end coordinate
+   * \param seqs    output parameter, sequences located within given coordinates
    */
-   void getSequence(
-     std::string id_chr,
-     ulong start,
-     ulong end,
-     std::map<ulong, std::string>& seqs
+   void 
+   getSequence (
+     const std::string id_chr,
+     const TCoord start,
+     const TCoord end,
+     std::map<TCoord, std::string>& seqs
+   ) const;
+
+   /** 
+    * Get nucleotide sequence at given locus.
+    *
+    * \param id_chr     reference chromosome id
+    * \param pos_start  start coordinate (inclusive)
+    * \param pos_end    end coordinate (exclusive)
+    * \param seq        output parameter, sequence within given coordinates
+    * \returns          true on success, false on error
+    */
+   bool
+   getSequence (
+     const std::string id_chr,
+     const TCoord pos_start,
+     const TCoord pos_end,
+     std::string& seq
    ) const;
 };
 
@@ -397,7 +419,7 @@ unsigned long generateRandomDnaSeq(
   std::string &seq,
   const unsigned long total_len,
   const std::vector<double> nuc_freqs,
-  RandomNumberGenerator<> &rng);
+  RandomNumberGenerator &rng);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */
 void simulateADO_old(const std::string, const float, const int, std::function<double()>&);
 /** Simulate allelic dropout events, masking parts of genome as 'N's. */

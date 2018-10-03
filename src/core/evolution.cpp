@@ -12,50 +12,56 @@ GermlineSubstitutionModel::GermlineSubstitutionModel() {
   for (int i=0; i<4; ++i) {
     for (int j=0; j<4; ++j) {
       if (i==j) {
-        Qij[i][j] = 0.0;
+        Q[i][j] = 0.0;
       }
       else {
-        Qij[i][j] = q;
+        Q[i][j] = q;
       }
     }
   }
 }
 
-/**custom transition probabilities */
-GermlineSubstitutionModel::GermlineSubstitutionModel(double Q[4][4]) {
+GermlineSubstitutionModel::GermlineSubstitutionModel (
+	const double Qij[4][4]
+)
+{
   for (int i=0; i<4; ++i)
     for (int j=0; j<4; ++j)
-      this->Qij[i][j] = Q[i][j];
+      Q[i][j] = Qij[i][j];
 }
 
-GermlineSubstitutionModel::GermlineSubstitutionModel(double p[4], double titv) {
+GermlineSubstitutionModel::GermlineSubstitutionModel (
+	const double p[4], 
+	const double titv
+)
+{
   //kappa=(titv*(p_i[0]+p_i[2])*(p_i[1]+p_i[3]))/(p_i[0]*p_i[2] + p_i[1]*p_i[3]);
 
   // TODO: add support for GTR model
   // set up HKY mutation rate matrix (A, C, G, T)
   for (int i=0; i<4; ++i)
-    Qij[i][i] = 0;
+    Q[i][i] = 0;
   // A -> X
-  Qij[0][1] = p[1];
-  Qij[0][2] = p[2]*titv;
-  Qij[0][3] = p[3];
+  Q[0][1] = p[1];
+  Q[0][2] = p[2]*titv;
+  Q[0][3] = p[3];
   // C -> X
-  Qij[1][0] = p[0];
-  Qij[1][2] = p[2];
-  Qij[1][3] = p[3]*titv;
+  Q[1][0] = p[0];
+  Q[1][2] = p[2];
+  Q[1][3] = p[3]*titv;
   // G -> X
-  Qij[2][0] = p[0]*titv;
-  Qij[2][1] = p[1];
-  Qij[2][3] = p[3];
+  Q[2][0] = p[0]*titv;
+  Q[2][1] = p[1];
+  Q[2][3] = p[3];
   // T -> X
-  Qij[3][0] = p[0];
-  Qij[3][1] = p[1]*titv;
-  Qij[3][2] = p[2];
+  Q[3][0] = p[0];
+  Q[3][1] = p[1]*titv;
+  Q[3][2] = p[2];
 
   // order: A, C, G, T
   /* this does only work with '-std=gnu++11'
   double k = titv;
-  Qij = {
+  Q = {
     {      0,   p[1], k*p[2],   p[3] },
     {   p[0],      0,   p[2], k*p[3] },
     { k*p[0],   p[1],      0,   p[3] },
@@ -74,9 +80,9 @@ short MutateSite(
   double r, cumProb[4];
   short new_nuc = 0;
 
-  cumProb[0] = model.Qij[ref_nuc][0];
+  cumProb[0] = model.Q[ref_nuc][0];
   for (short i=1; i<4; ++i)
-    cumProb[i] = cumProb[i-1] + model.Qij[ref_nuc][i];
+    cumProb[i] = cumProb[i-1] + model.Q[ref_nuc][i];
   // normalize
   for (short i=0; i<4; ++i)
     cumProb[i] /= cumProb[3];
@@ -138,14 +144,15 @@ void GermlineSubstitutionModel::init_K80(double k) {
 
 /* Nucleotide substition matrix - Hasegawa, Kishino and Yano 1985 */
 void GermlineSubstitutionModel::init_HKY(double p[4], double k) {
-  for (short i; i<4; i++)
-    for (short j; j<4; i++)
-      if (i==j) /* force mutation */
-        Qij[i][j] = 0.0;
+	kappa = k;
+  for (short i=0; i<4; i++)
+    for (short j=0; j<4; j++)
+      if (i==j) /* nucleotide does not change -> prob 0 (force mutation) */
+        Q[i][j] = 0.0;
       else if ((i==0 && j==2) || (i==1 && j==3) || (i==2 && j==0) || (i==3 && j==1)) /* transition */
-        Qij[i][j] = k*p[j];
+        Q[i][j] = k*p[j];
       else /* transversion */
-        Qij[i][j] = p[j];
+        Q[i][j] = p[j];
 }
 
 /*---------------------------------- HKY -------------------------------------*/

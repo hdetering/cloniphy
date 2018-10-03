@@ -4,11 +4,18 @@ file(GLOB SOURCES "*.cpp")
 link_directories(${CMAKE_SOURCE_DIR}/lib)
 
 add_executable (run_tests ${SOURCES})
-target_link_libraries (run_tests cloniphy)
+target_link_libraries (run_tests cloniphycore)
 
 # enforce c++11 standard
 set_property(TARGET run_tests PROPERTY CXX_STANDARD 11)
 set_property(TARGET run_tests PROPERTY CXX_STANDARD_REQUIRED ON)
+
+# add OpenMP support
+include(FindOpenMP)
+if(OPENMP_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif(OPENMP_FOUND)
 
 # ----------------------------------------------------------------------------
 # Dependencies
