@@ -359,13 +359,13 @@ writeVcfHeader (
   time_t timer = time(NULL);
   tm* t = localtime(&timer);
   out << format("##fileDate=%d-%d-%d", (1900+t->tm_year), t->tm_mon, t->tm_mday) << endl;
-  out << "##source=CloniPhy v1.0" << endl;
+  out << "##source=CloniPhy v1.0.1" << endl;
   //out << "##reference=" << std::endl; # TODO: include ref filename
   vector<string> vec_ref_ids;
   for (size_t i=0; i<vec_seq_id.size(); i++) {
     string seq_id = vec_seq_id[i];
     TCoord seq_len = vec_seq_len[i];
-    out << format("##contig=<ID=%s, length=%lu>", seq_id, seq_len) << endl;
+    out << format("##contig=<ID=%s, length=%lu>", seq_id.c_str(), seq_len) << endl;
   }
   //out << "##phasing=complete" << endl;
   out << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples With Data\">" << endl;
