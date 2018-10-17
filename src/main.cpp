@@ -71,7 +71,8 @@ int main (int argc, char* argv[])
   unsigned long ref_seq_len_mean = config.getValue<unsigned long>("ref-seq-len-mean");
   unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
-  string fn_ref_fa = config.getValue<string>("reference");
+  string fn_ref_fa = config.getValue<string>("ref-fasta");
+  string fn_ref_trinuc_sig = config.getValue<string>("ref-trinuc-profile");
   string fn_mut_gl_vcf = config.getValue<string>("mut-gl-vcf");
   string str_model_gl = config.m_mut_gl_model;
   string fn_tree = config.getValue<string>("tree");
@@ -104,10 +105,11 @@ int main (int argc, char* argv[])
   //int ado_frag_len = 10000; // TODO: make this a user parameter
 
   // inferred properties
-  bool do_ref_sim = fn_ref_fa.length() == 0;
-  bool do_germline_vars = (fn_mut_gl_vcf.size() > 0) || (n_mut_germline > 0);
-  bool do_somatic_vars = (fn_mut_som_vcf.size() == 0);
-  bool do_cnv_sim = (mut_som_cnv_ratio > 0.0);
+  bool do_ref_sim = ( fn_ref_fa.length() == 0 );
+  bool do_ref_trinuc_sig = ( fn_ref_trinuc_sig.length() > 0 );
+  bool do_germline_vars = ( (fn_mut_gl_vcf.size() > 0) || (n_mut_germline > 0) );
+  bool do_somatic_vars = ( fn_mut_som_vcf.size() == 0 );
+  bool do_cnv_sim = ( mut_som_cnv_ratio > 0.0 );
   // has the user provided a BAM file?
   bool seq_user_bam = fn_bam_input.string().length() == 0;
   // when simulating CNVs, reads cannot be reused (varying coverage required)
@@ -490,7 +492,7 @@ ofs_dbg_vars.close();
     map<string, double> map_clone_weight;
     double sum_w = 0.0;
     for (size_t i=0; i<w.size(); i++) {
-      map_clone_weight[vec_clone_lbl[i]] = w[i];
+      map_clone_weight[df_sampling.colnames[i]] = w[i];
       sum_w += w[i];
     }
     // set normal cell combination
@@ -534,7 +536,6 @@ ofs_dbg_vars.close();
 
   // generate reads for genomic regions
   // - reads overlapping with padded regions are discarded
-  // TODO: Parallelize it!
   fprintf(stdout, "Generating sequencing reads...\n");
   bulk_generator.generateBulkSamples (
     mtx_sample_clone,
@@ -566,6 +567,9 @@ ofs_dbg_vars.close();
   for (auto i : vec_vis_nodes_idx) {
     vec_labels.push_back(tree.m_vecNodes[i]->label);
   }
+  // sanity check: do visible clone labels match prevalence matrix?
+  set<string> set_labels_tree;
+  set<string> set_labels_prev;
 
   // write somatic variants to VCF file
   string fn_vcf = (path_out / "somatic.vcf").string();
