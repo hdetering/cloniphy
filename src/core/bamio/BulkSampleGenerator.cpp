@@ -893,7 +893,9 @@ BulkSampleGenerator::transformBamTileSeg (
   // read BAM header
   readHeader(header_in, bam_in);
   auto bam_context = context(bam_in);
-fprintf(stderr, "### BAM input context contains %lu refs.\n", length(contigNames(bam_context)));
+#ifndef NDEBUG
+  fprintf(stderr, "### BAM input context contains %lu refs.\n", length(contigNames(bam_context)));
+#endif
   // map local to global coordinates
   int idx_ref_loc = 0;
   for (auto i=0; i<length(contigNames(bam_context)); i++) {
@@ -934,8 +936,10 @@ fprintf(stderr, "### BAM input context contains %lu refs.\n", length(contigNames
 
   // process read alignments
   unsigned num_reads = 0;
-auto t_start = chrono::steady_clock::now();
-auto t_start_10k = chrono::steady_clock::now();
+#ifndef NDEBUG
+  auto t_start = chrono::steady_clock::now();
+  auto t_start_10k = chrono::steady_clock::now();
+#endif
   while (!atEnd(bam_in)) {
     readRecord(read1, bam_in);
     readRecord(read2, bam_in);
@@ -1035,6 +1039,9 @@ auto t_start_10k = chrono::steady_clock::now();
           vec_seg.push_back(segment);
       }
       seg = selector(vec_seg);
+
+fprintf(stderr, "#%s#\t%s\t%lu\n", id_clone.c_str(), boost::uuids::to_string(seg.id).c_str(), vec_seg.size());
+
     } 
     else {
       fprintf(stderr, "[WARN] (BulkSampleGenerator::transformBamTile)\n");
@@ -1073,13 +1080,15 @@ auto t_start_10k = chrono::steady_clock::now();
 
     //--- MUTATE READ PAIR (END) ---
 
-if (num_reads % 10000 == 0) {
-  auto t_end_10k = chrono::steady_clock::now();
-  auto t_diff = t_end_10k - t_start_10k;
-  fprintf(stderr, "### Mutated %07d read pairs.\n", num_reads);
-  fprintf(stderr, "### TIME: %.2f ms for 10000 read pairs.\n", chrono::duration <double, milli> (t_diff).count());
-  t_start_10k = chrono::steady_clock::now();
-}
+#ifndef NDEBUG
+    if (num_reads % 10000 == 0) {
+      auto t_end_10k = chrono::steady_clock::now();
+      auto t_diff = t_end_10k - t_start_10k;
+      fprintf(stderr, "### Mutated %07d read pairs.\n", num_reads);
+      fprintf(stderr, "### TIME: %.2f ms for 10000 read pairs.\n", chrono::duration <double, milli> (t_diff).count());
+      t_start_10k = chrono::steady_clock::now();
+    }
+#endif
     
     // mutateReadPair(read1, read2, it_clone_chr_seg->second[chr], var_store, selector);
     // mutateReadPairVaf(read1, read2,
@@ -1097,10 +1106,12 @@ if (num_reads % 10000 == 0) {
     write(bam_out.iter, read2, context(bam_out), bam_out.format);
   }
 
-auto t_end = chrono::steady_clock::now();
-auto t_diff = t_end - t_start;
-fprintf(stderr, "### Processed %d read pairs.\n", num_reads);
-fprintf(stderr, "### TIME: %.2f ms for %d read pairs.\n", chrono::duration <double, milli> (t_diff).count(), num_reads);
+#ifndef NDEBUG
+  auto t_end = chrono::steady_clock::now();
+  auto t_diff = t_end - t_start;
+  fprintf(stderr, "### Processed %d read pairs.\n", num_reads);
+  fprintf(stderr, "### TIME: %.2f ms for %d read pairs.\n", chrono::duration <double, milli> (t_diff).count(), num_reads);
+#endif
 
   return true;
 }
