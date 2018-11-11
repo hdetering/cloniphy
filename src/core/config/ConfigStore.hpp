@@ -57,16 +57,28 @@ private:
 
 bool fileExists(std::string filename);
 
-/*---------------------------------*
- * function templates declarations *
- *---------------------------------*/
+/*--------------------------------*
+ * function templates definitions *
+ *--------------------------------*/
 
 template<typename T>
 T ConfigStore::getValue(const char* key) {
   std::vector<std::string> keys = stringio::split(std::string(key), ':');
-  YAML::Node node = _config[keys[0]];
+  YAML::Node node;
+  // try to get top-level node
+  try {
+    node = _config[keys[0]];
+  } catch (const std::exception& e) {
+    return node.as<T>();
+  }
   for (unsigned i=1; i<keys.size(); i++)
-    node = node[keys[i]];
+    try {
+      node = node[keys[i]];
+    } catch (const YAML::TypedBadConversion<T>& e) {
+      fprintf(stderr, "[WARN] ConfigStore: unknown parameter: '%s'\n", key);
+      YAML::Node empty_node;
+      return empty_node.as<T>();
+    }
 /*switch (node.Type()) {
   case YAML::NodeType::Null:
     fprintf(stderr, "'%s': Null\n", keys[keys.size()-1].c_str());
