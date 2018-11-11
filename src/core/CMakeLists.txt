@@ -16,7 +16,14 @@ if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
 
-target_include_directories(cloniphycore PUBLIC ${CMAKE_SOURCE_DIR}/include bamio config model)
+target_include_directories(cloniphycore PUBLIC
+  ${CMAKE_SOURCE_DIR}/include
+  bamio
+  config
+  model
+  seqio
+  vario
+)
 
 # add yaml-cpp library
 target_include_directories(cloniphycore PUBLIC ${CMAKE_SOURCE_DIR}/include/yaml-cpp/include)

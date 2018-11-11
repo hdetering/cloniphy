@@ -495,8 +495,21 @@ ofs_dbg_vars.close();
       map_clone_weight[df_sampling.colnames[i]] = w[i];
       sum_w += w[i];
     }
-    // set normal cell combination
-    map_clone_weight[lbl_clone_normal] = 1.0 - sum_w;
+
+    // normalize clone weights?
+    if (sum_w > 1.0) {
+      for (size_t i=0; i<w.size(); i++) {
+        map_clone_weight[df_sampling.colnames[i]] /= sum_w;
+      }
+      // set normal cell combination
+      map_clone_weight[lbl_clone_normal] = 0.0;
+    } 
+    else { // no normalization, difference to 1 is normal contamination
+      // set normal cell combination
+      map_clone_weight[lbl_clone_normal] = 1.0 - sum_w;
+    }
+
+    //
     mtx_sample_clone[id_sample] = map_clone_weight;
   }
 
