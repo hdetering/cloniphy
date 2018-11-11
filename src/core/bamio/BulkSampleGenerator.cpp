@@ -1040,7 +1040,14 @@ BulkSampleGenerator::transformBamTileSeg (
       }
       seg = selector(vec_seg);
 
-fprintf(stderr, "#%s#\t%s\t%lu\n", id_clone.c_str(), boost::uuids::to_string(seg.id).c_str(), vec_seg.size());
+/* fprintf(stderr, "#%s#\t%s\t%s\t%lu\t%lu\t%d\t%d\t%d\t%d\n", 
+  id_clone.c_str(), 
+  boost::uuids::to_string(seg.id).c_str(),
+  toCString(read1.qName), 
+  pos_begin,
+  pos_end,
+  r1_begin, r1_end,
+  r2_begin, r2_end); */
 
     } 
     else {
@@ -1053,7 +1060,7 @@ fprintf(stderr, "#%s#\t%s\t%lu\n", id_clone.c_str(), boost::uuids::to_string(seg
   
     map<seqio::TCoord, vector<Variant>> map_pos_mut;
     //var_store.getSnvsForSegmentCopy(map_pos_mut, seg.id);
-    var_store.getSnvsForSegmentCopy(map_pos_mut, seg.id, r1_begin, r2_end);
+    var_store.getSnvsForSegmentCopy(map_pos_mut, seg.id, pos_begin, pos_end);
   
     // 3. Apply variants overlapping read pair.
     //------------------------------------------
