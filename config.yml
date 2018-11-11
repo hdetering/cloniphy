@@ -23,8 +23,6 @@ seed: 2
 ## 2. reference reads
 ## 3. germline mutations
 #bam-input: crc.ref.sam
-# file containing reference genome sequence
-#reference: data/ref/Hg18.chr20-22.fa
 #chr0-335294
 
 
@@ -42,6 +40,9 @@ tree: "data/bulk/bulk.tre"
 # reference genome params #
 #-------------------------#
 
+# file containing reference genome sequence
+#ref-fasta: data/ref/Hg18.chr20-22.fa
+
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
 ref-seq-num: 3
@@ -50,6 +51,9 @@ ref-seq-len-mean: 20000000
 ref-seq-len-sd:    1000000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
+## trinucleotide frequencies (AAA, AAC, ..., TTG, TTT)
+## (overrides ref-nuc-freqs)
+ref-trinuc-profile: "../resources/trinuc_freqs.hs37d5.csv"
 
 #-------------------------------#
 # germline evolution parameters #

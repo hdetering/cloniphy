@@ -40,6 +40,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_mut_gl_vcf = "";
   string fn_mut_som_vcf = "";
   string fn_mut_som_sig = "resources/signatures_probabilities.txt";
+  string fn_ref_trinuc_sig = "";
   string fn_ref_fa = "";
   string fn_tree = "";
   bool seq_read_gen = false;
@@ -68,7 +69,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("config,c", po::value<string>(), "config file")
     ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
     ("mut-som-num,m", po::value<int>(&n_mut_somatic), "total number of mutations")
-    ("reference,r", po::value<string>(&fn_ref_fa), "reference sequence")
+    ("ref-fasta,r", po::value<string>(&fn_ref_fa), "reference sequence")
     ("mut-gl-vcf,v", po::value<string>(&fn_mut_gl_vcf), "germline variants")
     ("mut-som-trunk,i", po::value<int>(&n_mut_trunk), "number of transforming mutations (separating healthy genome from first cancer genome)")
     ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
@@ -149,11 +150,26 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["mut-som-trunk"] = n_mut_trunk;
   }
   n_mut_trunk = _config["mut-som-trunk"].as<int>();
+
+  //---------------------------------------------------------------------------
+  // reference-related params
+  //---------------------------------------------------------------------------
+  
   // path to reference FASTA
-  if (var_map.count("reference") || !_config["reference"]) {
-    _config["reference"] = fn_ref_fa;
+  if (var_map.count("ref-fasta") || !_config["ref-fasta"]) {
+    _config["ref-fasta"] = fn_ref_fa;
   }
-  fn_ref_fa = _config["reference"].as<string>();
+  fn_ref_fa = _config["ref-fasta"].as<string>();
+  // path to reference trinucleotide profile
+  if (var_map.count("ref-trinuc-profile") || !_config["ref-trinuc-profile"]) {
+    _config["ref-trinuc-profile"] = fn_ref_trinuc_sig;
+  }
+  fn_ref_trinuc_sig = _config["ref-trinuc-profile"].as<string>();
+
+  //---------------------------------------------------------------------------
+  // mutation-related params
+  //---------------------------------------------------------------------------
+
   // path to somatic mutation signature file
   if (!_config["mut-som-sig-file"]) {
     _config["mut-som-sig-file"] = fn_mut_som_sig;
@@ -184,6 +200,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["mut-som-cnv-ratio"] = mut_som_cnv_ratio;
   }
   mut_som_cnv_ratio = _config["mut-som-cnv-ratio"].as<double>();
+  
   // path to clone tree input file (Newick)
   if (var_map.count("tree") || !_config["tree"]) {
     _config["tree"] = fn_tree;
