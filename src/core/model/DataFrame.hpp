@@ -3,7 +3,7 @@
 
 #include "../stringio.hpp"
 
-//#include <stdlib.h> /* atof */
+//#include <cstdlib> /* atof */
 #include <cassert>
 #include <string>
 #include <vector>

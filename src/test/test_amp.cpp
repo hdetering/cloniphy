@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE( art ) {
 
   BOOST_TEST_MESSAGE( "generating random genome (" << seq_len << " bp)... ");
   seqio::GenomeReference ref_genome;
-  ref_genome.generate(num_ref_seq, seq_len, seq_len_sd, nuc_freqs, rng);
+  ref_genome.generate_nucfreqs(num_ref_seq, seq_len, seq_len_sd, nuc_freqs, rng);
   auto fn_ref = "ref.100M.fa";
   BOOST_TEST_MESSAGE( "  writing reference genome to file '" << fn_ref << "'...\n" );
   ofstream fs_ref;
