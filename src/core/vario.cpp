@@ -1,10 +1,11 @@
 #include "vario.hpp"
+//#include "seqio/ChromosomeInstance.hpp"
 #include <algorithm>
 #include <boost/container/flat_set.hpp>
 #include <ctime>
 #include <fstream>
 #include <set>
-#include <stdio.h>
+#include <cstdio>
 
 using namespace std;
 using boost::uuids::uuid;

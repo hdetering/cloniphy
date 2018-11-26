@@ -14,6 +14,10 @@ using namespace seqio;
 using namespace treeio;
 #include <boost/format.hpp>
 using boost::str;
+#include <boost/icl/interval.hpp>
+#include <boost/icl/interval_map.hpp>
+using boost::icl::interval_map;
+using boost::icl::interval;
 #include <fstream>
 #include <sstream>
 

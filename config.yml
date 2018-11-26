@@ -51,6 +51,8 @@ ref-seq-len-mean: 20000000
 ref-seq-len-sd:    1000000
 ## nucleotide frequencies (ACGT)
 ref-nuc-freqs: [ 0.3, 0.2, 0.2, 0.3 ]
+## use trinucleotide profile when simulating reference genome?
+ref-use-trinuc: false
 ## trinucleotide frequencies (AAA, AAC, ..., TTG, TTT)
 ## (overrides ref-nuc-freqs)
 ref-trinuc-profile: "../resources/trinuc_freqs.hs37d5.csv"

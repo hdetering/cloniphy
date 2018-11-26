@@ -3,6 +3,9 @@
 
 #include "random.hpp"
 #include "seqio.hpp"
+#include "seqio/ChromosomeInstance.hpp"
+#include "seqio/GenomeReference.hpp"
+#include "seqio/GenomeInstance.hpp"
 #include "stringio.hpp"
 #include "evolution.hpp"
 #include <boost/uuid/uuid.hpp>

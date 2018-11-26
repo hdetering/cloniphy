@@ -43,6 +43,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_ref_trinuc_sig = "";
   string fn_ref_fa = "";
   string fn_tree = "";
+  bool do_ref_trinuc = false;
   bool seq_read_gen = false;
   int seq_rc_min = 1;
   bool seq_use_vaf = false;
@@ -160,6 +161,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["ref-fasta"] = fn_ref_fa;
   }
   fn_ref_fa = _config["ref-fasta"].as<string>();
+  // whether to use trinucleotide profile when generating reference genome
+  if (var_map.count("ref-use-trinuc") || !_config["ref-use-trinuc"]) {
+    _config["ref-use-trinuc"] = do_ref_trinuc;
+  }
+  do_ref_trinuc = _config["ref-use-trinuc"].as<bool>();
   // path to reference trinucleotide profile
   if (var_map.count("ref-trinuc-profile") || !_config["ref-trinuc-profile"]) {
     _config["ref-trinuc-profile"] = fn_ref_trinuc_sig;
