@@ -3,6 +3,7 @@
 
 #include "../bamio.hpp"
 #include "BulkSample.hpp"
+#include "../seqio/types.hpp"
 #include "../vario/VariantStore.hpp"
 
 namespace bamio {

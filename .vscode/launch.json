@@ -26,7 +26,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/build/src/cloniphy",
-            "args": ["-c", "${workspaceRoot}/data/316d3da2/config.yml", "-o" , "${workspaceRoot}/build/316d3da2"],
+            "args": [
+                "-c", "${workspaceRoot}/data/316d3da2/config.yml", "-o" , 
+                "${workspaceRoot}/build/test"
+            ],
             "stopAtEntry": true,
             "cwd": "${workspaceRoot}/build",
             "environment": [],

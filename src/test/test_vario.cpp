@@ -31,7 +31,7 @@ struct FixtureVario {
     // initialize random number generator
 
     BOOST_TEST_MESSAGE( "generating random genome (" << ref_genome_len << " bp)... ");
-    ref_genome.generate(num_ref_seq, seq_len_mean, seq_len_sd, nuc_freqs, rng);
+    ref_genome.generate_nucfreqs(num_ref_seq, seq_len_mean, seq_len_sd, nuc_freqs, rng);
     auto fn_ref = "ref.fa";
     BOOST_TEST_MESSAGE( "writing reference genome to file '" << fn_ref << "'...\n" );
     ofstream fs_ref;

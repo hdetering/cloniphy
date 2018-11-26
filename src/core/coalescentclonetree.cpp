@@ -1,7 +1,7 @@
 #define DEBUG
 #include "coalescentclonetree.hpp"
 
-#include <stdio.h>
+#include <cstdio>
 #include <vector>
 
 

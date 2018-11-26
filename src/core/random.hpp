@@ -20,8 +20,10 @@ using std::ref;
 //template <typename GeneratorType = base_generator_type>
 struct RandomNumberGenerator {
 
-  //GeneratorType generator;
+  // GeneratorType generator;
   base_generator_type generator;
+  // Function generates numbers between zero and one (frequently needed).
+  std::function<double()> rand_dbl = this->getRandomFunctionReal(0.0, 1.0);
 
   //RandomNumberGenerator(long seed);
   RandomNumberGenerator(long seed) {
@@ -51,6 +53,7 @@ struct RandomNumberGenerator {
 	  return bind(dist, ref(generator));
   }
 
+  /** Returns a function that picks a random index using a set of weights. */
   template <typename IndexType = int, typename WeightType = double>
   std::function<IndexType()> 
   getRandomIndexWeighted (
