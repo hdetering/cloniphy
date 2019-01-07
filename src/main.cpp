@@ -450,8 +450,6 @@ int main (int argc, char* argv[])
       //GenomeInstance gi_node(map_id_genome[nodes[i]->parent->index], vec_seg_mod);
       GenomeInstance gi_parent = map_id_genome[nodes[i]->parent->index];
       GenomeInstance gi_node(gi_parent, vec_seg_mod);
-//cerr << "parent:\t" << *(gi_parent.vec_chr[0]->lst_segments.begin()) << endl;
-//cerr << "child:\t" << *(gi_node.vec_chr[0]->lst_segments.begin()) << endl;
       var_store.transferMutations(vec_seg_mod);
 
       // get mutations for clone tree branch
@@ -459,16 +457,12 @@ int main (int argc, char* argv[])
       fprintf(stderr, "\t\t[%lu mutations...]\n", node_mut.size());
       // apply somatic mutations (SNVs + CNVs, in order)
       for (int mut : node_mut) {
-//cerr << "id_mut: " << mut << endl;
         var_store.applyMutation(vec_mut_som[mut], gi_node, rng);
       }
       // store GenomeInstance for further use
       map_id_genome[nodes[i]->index] = gi_node;
     }
   }
-
-cerr << "parent:\t" << *(map_id_genome[0].vec_chr[0]->lst_segments.begin()) << endl;
-cerr << "child:\t" << *(map_id_genome[1].vec_chr[0]->lst_segments.begin()) << endl;
 
   // prepare clone genomes for export
   map<string, GenomeInstance> map_clone_genome;
