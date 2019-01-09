@@ -381,7 +381,7 @@ BulkSampleGenerator::generateBulkSeqReads (
   const path path_fasta,
   const path path_bam,
   const string lbl_sample,
-  const map<string, double> map_clone_weight,
+  const map<string, double> map_clone_prev,
   const double cvg_total,
   ArtWrapper& art
 ) 
@@ -397,21 +397,31 @@ BulkSampleGenerator::generateBulkSeqReads (
   for (auto const & kv : m_map_ref_len)
     len_ref += kv.second;
   unsigned long n_reads_tot = cvg_total * len_ref / art.read_len;
-  // calculate number of reads for each clone (weight * reads_total)
+  // calculate total seq len (across all clone genomes)
+  unsigned long long len_seq_tot = 0;
+  for (auto const & kv : m_map_clone_len)
+    len_seq_tot += kv.second;
+  
+  // calculate adjusted weight for each clone
+  // (weight = prevalence * dna_contrib * reads_total)
+  double weight_sum = 0.0;
+  map<string, long> map_clone_weight;
+  for (auto const clone_p : map_clone_prev) {
+    // clone label
+    string lbl = clone_p.first;
+    // clone prevalence (cell proportion of total)
+    double prev = clone_p.second;
+    // clone DNA contribution (seq proportion of total)
+    double dna_cont = this->m_map_clone_len[lbl] / len_seq_tot;
+    map_clone_weight[lbl] = prev * dna_cont * n_reads_tot;
+  }
+  // calculate number of reads for each clone
   map<string, long> map_clone_reads;
   for (auto const clone_w : map_clone_weight) {
     string lbl = clone_w.first;
     double w = clone_w.second;
-    map_clone_reads[lbl] = floor(w * n_reads_tot);
+    map_clone_reads[lbl] = floor(w/weight_sum * n_reads_tot);
   }
-
-  // calculate relative coverage for clones (weight * cvg_total)
-  // map<string, double> map_clone_cvg;
-  // for (auto i=0; i<vec_clone_lbl.size(); i++) {
-  //   string lbl = vec_clone_lbl[i];
-  //   double cvg = vec_weight[i] * cvg_total;
-  //   map_clone_cvg[lbl] = cvg;
-  // }
 
   // for(auto& entry: directory_iterator(path_fasta)) {
   for(auto const & fasta_len : this->m_map_fasta_len) {
