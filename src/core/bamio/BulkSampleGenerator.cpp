@@ -422,7 +422,8 @@ BulkSampleGenerator::generateBulkSeqReads (
   for (auto const clone_w : map_clone_weight) {
     string lbl = clone_w.first;
     double w = clone_w.second;
-    map_clone_reads[lbl] = floor(w/weight_sum * n_reads_tot);
+    long r = floor(w/weight_sum * n_reads_tot);
+    map_clone_reads[lbl] = r;
   }
 
   // for(auto& entry: directory_iterator(path_fasta)) {
