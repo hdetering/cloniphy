@@ -413,7 +413,9 @@ BulkSampleGenerator::generateBulkSeqReads (
     double prev = clone_p.second;
     // clone DNA contribution (seq proportion of total)
     double dna_cont = this->m_map_clone_len[lbl] / len_seq_tot;
-    map_clone_weight[lbl] = prev * dna_cont;
+    double w = prev * dna_cont;
+    map_clone_weight[lbl] = w;
+    weight_sum += w;
   }
   // calculate number of reads for each clone
   map<string, long> map_clone_reads;
