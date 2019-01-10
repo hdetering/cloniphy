@@ -412,7 +412,7 @@ BulkSampleGenerator::generateBulkSeqReads (
     // clone prevalence (cell proportion of total)
     double prev = clone_p.second;
     // clone DNA contribution (seq proportion of total)
-    double dna_cont = (double)this->m_map_clone_len[lbl] / len_seq_tot;
+    double dna_cont = (double)(this->m_map_clone_len[lbl]) / len_seq_tot;
     double w = prev * dna_cont;
     map_clone_weight[lbl] = w;
     weight_sum += w;
