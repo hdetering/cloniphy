@@ -412,7 +412,7 @@ BulkSampleGenerator::generateBulkSeqReads (
     // clone prevalence (cell proportion of total)
     double prev = clone_p.second;
     // clone DNA contribution (seq proportion of total)
-    double dna_cont = this->m_map_clone_len[lbl] / len_seq_tot;
+    double dna_cont = (double)this->m_map_clone_len[lbl] / len_seq_tot;
     double w = prev * dna_cont;
     map_clone_weight[lbl] = w;
     weight_sum += w;
@@ -422,7 +422,8 @@ BulkSampleGenerator::generateBulkSeqReads (
   for (auto const clone_w : map_clone_weight) {
     string lbl = clone_w.first;
     double w = clone_w.second;
-    map_clone_reads[lbl] = floor(w/weight_sum * n_reads_tot);
+    long r = floor(w/weight_sum * n_reads_tot);
+    map_clone_reads[lbl] = r;
   }
 
   // for(auto& entry: directory_iterator(path_fasta)) {
