@@ -405,7 +405,7 @@ BulkSampleGenerator::generateBulkSeqReads (
   // calculate adjusted weight for each clone
   // (weight = prevalence * dna_contrib * reads_total)
   double weight_sum = 0.0;
-  map<string, long> map_clone_weight;
+  map<string, double> map_clone_weight;
   for (auto const clone_p : map_clone_prev) {
     // clone label
     string lbl = clone_p.first;
