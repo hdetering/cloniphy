@@ -42,6 +42,8 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_mut_som_sig = "resources/signatures_probabilities.txt";
   string fn_ref_trinuc_sig = "";
   string fn_ref_fa = "";
+  string fn_ref_idx = "";
+  string fn_ref_bed = "";
   string fn_tree = "";
   bool do_ref_trinuc = false;
   bool seq_read_gen = false;
@@ -68,14 +70,14 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     ("version,v", "print version string")
     ("help,h", "print help message")
     ("config,c", po::value<string>(), "config file")
-    ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
-    ("mut-som-num,m", po::value<int>(&n_mut_somatic), "total number of mutations")
-    ("ref-fasta,r", po::value<string>(&fn_ref_fa), "reference sequence")
-    ("mut-gl-vcf,v", po::value<string>(&fn_mut_gl_vcf), "germline variants")
-    ("mut-som-trunk,i", po::value<int>(&n_mut_trunk), "number of transforming mutations (separating healthy genome from first cancer genome)")
-    ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
+//    ("clones,n", po::value<int>(&n_clones), "number of clones to simulate")
+//    ("mut-som-num,m", po::value<int>(&n_mut_somatic), "total number of mutations")
+//    ("ref-fasta,r", po::value<string>(&fn_ref_fa), "reference sequence")
+//    ("mut-gl-vcf,v", po::value<string>(&fn_mut_gl_vcf), "germline variants")
+//    ("mut-som-trunk,i", po::value<int>(&n_mut_trunk), "number of transforming mutations (separating healthy genome from first cancer genome)")
+//    ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
     ("out-dir,o", po::value<string>(&dir_out), "output directory")
-    ("verbosity,v", po::value<int>(&verb), "detail level of console output")
+//    ("verbosity,v", po::value<int>(&verb), "detail level of console output")
     ("threads,p", po::value<int>(&threads)->default_value(1), "number of parallel threads")
     ("seed,s", po::value<long>(&seed), "random seed")
   ;
@@ -161,6 +163,13 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["ref-fasta"] = fn_ref_fa;
   }
   fn_ref_fa = _config["ref-fasta"].as<string>();
+  fn_ref_idx = fn_ref_fa + ".fai";
+  _config["ref-fasta-idx"] = fn_ref_idx;
+  // path to reference sequences BED
+  if (var_map.count("ref-seq-bed") || !_config["ref-seq-bed"]) {
+    _config["ref-seq-bed"] = fn_ref_bed;
+  }
+  fn_ref_bed = _config["ref-seq-bed"].as<string>();
   // whether to use trinucleotide profile when generating reference genome
   if (var_map.count("ref-use-trinuc") || !_config["ref-use-trinuc"]) {
     _config["ref-use-trinuc"] = do_ref_trinuc;
@@ -233,7 +242,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   //---------------------------------------------------------------------------
 
   // if sampling scheme was not provided, bail out
-  if ( !_config["sampling"] || _config["sampling"].as<string>().size() == 0 ) {
+  if ( !_config["sampling"]) { //|| _config["sampling"].as<string>().size() == 0 ) {
     fprintf(stderr, "\nArgumentError: Parameter 'sampling' is required.\n");
     return false;
   } 
@@ -319,9 +328,19 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     fprintf(stderr, "\nArgumentError: Input BAM file '%s' does not exist.\n", fn_bam_input.c_str());
     return false;
   }
-  // reference file exists?
+  // reference fasta exists?
   if (fn_ref_fa.length()>0 && !fileExists(fn_ref_fa)) {
     fprintf(stderr, "\nArgumentError: Reference genome file '%s' does not exist.\n", fn_ref_fa.c_str());
+    return false;
+  }
+  // reference fasta index exists?
+  if (fn_ref_idx.length()>0 && !fileExists(fn_ref_idx)) {
+    fprintf(stderr, "\nArgumentError: Reference genome index file '%s' does not exist.\n", fn_ref_idx.c_str());
+    return false;
+  }
+  // reference fasta index exists?
+  if (fn_ref_bed.length()>0 && !fileExists(fn_ref_bed)) {
+    fprintf(stderr, "\nArgumentError: Reference genome BED file '%s' does not exist.\n", fn_ref_bed.c_str());
     return false;
   }
   // reference VCF file exists?

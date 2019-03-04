@@ -44,7 +44,6 @@ VariantStore::generateGermlineVariants (
   //vector<Variant> variants = vector<Variant>(num_variants);
   boost::container::flat_set<int> var_pos; // keep track of variant positions
   function<double()> random_float = rng.getRandomFunctionReal(0.0, 1.0);
-  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
   // determine base mutation probs from model (row sums)
@@ -78,7 +77,6 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.is_somatic = false;
     var.is_het = ( random_float() > rate_hom );
     var.chr = loc.id_ref;
-    //var.chr_copy = random_copy(); // TODO: deprecated!
     //var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
     var.rel_pos = double(nuc_pos)/genome_len;
     //var.reg_copy = 0; // TODO: deprecated!

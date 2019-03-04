@@ -41,7 +41,11 @@ tree: "data/bulk/bulk.tre"
 #-------------------------#
 
 # file containing reference genome sequence
-#ref-fasta: data/ref/Hg18.chr20-22.fa
+ref-fasta: data/ref/REFERENCE.Hg18/Hg18.KARYO.fa
+# BED file containing reference sequences to use and their copy number
+#   requires: ref-fasta
+#   format: SEQID START END CN_A CN_B (coordinates 0-based, start inclusive, end exclusive)
+ref-seq-bed: resources/ref/Hg18.KARYO.min.bed
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate

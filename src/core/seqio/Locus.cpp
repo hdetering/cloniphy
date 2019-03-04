@@ -5,7 +5,7 @@ using namespace std;
 namespace seqio {
   
 Locus::Locus() {}
-Locus::Locus(string id, ulong start, ulong end)
+Locus::Locus(string id, TCoord start, TCoord end)
 : id_ref(id), start(start), end(end), idx_record(0) {}
 Locus::~Locus() {}
 

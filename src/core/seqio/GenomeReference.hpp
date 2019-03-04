@@ -19,8 +19,6 @@ struct GenomeReference
   unsigned num_records;
   unsigned length;                        /** total length of all sequences */
   unsigned masked_length;                 /** length of unmasked (non-'N') positions */
-  // TODO: remove ploidy (modeled on SegmentCopy level)
-  short ploidy;                           /** number of copies for each chromosome */
   // TODO: move SeqRecords below ChromosomeReference level
   std::vector<std::shared_ptr<SeqRecord>> records;
   /** Reference chromosomes that make up the genome */
@@ -44,6 +42,11 @@ struct GenomeReference
   GenomeReference();
   /** load reference sequences from FASTA file */
   GenomeReference(const char* fn_fasta);
+  /** load reference sequences from FASTA file, filter by Locus list. */
+  GenomeReference(
+    const char* fn_fasta,
+    const std::map<std::string, std::vector<Locus>>& loci
+  );
 
   /** Adds a ChromosomeReference to this GenomeReference. */
   void addChromosome(std::shared_ptr<ChromosomeReference> sp_chr);

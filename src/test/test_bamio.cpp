@@ -118,7 +118,6 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // read personal genome
   GenomeReference genome("pers.fa");
-  genome.ploidy = 2;
   genome.indexRecords();
 
   // generate (sub)clonal variants
@@ -189,7 +188,6 @@ BOOST_AUTO_TEST_CASE( multisample )
 
   // read personal genome
   GenomeReference genome("pers.fa");
-  genome.ploidy = 2;
   genome.indexRecords();
 
   // generate (sub)clonal variants

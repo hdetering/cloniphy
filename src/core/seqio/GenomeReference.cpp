@@ -6,16 +6,12 @@ using namespace std;
 
 namespace seqio {
 
-GenomeReference::GenomeReference() : length(0), masked_length(0) {} //, ploidy(1) {}
+GenomeReference::GenomeReference() : length(0), masked_length(0) {}
 
-GenomeReference::GenomeReference(const char* filename) : length(0), masked_length(0) {
-  //ploidy = 1;
-  //regex rgx("$(\\w+):([0-9]+)-([0-9]+)"); // matches chromosome segment IDs
-  //smatch matches;
-  // initialize nucleotide freuquencies
-  for (int i=0; i<4; i++)
-    nuc_freq[i] = 0;
-
+GenomeReference::GenomeReference(const char* filename)
+: length(0), 
+  masked_length(0)
+{
   // read records from file
   readFasta(filename, this->records);
   // scan records for segmented sequence (naming convention: "CHR:START-END")
@@ -42,6 +38,37 @@ GenomeReference::GenomeReference(const char* filename) : length(0), masked_lengt
     p_chr_ref->id = rec->id;
     p_chr_ref->length = rec->seq.length();
     p_chr_ref->map_start_rec[0] = rec;
+    // sanity check: chromosome IDs should be unique
+    assert(this->chromosomes.count(p_chr_ref->id) == 0);
+    this->addChromosome(p_chr_ref);
+  }
+  num_records = records.size();
+}
+
+GenomeReference::GenomeReference (
+  const char* filename,
+  const map<string, vector<Locus>>& map_chr_loci
+)
+: length(0), 
+  masked_length(0) 
+{
+  // read records from file
+  readFasta(filename, this->records);
+  // scan records
+  for (auto & rec : this->records) {
+    // if record ID is not present in loci list: skip record
+    if (map_chr_loci.find(rec->id) == map_chr_loci.end())
+      continue;
+    // initialize new reference chromosome
+    shared_ptr<ChromosomeReference> p_chr_ref(new ChromosomeReference());
+    p_chr_ref->id = rec->id;
+    p_chr_ref->length = rec->seq.length();
+    for (const Locus loc : map_chr_loci.at(rec->id)) {
+      string seq_id = stringio::format("%s:%lu-%lu", loc.id_ref, loc.start, loc.end);
+      string seq = rec->seq.substr(loc.start, loc.end-loc.start);
+      shared_ptr<SeqRecord> sp_rec(new SeqRecord(seq_id, "", seq));
+      p_chr_ref->map_start_rec[loc.start] = sp_rec;
+    }
     // sanity check: chromosome IDs should be unique
     assert(this->chromosomes.count(p_chr_ref->id) == 0);
     this->addChromosome(p_chr_ref);
