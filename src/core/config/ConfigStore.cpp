@@ -163,7 +163,9 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["ref-fasta"] = fn_ref_fa;
   }
   fn_ref_fa = _config["ref-fasta"].as<string>();
-  fn_ref_idx = fn_ref_fa + ".fai";
+  if (fn_ref_fa.length() > 0) {
+    fn_ref_idx = fn_ref_fa + ".fai";
+  }
   _config["ref-fasta-idx"] = fn_ref_idx;
   // path to reference sequences BED
   if (var_map.count("ref-seq-bed") || !_config["ref-seq-bed"]) {
