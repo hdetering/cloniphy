@@ -1,8 +1,10 @@
 #include "GenomeInstance.hpp"
+#include "../stringio.hpp" // format()
 
 using namespace std;
 using boost::icl::interval_map;
 using boost::icl::interval;
+using stringio::format;
 
 namespace seqio {
 
@@ -22,7 +24,8 @@ GenomeInstance::GenomeInstance (
     this->vec_chr.push_back(sp_chr_inst2);
     this->vec_chr_len.push_back(sp_chr_inst2->length);
     // sanity check: chromsome IDs should be unique
-    assert(this->map_id_chr.count(chr_ref.id)==0);
+    assert (( format("Seqid '%s' already exists.", chr_ref.id.c_str()),
+              this->map_id_chr.count(chr_ref.id)==0 ));
     // shared_ptr<ChromosomeInstance> sp_chr_inst1(up_chr_inst1);
     // shared_ptr<ChromosomeInstance> sp_chr_inst2(up_chr_inst2);
     this->map_id_chr[chr_ref.id] = { sp_chr_inst1, sp_chr_inst2 };
