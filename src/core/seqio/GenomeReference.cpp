@@ -13,7 +13,7 @@ GenomeReference::GenomeReference(const char* filename)
   masked_length(0)
 {
   // read records from file
-  readFasta(filename, this->records);
+  readFasta(this->records, filename);
   // scan records for segmented sequence (naming convention: "CHR:START-END")
   for (auto & rec : this->records) {
     // TODO: does it make sense to expect genomic fragments in FASTA?
@@ -53,7 +53,8 @@ GenomeReference::GenomeReference (
   masked_length(0) 
 {
   // read records from file
-  readFasta(filename, this->records);
+  bool use_whitelist = ( map_chr_loci.size() > 0 );
+  readFasta(this->records, filename, use_whitelist, map_chr_loci);
   // scan records
   for (auto & rec : this->records) {
     // if record ID is not present in loci list: skip record

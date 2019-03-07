@@ -121,7 +121,8 @@ GenomeInstance::getSegmentCopiesAt (
 {
   vector<SegmentCopy> res_segments;
   // perform sanity checks
-  assert( this->map_id_chr.count(id_chr) > 0 );
+  assert (( format("Seqid '%s' doesn't exists.", id_chr.c_str()),
+            this->map_id_chr.count(id_chr) > 0 ));
 
   // get SegmentCopies from all ChromosomeInstances
   for (auto const sp_chr : this->map_id_chr[id_chr]) {

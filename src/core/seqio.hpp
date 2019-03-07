@@ -2,6 +2,7 @@
 #define SEQIO_H
 
 #include "seqio/KmerProfile.hpp"
+#include "seqio/Locus.hpp"
 #include "seqio/SegmentCopy.hpp"
 #include "seqio/SeqRecord.hpp"
 #include "seqio/types.hpp"
@@ -76,10 +77,52 @@ inline std::string rev_comp (std::string dna) {
   return dna;
 }
 
-/** Reads sequences from file. */
-void readFasta(const char*, std::vector<std::shared_ptr<SeqRecord>>&);
-/** Reads sequences from istream. */
-void readFasta(std::istream&, std::vector<std::shared_ptr<SeqRecord>>&);
+/** 
+ * Read sequences from FASTA file. 
+ * \param records   output parameter; list of records.
+ * \param filename  filename to read records from.
+ *
+void readFasta (
+  std::vector<std::shared_ptr<SeqRecord>>& records,
+  const char* filename
+);*/
+typedef std::map<std::string, std::vector<Locus>> TLocusMap;
+/** 
+ * Read sequences from FASTA file. 
+ * \param records        output parameter; list of records.
+ * \param filename       filename to read records from.
+ * \param use_whitelist  only import sequences specified in map_seq_loci.
+ * \param map_seq_loci   sequence segments to import (whitelist).
+ */
+void readFasta (
+  std::vector<std::shared_ptr<SeqRecord>>& records,
+  const char* filename,
+  const bool use_whitelist = false,
+  const TLocusMap& map_seq_loci = TLocusMap()
+);
+/** 
+ * Reads sequences from istream. 
+ * \param records      output parameter; list of records.
+ * \param inputstream  filename to read records from.
+ *
+void readFasta (
+  std::vector<std::shared_ptr<SeqRecord>>& records,
+  std::istream& inputstream
+);*/
+/** 
+ * Reads sequences from istream. 
+ * \param records        output parameter; list of records.
+ * \param input_stream   input stream to read records from.
+ * \param use_whitelist  only import sequences specified in map_seq_loci.
+ * \param map_seq_loci   sequence segments to import (whitelist).
+ */
+void readFasta (
+  std::vector<std::shared_ptr<SeqRecord>>& records,
+  std::istream& inputstream,
+  const bool use_whitelist = false,
+  const TLocusMap& map_seq_loci = TLocusMap()
+);
+
 /** Writes sequences to file. */
 int writeFasta(const std::vector<std::shared_ptr<SeqRecord>>&, const std::string fn, int len_line = 60);
 /** Writes sequences to ostream. */
