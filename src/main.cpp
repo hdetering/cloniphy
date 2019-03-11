@@ -470,6 +470,12 @@ int main (int argc, char* argv[])
   GenomeInstance healthy_genome = GenomeInstance(ref_genome);
   // root node corresponds to healthy genome (diploid)
   map_id_genome[nodes[0]->index] = healthy_genome;
+string keystrokes;
+cout << "Now clearing reference genome indices. Hit any key to continue...";
+cin >> keystrokes;
+  // MEM: ref genome index not needed after this point
+  ref_genome.clearIndex();
+
   // apply germline mutations to healthy genome
   fprintf(stderr, "applying germline variants to clone tree root...\n");
   var_store.applyGermlineVariants(healthy_genome, rng);

@@ -77,6 +77,10 @@ GenomeReference::GenomeReference (
   num_records = records.size();
 }
 
+GenomeReference::~GenomeReference() {
+
+}
+
 void GenomeReference::addChromosome(shared_ptr<ChromosomeReference> sp_chr) {
   this->chromosomes[sp_chr->id] = sp_chr;
   this->vec_chr_id.push_back(sp_chr->id);
@@ -239,6 +243,7 @@ bool GenomeReference::generate_kmer (
   *  2) index unmasked regions (start positions in genome)
   *  3) count nucleotide frequencies
   *  4) index bp positions into buckets by nucleotide
+  *  5) index bp positions into buckets by trinucleotides
   */
 void GenomeReference::indexRecords() {
   // initialize data structures
@@ -308,6 +313,12 @@ fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_coun
   nuc_freq[2] = nuc_count[2]/num_acgt;
   nuc_freq[3] = nuc_count[3]/num_acgt;
 fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n", nuc_freq[0], nuc_freq[1], nuc_freq[2], nuc_freq[3]);
+}
+
+void GenomeReference::clearIndex() {
+  this->nuc_pos.clear();
+  this->nuc_pos.shrink_to_fit();
+  this->map_3mer_pos.clear();
 }
 
 Locus GenomeReference::getLocusByGlobalPos(long global_pos) const {

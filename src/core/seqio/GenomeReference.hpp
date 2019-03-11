@@ -47,6 +47,8 @@ struct GenomeReference
     const char* fn_fasta,
     const std::map<std::string, std::vector<Locus>>& loci
   );
+  /** default d'tor */
+  ~GenomeReference();
 
   /** Adds a ChromosomeReference to this GenomeReference. */
   void addChromosome(std::shared_ptr<ChromosomeReference> sp_chr);
@@ -119,6 +121,11 @@ struct GenomeReference
    *  - positions having a given tri-nucleotide
    */
   void indexRecords();
+
+  /**
+   * Clear out indexing data structures to free memory.
+   */
+  void clearIndex();
 
   /**
    * Get chromosome and local position for global position
