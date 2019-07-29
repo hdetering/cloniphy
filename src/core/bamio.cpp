@@ -39,6 +39,9 @@ int ArtWrapper::run(string out_pfx) {
   art_cmd += " -o " + out_pfx;
   art_cmd += (out_sam ? " -sam" : "");
   art_cmd += (out_aln ? "" : " -na");
+  art_cmd += format(" -rs %lu", rndSeed);
+  // redirect output to log file
+  art_cmd += " > " + log + " 2>&1";
 
   fprintf(stderr, "---\nRunning ART with the following paramters:\n%s\n", art_cmd.c_str());
   int res_art = system(art_cmd.c_str());

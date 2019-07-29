@@ -96,7 +96,8 @@ public:
     * \param vec_clone_lbl     Clone labels, corresponding to positions in sampling matrix.
     * \param path_fasta        Directory with clone genome sequences (tiled by copy number state).
     * \param path_bam          Directory to which reads (BAM) will be output.
-    * \param path_bam          Directory to which allele counts (BED) will be output.
+    * \param path_bed          Directory to which allele counts (BED) will be output.
+    * \param path_log          Directory to which log files will be written.
     * \param seq_coverage      Total sequencing coverage (haploid).
     * \param seq_rc_error      Sequencing error (per base). Only applied when generating read counts.
     * \param seq_rc_disp       Sequencing depth overdispersion. Only applies to read count generation.
@@ -116,6 +117,7 @@ public:
     const boost::filesystem::path path_fasta,
     const boost::filesystem::path path_bam,
     const boost::filesystem::path path_bed,
+    const boost::filesystem::path path_log,
     const double seq_coverage,
     const double seq_rc_error,
     const double seq_rc_disp,
@@ -217,19 +219,23 @@ public:
    *
    * \param path_fasta       Directory with clone genome sequences (tiled by copy number state).
    * \param path_bam         Directory to which reads (BAM) will be output.
+   * \param path_log         Directory to which log files will be written.
    * \param lbl_sample       Label of the bulk sample (bulk_sample above).
    * \param map_clone_weight Clone weights, used to calculate read coverage for each clone.
    * \param seq_coverage     Haploid total sequencing coverage.
    * \param art              ArtWrapper object, called to generate reads from genomes.
+   * \param rng          Random number generator.
    */
   void
   generateBulkSeqReads (
     const boost::filesystem::path path_fasta,
     const boost::filesystem::path path_bam,
+    const boost::filesystem::path path_log,
     const std::string lbl_sample,
     const std::map<std::string, double> map_clone_weight,
     const double seq_coverage,
-    ArtWrapper& art
+    ArtWrapper& art,
+    RandomNumberGenerator& rng
   );
 
   /** Merge generated reads to form a bulk sample.
