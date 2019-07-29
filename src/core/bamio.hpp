@@ -37,6 +37,10 @@ public:
   std::string fn_ref_fa;
   /** should FASTQ output file be kept? */
   bool do_keep_fq;
+  /** random seed */
+  unsigned long rndSeed;
+  /** log file (receives stdout and stderr) */
+  std::string log;
 
   ArtWrapper(std::string bin_path);
   int run(std::string out_pfx);

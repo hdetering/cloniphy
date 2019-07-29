@@ -203,6 +203,7 @@ int main (int argc, char* argv[])
   path path_fasta = path_out / "fasta";
   path path_bam = path_out / "bam";
   path path_bed = path_out / "bed";
+  path path_log = path_out / "log";
   if ( ! exists(path_out) ) {
     if ( ! create_directories(path_out) ) {
       cerr << "[ERROR] (main) Could not create output directory: " << path_out << endl;
@@ -212,6 +213,7 @@ int main (int argc, char* argv[])
     create_directories(path_fasta);
     create_directories(path_bam);
     create_directories(path_bed);
+    create_directories(path_log);
   } else { // output dir exists
     // bail out with error
     //cerr << "[ERROR] (main) Output path already exists: " << path_out << "" << endl;
@@ -230,6 +232,10 @@ int main (int argc, char* argv[])
     if ( ! exists(path_bed) ) {
       create_directories(path_bed);
     }
+    if ( ! exists(path_log) ) {
+      create_directories(path_log);
+    }
+
   }
 
   // output file names
@@ -647,6 +653,7 @@ ofs_dbg_vars.close();
     path_fasta,
     path_bam,
     path_bed,
+    path_log,
     seq_coverage,
     seq_rc_error,
     seq_rc_disp,
