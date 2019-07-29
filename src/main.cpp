@@ -11,6 +11,9 @@
 #include "core/model/DataFrame.hpp"
 #include "core/random.hpp"
 #include "core/seqio.hpp"
+#include "core/seqio/GenomeReference.hpp"
+#include "core/seqio/GenomeInstance.hpp"
+#include "core/seqio/KmerProfile.hpp"
 #include "core/treeio.hpp"
 #include "core/vario.hpp"
 
@@ -20,6 +23,7 @@
 #include <algorithm> // find()
 #include <cassert>
 #include <cstdio> // remove(), rename()
+#include <cstdlib> // system()
 #include <ctime>
 #include <exception>
 #include <fstream>
@@ -30,8 +34,9 @@
 #include <memory>
 #include <random> // std::random_device
 #include <sstream>
-#include <stdlib.h> // system()
 #include <string>
+
+#include <unistd.h> // getwd()
 
 using namespace std;
 using namespace boost::filesystem;
@@ -72,6 +77,7 @@ int main (int argc, char* argv[])
   unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref_fa = config.getValue<string>("ref-fasta");
+  bool do_ref_trinuc_sig = config.getValue<bool>("ref-use-trinuc");
   string fn_ref_trinuc_sig = config.getValue<string>("ref-trinuc-profile");
   string fn_mut_gl_vcf = config.getValue<string>("mut-gl-vcf");
   string str_model_gl = config.m_mut_gl_model;
@@ -106,8 +112,6 @@ int main (int argc, char* argv[])
 
   // inferred properties
   bool do_ref_sim = ( fn_ref_fa.length() == 0 );
-  bool do_ref_trinuc_sig = ( fn_ref_trinuc_sig.length() > 0 );
-  bool do_germline_vars = ( (fn_mut_gl_vcf.size() > 0) || (n_mut_germline > 0) );
   bool do_somatic_vars = ( fn_mut_som_vcf.size() == 0 );
   bool do_cnv_sim = ( mut_som_cnv_ratio > 0.0 );
   // has the user provided a BAM file?
@@ -287,20 +291,66 @@ int main (int argc, char* argv[])
 
   // get reference genome
   GenomeReference ref_genome;
-  if (fn_ref_fa.length() > 0) {
+  if ( !do_ref_sim ) {
     fprintf(stderr, "\nReading reference from file '%s'...\n", fn_ref_fa.c_str());
     ref_genome = GenomeReference(fn_ref_fa.c_str());
   }
-  else if (ref_nuc_freqs.size() > 0) {
-    fprintf(stderr, "\nGenerating random reference genome sequence (%u seqs of length %lu +/- %lu)...", ref_seq_num, ref_seq_len_mean, ref_seq_len_sd);
-    ref_genome.generate(ref_seq_num, ref_seq_len_mean, ref_seq_len_sd, ref_nuc_freqs, rng);
+  // use trinucleotide profile?
+  else if (do_ref_trinuc_sig) {
+    fprintf(stdout, "\nGenerating random reference genome sequence:\n");
+    fprintf(stdout, "  no. sequences:\t%u\n", ref_seq_num);
+    fprintf(stdout, "  mean length:\t%lu (+/- %lu)\n", ref_seq_len_mean, ref_seq_len_sd);
+    fprintf(stdout, "  kmer profile:\t%s\n", fn_ref_trinuc_sig.c_str());
 
-    // write generated genome to file
+    // check whether profile file exists
+    path path_profile(fn_ref_trinuc_sig);
+    if ( ! exists(path_profile) ) {
+      char cCurrentPath[FILENAME_MAX];
+      getcwd(cCurrentPath, sizeof(cCurrentPath));
+      cCurrentPath[sizeof(cCurrentPath) - 1] = '\0'; /* not really required */
+
+      fprintf(stderr, "[INFO] Working dir: %s\n", cCurrentPath);
+      fprintf(stderr, "[ERROR] File does not exist: '%s'\n", fn_ref_trinuc_sig.c_str());
+    }
+    
+    // initialize kmer profile from CSV file
+    seqio::KmerProfile ref_kmer_prof(fn_ref_trinuc_sig);
+    // generate reference genome using kmer frequency profile
+    bool success = ref_genome.generate_kmer(
+      ref_seq_num,
+      ref_seq_len_mean,
+      ref_seq_len_sd,
+      ref_kmer_prof,
+      rng
+    );
+    if (!success) {
+      fprintf(stderr, "[ERROR] Failed to generate reference genome. Bailing out...\n");
+      return EXIT_FAILURE;
+    }
+  }
+  // use base frequencies?
+  else if (ref_nuc_freqs.size() > 0) {
+    fprintf(stdout, "\nGenerating random reference genome sequence:\n");
+    fprintf(stdout, "  no. sequences:\t%u\n", ref_seq_num);
+    fprintf(stdout, "  mean length:\t%lu (+/- %lu)\n", ref_seq_len_mean, ref_seq_len_sd);
+    
+    ref_genome.generate_nucfreqs(
+      ref_seq_num, 
+      ref_seq_len_mean, 
+      ref_seq_len_sd, 
+      ref_nuc_freqs, 
+      rng
+    );      
+  }
+
+  // write generated reference genome to file
+  if ( do_ref_sim ) {
     fn_ref_fa = (path_out / path("ref.fa")).string();
     fprintf(stderr, "writing reference genome to file: %s\n", fn_ref_fa.c_str());
     seqio::writeFasta(ref_genome.records, fn_ref_fa);
     clone2fn[tree.m_root] = fn_ref_fa;
   }
+  
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
   // TODO: make this a parameter?
@@ -318,10 +368,14 @@ int main (int argc, char* argv[])
     art.fold_cvg = seq_coverage;
     art.fn_ref_fa = fn_ref_fa;
     art.out_sam = seq_sam_out;
+    art.do_keep_fq = seq_fq_out;
     //art.do_keep_fq = seq_fq_out; // do baseline FASTQs have any application?
     // generate reads using ART
     path art_out_pfx = path_out / path("ref");
     int res_art = art.run(art_out_pfx.string());
+    if ( res_art != 0 ) {
+      fprintf(stderr, "[WARN] ART exited with return code %d.\n", res_art);
+    }
     // Simulated read alignments can be found in the following SAM file
     fn_ref_bam = art_out_pfx;
     fn_ref_bam += ".sam";
@@ -360,6 +414,7 @@ int main (int argc, char* argv[])
 
   // assign somatic mutation types (single-nucleotide vs. copy-number)
   unsigned n_som_cnv = vario::assignSomaticMutationType(vec_mut_som, mut_som_cnv_ratio, rng);
+  fprintf(stdout, "Set %u/%lu somatic mutations as CNVs.\n", n_som_cnv, vec_mut_som.size());
 
   // generate somatic mutations
   vector<Variant> vec_var_somatic;

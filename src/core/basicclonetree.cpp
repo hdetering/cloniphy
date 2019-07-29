@@ -1,5 +1,5 @@
 #include "basicclonetree.hpp"
-#include <stdio.h>
+#include <cstdio>
 #include <vector>
 
 BasicCloneTree::BasicCloneTree() : treeio::Tree<Clone>() {}

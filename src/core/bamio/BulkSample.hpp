@@ -2,6 +2,7 @@
 #define BULKSAMPLE_H
 
 #include "../bamio.hpp"
+#include "../seqio/AlleleSpecCopyNum.hpp"
 
 namespace bamio {
 

@@ -1,10 +1,11 @@
 #include "vario.hpp"
+//#include "seqio/ChromosomeInstance.hpp"
 #include <algorithm>
 #include <boost/container/flat_set.hpp>
 #include <ctime>
 #include <fstream>
 #include <set>
-#include <stdio.h>
+#include <cstdio>
 
 using namespace std;
 using boost::uuids::uuid;
@@ -359,7 +360,7 @@ writeVcfHeader (
   time_t timer = time(NULL);
   tm* t = localtime(&timer);
   out << format("##fileDate=%d-%d-%d", (1900+t->tm_year), t->tm_mon, t->tm_mday) << endl;
-  out << "##source=CloniPhy v1.0.3" << endl;
+  out << "##source=CloniPhy v1.1.0" << endl;
   //out << "##reference=" << std::endl; # TODO: include ref filename
   vector<string> vec_ref_ids;
   for (size_t i=0; i<vec_seq_id.size(); i++) {

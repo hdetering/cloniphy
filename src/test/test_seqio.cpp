@@ -3,6 +3,8 @@
 
 #include "../core/random.hpp"
 #include "../core/seqio.hpp"
+#include "../core/seqio/GenomeReference.hpp"
+#include "../core/seqio/GenomeInstance.hpp"
 #include <boost/icl/interval.hpp>
 #include <boost/icl/interval_map.hpp>
 #include <map>
@@ -55,7 +57,7 @@ BOOST_AUTO_TEST_CASE( gen )
 
   BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
   ref_genome = GenomeReference();
-  ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
+  ref_genome.generate_nucfreqs(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
   BOOST_TEST_MESSAGE( "done." );
   //BOOST_CHECK( ref_genome.length == len );
   BOOST_CHECK( ref_genome.num_records == num_chr );
@@ -91,7 +93,7 @@ BOOST_AUTO_TEST_CASE( exome )
 
   BOOST_TEST_MESSAGE( "generating genome in " << num_chr << " fragments with length " << frag_len_mean << " (sd=" << frag_len_sd << ")..." );
   ref_genome = GenomeReference();
-  ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
+  ref_genome.generate_nucfreqs(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
   BOOST_TEST_MESSAGE( "done." );
   //BOOST_CHECK( ref_genome.length == len );
   BOOST_CHECK( ref_genome.num_records == num_chr );
@@ -193,7 +195,7 @@ BOOST_AUTO_TEST_CASE( tile )
   BOOST_TEST_MESSAGE( "chromosomes:\t" << num_chr );
   BOOST_TEST_MESSAGE( "chr length:\t" << frag_len_mean << " (+/- " << frag_len_sd << ")\n");
   ref_genome = GenomeReference();
-  ref_genome.generate(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
+  ref_genome.generate_nucfreqs(num_chr, frag_len_mean, frag_len_sd, nuc_freqs, rng);
   GenomeInstance genome(ref_genome);
   BOOST_TEST_MESSAGE( genome );
 
