@@ -63,6 +63,7 @@ BulkSampleGenerator::generateBulkSamples (
   const path path_fasta,
   const path path_bam,
   const path path_bed,
+  const path path_log,
   const double seq_coverage,
   const double seq_rc_error,
   const double seq_rc_disp,
@@ -124,7 +125,7 @@ BulkSampleGenerator::generateBulkSamples (
       art.frag_len_sd = seq_frag_len_sd;
       art.out_sam = true;
 
-      generateBulkSeqReads(path_fasta, path_bam, lbl_sample, w, seq_coverage, art);
+      generateBulkSeqReads(path_fasta, path_bam, path_log, lbl_sample, w, seq_coverage, art, rng);
       mergeBulkSeqReads(path_bam, lbl_sample, vec_rg, var_store, seq_use_vaf, rng);
     } 
     else { // generate read counts
@@ -380,10 +381,12 @@ void
 BulkSampleGenerator::generateBulkSeqReads (
   const path path_fasta,
   const path path_bam,
+  const path path_log,
   const string lbl_sample,
   const map<string, double> map_clone_weight,
   const double cvg_total,
-  ArtWrapper& art
+  ArtWrapper& art,
+  RandomNumberGenerator& rng
 ) 
 {
   // sanity checks
@@ -443,12 +446,19 @@ BulkSampleGenerator::generateBulkSeqReads (
     double cvg = double(n_reads) / seq_len * art.read_len;
     //double cvg = map_clone_cvg[id_clone] / 2 * copy_number;
 
+    // generate random seed for sequencing sim
+    unsigned long rnd_seed = rng.getRandomFunctionInt(0, numeric_limits<int>::max())();
+    // construct log file path
+    path fn_log = path_log / (lbl_sample+"."+fn_pfx+".art.log");
+
     if ( cvg > 0.0 ) {
 #ifndef NDEBUG
       cout << "#reads total: " << n_reads_tot << endl;
       cout << "#reads clone " << id_clone << ": "  << map_clone_reads[id_clone] << endl;
       cout << "fraction of genome: " << seq_frac << " (" << seq_len << "*" << copy_number << "/" << genome_len << ")" << endl;
       cout << "clone: " << id_clone << "; CN: " << copy_number << "; cvg: " << cvg << endl;
+      cout << "seed: " << rnd_seed << endl;
+      cout << "log: " << fn_log.string();
 #endif
       art.fold_cvg = cvg;
       //art.num_reads = round(n_reads / 2); // actually specifies read pairs
@@ -456,6 +466,8 @@ BulkSampleGenerator::generateBulkSeqReads (
       //art.out_pfx = (path_bam / fn_pfx).string();
       //cout << art.out_pfx << endl;
       // output files are named: <sample>.<clone>.<CN>.sam
+      art.rndSeed = rnd_seed;
+      art.log = fn_log.string();
       string fn_pfx_out = (path_bam / (lbl_sample+"."+fn_pfx)).string();
       int res_art = art.run(fn_pfx_out);
 // TODO: sort and compress SAM output
