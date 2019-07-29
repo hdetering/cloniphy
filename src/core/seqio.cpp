@@ -10,14 +10,35 @@ namespace seqio {
 /*           Utility methods          */
 /*------------------------------------*/
 
-void readFasta(const char *filename, vector<shared_ptr<SeqRecord>> &records) {
+/* DEPRECATED
+void readFasta (
+  vector<shared_ptr<SeqRecord>> &records, 
+  const char *filename
+) {
   ifstream inputFile;
   inputFile.open(filename, ios::in);
-  readFasta(inputFile, records);
+  readFasta(records, inputFile);
+  inputFile.close();
+} */
+
+void readFasta (
+  vector<shared_ptr<SeqRecord>> &records, 
+  const char *filename,
+  const bool use_whitelist,
+  const TLocusMap& map_seq_loci
+) {
+  ifstream inputFile;
+  inputFile.open(filename, ios::in);
+  readFasta(records, inputFile, use_whitelist, map_seq_loci);
   inputFile.close();
 }
 
-void readFasta(istream &input, vector<shared_ptr<SeqRecord>> &records) {
+void readFasta (
+  vector<shared_ptr<SeqRecord>> &records, 
+  istream &input,
+  const bool use_whitelist,
+  const TLocusMap& map_loci 
+) {
   string header;
   string seq;
   string line;
@@ -25,25 +46,33 @@ void readFasta(istream &input, vector<shared_ptr<SeqRecord>> &records) {
   try {
     stringio::safeGetline(input, header);
     while (input.good()) {
+      // read sequence data
       while (stringio::safeGetline(input, line)) {
         if (line.length()>0 && line[0]=='>')
           break;
         seq += line;
       }
+      
+      // parse header line
       size_t space_pos = header.find(' ');
       string seq_id = header.substr(1, space_pos-1);
       string seq_desc = header.substr(space_pos+1);
-      //SeqRecord rec = {seq_id, seq_desc, seq};
-      shared_ptr<SeqRecord> sp_rec(new SeqRecord(seq_id, seq_desc, seq));
-      // get properties from description
-      vector<string> desc_parts = stringio::split(seq_desc, ';');
-      for (string part : desc_parts) {
-        vector<string> kv = stringio::split(part, '=');
-        if (kv.size() == 2)
-          if (kv[0] == "id_ref")
-            sp_rec->id_ref = kv[1];
+      
+      // check if record in list of sequences to import
+      if (map_loci.find(seq_id) != map_loci.end() || !use_whitelist) {
+        shared_ptr<SeqRecord> sp_rec(new SeqRecord(seq_id, seq_desc, seq));
+        // get properties from description
+        vector<string> desc_parts = stringio::split(seq_desc, ';');
+        for (string part : desc_parts) {
+          vector<string> kv = stringio::split(part, '=');
+          if (kv.size() == 2)
+            if (kv[0] == "id_ref")
+              sp_rec->id_ref = kv[1];
+        }
+        // add record to output
+        records.push_back(sp_rec);
       }
-      records.push_back(sp_rec);
+
       header = line;
       seq = "";
     }

@@ -11,6 +11,8 @@
 #include "core/model/DataFrame.hpp"
 #include "core/random.hpp"
 #include "core/seqio.hpp"
+#include "core/seqio/BedFile.hpp"
+#include "core/seqio/FastaIndex.hpp"
 #include "core/seqio/GenomeReference.hpp"
 #include "core/seqio/GenomeInstance.hpp"
 #include "core/seqio/KmerProfile.hpp"
@@ -43,9 +45,12 @@ using namespace boost::filesystem;
 using config::ConfigStore;
 using model::DataFrame;
 using stringio::format;
-using seqio::SeqRecord;
+using seqio::BedFile;
+using seqio::FastaIndex;
 using seqio::GenomeReference;
 using seqio::GenomeInstance;
+using seqio::KmerProfile;
+using seqio::SeqRecord;
 using vario::Genotype;
 using vario::Mutation;
 using vario::Variant;
@@ -77,6 +82,8 @@ int main (int argc, char* argv[])
   unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
   vector<double> ref_nuc_freqs = config.getValue<vector<double>>("ref-nuc-freqs");
   string fn_ref_fa = config.getValue<string>("ref-fasta");
+  string fn_ref_idx = config.getValue<string>("ref-fasta-idx");
+  string fn_ref_bed = config.getValue<string>("ref-seq-bed");
   bool do_ref_trinuc_sig = config.getValue<bool>("ref-use-trinuc");
   string fn_ref_trinuc_sig = config.getValue<string>("ref-trinuc-profile");
   string fn_mut_gl_vcf = config.getValue<string>("mut-gl-vcf");
@@ -288,15 +295,46 @@ int main (int argc, char* argv[])
   fprintf(stderr, "Writing mutation matrix for visible clones to file: %s\n", fn_mm.c_str());
   tree.writeMutationMatrix(fn_mm.string());
 
-
   // get reference genome
   GenomeReference ref_genome;
+  BedFile ref_bed;
   if ( !do_ref_sim ) {
+    
+    map<string, vector<Locus>> map_chr_loci;
+    // has reference BED file (seqs to use and copy number) been provided?
+    if (fn_ref_bed.length() > 0) { // load BED file
+      ref_bed = seqio::BedFile(fn_ref_bed);
+    }
+    else { // use FASTA index to initialize ref seqs
+      FastaIndex ref_idx(fn_ref_idx);
+      // populate BED file from FASTA index
+      ref_bed.m_num_recs = ref_idx.m_num_seqs;
+      ref_bed.m_feat_names = { "CN_A", "CN_B" };
+      ref_bed.m_feat_val = {{}, {}};
+      for (size_t i=0; i<ref_idx.m_num_seqs; i++) {
+        ref_bed.m_vec_seqid.push_back(ref_idx.m_vec_name[i]);
+        ref_bed.m_vec_start.push_back(0);
+        ref_bed.m_vec_end.push_back(ref_idx.m_vec_len[i]);
+        // TODO: treat sex chromosomes differently (if parameters provided)
+        ref_bed.m_feat_val[0].push_back("1");
+        ref_bed.m_feat_val[1].push_back("1");
+      }
+    }
+    
+    // create whitelist of loci per chromosome
+    vector<Locus> vec_loci;
+    ref_bed.getLoci(vec_loci);
+    for (const Locus loc : vec_loci) {
+      if (map_chr_loci.find(loc.id_ref) != map_chr_loci.end())
+        map_chr_loci.insert({loc.id_ref, vector<Locus>()});
+      map_chr_loci[loc.id_ref].push_back(loc);
+    }
+
     fprintf(stderr, "\nReading reference from file '%s'...\n", fn_ref_fa.c_str());
-    ref_genome = GenomeReference(fn_ref_fa.c_str());
+    ref_genome = GenomeReference(fn_ref_fa.c_str(), map_chr_loci);
   }
   // use trinucleotide profile?
-  else if (do_ref_trinuc_sig) {
+  else if ( do_ref_trinuc_sig ) {
     fprintf(stdout, "\nGenerating random reference genome sequence:\n");
     fprintf(stdout, "  no. sequences:\t%u\n", ref_seq_num);
     fprintf(stdout, "  mean length:\t%lu (+/- %lu)\n", ref_seq_len_mean, ref_seq_len_sd);
@@ -314,7 +352,7 @@ int main (int argc, char* argv[])
     }
     
     // initialize kmer profile from CSV file
-    seqio::KmerProfile ref_kmer_prof(fn_ref_trinuc_sig);
+    KmerProfile ref_kmer_prof(fn_ref_trinuc_sig);
     // generate reference genome using kmer frequency profile
     bool success = ref_genome.generate_kmer(
       ref_seq_num,
@@ -353,8 +391,6 @@ int main (int argc, char* argv[])
   
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
-  // TODO: make this a parameter?
-  ref_genome.ploidy = 2;
 
   path fn_ref_bam;
   if (do_ref_reads) {
@@ -440,6 +476,12 @@ int main (int argc, char* argv[])
   GenomeInstance healthy_genome = GenomeInstance(ref_genome);
   // root node corresponds to healthy genome (diploid)
   map_id_genome[nodes[0]->index] = healthy_genome;
+//string keystrokes;
+//cout << "Now clearing reference genome indices. Hit any key to continue...";
+//cin >> keystrokes;
+  // MEM: ref genome index not needed after this point
+  ref_genome.clearIndex();
+
   // apply germline mutations to healthy genome
   fprintf(stderr, "applying germline variants to clone tree root...\n");
   var_store.applyGermlineVariants(healthy_genome, rng);

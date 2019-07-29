@@ -6,18 +6,14 @@ using namespace std;
 
 namespace seqio {
 
-GenomeReference::GenomeReference() : length(0), masked_length(0) {} //, ploidy(1) {}
+GenomeReference::GenomeReference() : length(0), masked_length(0) {}
 
-GenomeReference::GenomeReference(const char* filename) : length(0), masked_length(0) {
-  //ploidy = 1;
-  //regex rgx("$(\\w+):([0-9]+)-([0-9]+)"); // matches chromosome segment IDs
-  //smatch matches;
-  // initialize nucleotide freuquencies
-  for (int i=0; i<4; i++)
-    nuc_freq[i] = 0;
-
+GenomeReference::GenomeReference(const char* filename)
+: length(0), 
+  masked_length(0)
+{
   // read records from file
-  readFasta(filename, this->records);
+  readFasta(this->records, filename);
   // scan records for segmented sequence (naming convention: "CHR:START-END")
   for (auto & rec : this->records) {
     // TODO: does it make sense to expect genomic fragments in FASTA?
@@ -48,6 +44,40 @@ GenomeReference::GenomeReference(const char* filename) : length(0), masked_lengt
   }
   num_records = records.size();
 }
+
+GenomeReference::GenomeReference (
+  const char* filename,
+  const map<string, vector<Locus>>& map_chr_loci
+)
+: length(0), 
+  masked_length(0) 
+{
+  // read records from file
+  bool use_whitelist = ( map_chr_loci.size() > 0 );
+  readFasta(this->records, filename, use_whitelist, map_chr_loci);
+  // scan records
+  for (auto & rec : this->records) {
+    // if record ID is not present in loci list: skip record
+    if (map_chr_loci.find(rec->id) == map_chr_loci.end())
+      continue;
+    // initialize new reference chromosome
+    shared_ptr<ChromosomeReference> p_chr_ref(new ChromosomeReference());
+    p_chr_ref->id = rec->id;
+    p_chr_ref->length = rec->seq.length();
+    for (const Locus loc : map_chr_loci.at(rec->id)) {
+      string seq_id = stringio::format("%s:%lu-%lu", loc.id_ref, loc.start, loc.end);
+      string seq = rec->seq.substr(loc.start, loc.end-loc.start);
+      shared_ptr<SeqRecord> sp_rec(new SeqRecord(seq_id, "", seq));
+      p_chr_ref->map_start_rec[loc.start] = sp_rec;
+    }
+    // sanity check: chromosome IDs should be unique
+    assert(this->chromosomes.count(p_chr_ref->id) == 0);
+    this->addChromosome(p_chr_ref);
+  }
+  num_records = records.size();
+}
+
+GenomeReference::~GenomeReference () {}
 
 void GenomeReference::addChromosome(shared_ptr<ChromosomeReference> sp_chr) {
   this->chromosomes[sp_chr->id] = sp_chr;
@@ -211,6 +241,7 @@ bool GenomeReference::generate_kmer (
   *  2) index unmasked regions (start positions in genome)
   *  3) count nucleotide frequencies
   *  4) index bp positions into buckets by nucleotide
+  *  5) index bp positions into buckets by trinucleotides
   */
 void GenomeReference::indexRecords() {
   // initialize data structures
@@ -280,6 +311,12 @@ fprintf(stderr, "Nucleotide counts:\n  A:%u\n  C:%u\n  G:%u\n  T:%u\n", nuc_coun
   nuc_freq[2] = nuc_count[2]/num_acgt;
   nuc_freq[3] = nuc_count[3]/num_acgt;
 fprintf(stderr, "Nucleotide freqs:\n  A:%0.4f\n  C:%0.4f\n  G:%0.4f\n  T:%0.4f\n", nuc_freq[0], nuc_freq[1], nuc_freq[2], nuc_freq[3]);
+}
+
+void GenomeReference::clearIndex() {
+  this->nuc_pos.clear();
+  this->nuc_pos.shrink_to_fit();
+  this->map_3mer_pos.clear();
 }
 
 Locus GenomeReference::getLocusByGlobalPos(long global_pos) const {

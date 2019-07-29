@@ -155,18 +155,18 @@ BOOST_AUTO_TEST_CASE( var_dist )
   BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ", f[2][0], f[2][1], f[2][2], f[2][3]) );
   BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ", f[3][0], f[3][1], f[3][2], f[3][3]) );
 
-  BOOST_TEST_MESSAGE( "generating 10000 genomic variants (random positions)..." );
-  vector<Variant> vars_random = generateVariantsRandomPos(10000, ref_genome, model, rng);
-  VariantSet varset_random;
-  varset_random.vec_variants = vars_random;
-  varset_random.calculateSumstats();
-  double (&g)[4][4] = varset_random.mat_freqs;
-  BOOST_TEST_MESSAGE( "\tnucleotide substitution frequencies:" );
-  BOOST_TEST_MESSAGE( "   |    A   |    C   |    G   |    T   " );
-  BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ", g[0][0], g[0][1], g[0][2], g[0][3]) );
-  BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ", g[1][0], g[1][1], g[1][2], g[1][3]) );
-  BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ", g[2][0], g[2][1], g[2][2], g[2][3]) );
-  BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ", g[3][0], g[3][1], g[3][2], g[3][3]) );
+  //BOOST_TEST_MESSAGE( "generating 10000 genomic variants (random positions)..." );
+  //var_store.generateGermlineVariants(10000, ref_genome, model, rng);
+  //VariantSet varset_random;
+  //varset_random.vec_variants = vars_random;
+  //varset_random.calculateSumstats();
+  //double (&g)[4][4] = varset_random.mat_freqs;
+  //BOOST_TEST_MESSAGE( "\tnucleotide substitution frequencies:" );
+  //BOOST_TEST_MESSAGE( "   |    A   |    C   |    G   |    T   " );
+  //BOOST_TEST_MESSAGE( format(" A | %0.4f | %0.4f | %0.4f | %0.4f ", g[0][0], g[0][1], g[0][2], g[0][3]) );
+  //BOOST_TEST_MESSAGE( format(" C | %0.4f | %0.4f | %0.4f | %0.4f ", g[1][0], g[1][1], g[1][2], g[1][3]) );
+  //BOOST_TEST_MESSAGE( format(" G | %0.4f | %0.4f | %0.4f | %0.4f ", g[2][0], g[2][1], g[2][2], g[2][3]) );
+  //BOOST_TEST_MESSAGE( format(" T | %0.4f | %0.4f | %0.4f | %0.4f ", g[3][0], g[3][1], g[3][2], g[3][3]) );
 }
 
 /* test data structures for CNVs */

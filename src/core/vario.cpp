@@ -599,8 +599,9 @@ long getRandomMutPos(
 //   return variants;
 // }
 
+/* !DEPRECATED! (use vario::VariantStore::generateGermlineVariants) */
 /** Generate variant loci in a given genome based on evolutionary model.
-    Nucleotide substitution probabilities guide selection of loci. */
+    Nucleotide substitution probabilities guide selection of loci. 
 vector<Variant> generateVariantsRandomPos(
   const int num_variants,
   const GenomeReference& genome,
@@ -612,7 +613,6 @@ vector<Variant> generateVariantsRandomPos(
   boost::container::flat_set<int> var_pos; // keep track of variant positions
   function<double()> random_float = rng.getRandomFunctionReal(0.0, 1.0);
   function<long()> random_pos = rng.getRandomFunctionInt<long>(0, genome.length);
-  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
   for (int i=0; i<num_variants; ++i) {
@@ -633,7 +633,6 @@ fprintf(stderr, "locus %ld has been mutated before, picking another one...\n", n
     Variant var;
     var.id = to_string(i);
     var.chr = id_chr;
-    //var.chr_copy = random_copy();
     //var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
     var.pos = nuc_pos;
     var.rel_pos = double(nuc_pos)/genome.length;
@@ -643,7 +642,7 @@ fprintf(stderr, "locus %ld has been mutated before, picking another one...\n", n
   }
 
   return variants;
-}
+} */
 
 /* DEPRECATED! */
 // void applyVariants(

@@ -27,7 +27,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/build/src/cloniphy",
             "args": [
-                "-c", "${workspaceRoot}/data/316d3da2/config.yml", "-o" , 
+                "-c", "${workspaceRoot}/data/hg18/config.yml", "-o" , 
                 "${workspaceRoot}/build/test"
             ],
             "stopAtEntry": true,
