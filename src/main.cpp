@@ -98,6 +98,7 @@ int main (int argc, char* argv[])
   double seq_rc_disp = config.getValue<double>("seq-rc-disp");
   int    seq_rc_min = config.getValue<int>("seq-rc-min");
   bool seq_read_gen = config.getValue<bool>("seq-read-gen");
+  bool seq_rc_gen = config.getValue<bool>("seq-rc-gen");
   bool seq_use_vaf = config.getValue<bool>("seq-use-vaf");
   unsigned seq_read_len = config.getValue<unsigned>("seq-read-len");
   unsigned seq_frag_len_mean = config.getValue<unsigned>("seq-frag-len-mean");
@@ -432,8 +433,7 @@ int main (int argc, char* argv[])
 
   // if a VCF file was provided, read germline variants from file, otherwise simulate variants
   if (fn_mut_gl_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
-    fprintf(stderr, "applying germline variants (from %s).\n", fn_mut_gl_vcf.c_str());
-    VariantSet ref_variants;
+    fprintf(stderr, "using germline variants (from %s).\n", fn_mut_gl_vcf.c_str());
     map<string, vector<Genotype >> ref_gt_matrix;
     vario::readVcf(fn_mut_gl_vcf, varset_gl, ref_gt_matrix);
   } else if (n_mut_germline > 0) {
@@ -569,7 +569,13 @@ for (auto const & cg : map_clone_genome) {
     for (auto const & chr : ic.second) {
       for (auto const & seg : chr->lst_segments) {
         for (auto const & v : var_store.map_seg_vars[seg.id]) {
-          ofs_dbg_vars << seg.id << "\t" << var_store.map_id_snv[v].id << endl;
+          ofs_dbg_vars << seg.id;
+          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].id;
+          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].chr;
+          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].pos;
+          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[0];
+          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[1];
+          ofs_dbg_vars << endl;
         }
       }
     }
@@ -644,28 +650,30 @@ ofs_dbg_vars.close();
   // write absolute copy number states to BED file for each sample
   bulk_generator.writeBulkCopyNumber(path_bed);
 
-  // generate reads for genomic regions
-  // - reads overlapping with padded regions are discarded
-  fprintf(stdout, "Generating sequencing reads...\n");
-  bulk_generator.generateBulkSamples (
-    mtx_sample_clone,
-    var_store,
-    path_fasta,
-    path_bam,
-    path_bed,
-    path_log,
-    seq_coverage,
-    seq_rc_error,
-    seq_rc_disp,
-    seq_rc_min,
-    seq_read_gen,
-    seq_use_vaf,
-    seq_read_len, 
-    seq_frag_len_mean, 
-    seq_frag_len_sd,  
-    seq_art_path,
-    rng
-  );
+  if ( seq_read_gen || seq_rc_gen ) {
+    // generate reads for genomic regions
+    // - reads overlapping with padded regions are discarded
+    fprintf(stdout, "Generating sequencing reads...\n");
+    bulk_generator.generateBulkSamples (
+      mtx_sample_clone,
+      var_store,
+      path_fasta,
+      path_bam,
+      path_bed,
+      path_log,
+      seq_coverage,
+      seq_rc_error,
+      seq_rc_disp,
+      seq_rc_min,
+      seq_read_gen,
+      seq_use_vaf,
+      seq_read_len, 
+      seq_frag_len_mean, 
+      seq_frag_len_sd,  
+      seq_art_path,
+      rng
+    );
+  }
 
   // setup mutation matrix
   int num_nodes = tree.m_numNodes;

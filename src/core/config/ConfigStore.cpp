@@ -33,7 +33,12 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   int n_mut_somatic = 0;
   int n_mut_trunk = 0;
   int n_mut_gl = 0;
+  int n_ref_seq = 0;
+  unsigned long ref_seq_len_mean = 0.0;
+  unsigned long ref_seq_len_sd = 0.0;
+  vector<double> vec_ref_nuc_freqs = {0.25, 0.25, 0.25, 0.25};
   double mut_som_cnv_ratio = 0.0;
+  double mut_gl_hom_ratio = 0.0;
   string dir_out = "output";
   string fn_config = "";
   string fn_bam_input = "";
@@ -47,6 +52,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_tree = "";
   bool do_ref_trinuc = false;
   bool seq_read_gen = false;
+  bool seq_rc_gen = true;
+  unsigned seq_read_len = 0;
+  unsigned seq_frag_len_mean = 0;
+  unsigned seq_frag_len_sd = 0;
+  string seq_art_path = "";
   int seq_rc_min = 1;
   bool seq_use_vaf = false;
   bool do_reuse_reads = false;
@@ -158,6 +168,26 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   // reference-related params
   //---------------------------------------------------------------------------
   
+  // number of reference sequences to simulate
+  if (var_map.count("ref-seq-num") || !_config["ref-seq-num"]) {
+    _config["ref-seq-num"] = n_ref_seq;
+  }
+  n_ref_seq = _config["ref-seq-num"].as<int>();
+  // mean length of reference sequences to simulate
+  if (var_map.count("ref-seq-len-mean") || !_config["ref-seq-len-mean"]) {
+    _config["ref-seq-len-mean"] = ref_seq_len_mean;
+  }
+  ref_seq_len_mean = _config["ref-seq-len-mean"].as<unsigned long>();
+  // standard dev of lengths for reference sequences to simulate
+  if (var_map.count("ref-seq-len-sd") || !_config["ref-seq-len-sd"]) {
+    _config["ref-seq-len-sd"] = ref_seq_len_sd;
+  }
+  ref_seq_len_sd = _config["ref-seq-len-sd"].as<unsigned long>();
+  // standard dev of lengths for reference sequences to simulate
+  if (var_map.count("ref-nuc-freqs") || !_config["ref-nuc-freqs"]) {
+    _config["ref-nuc-freqs"] = vec_ref_nuc_freqs;
+  }
+  vec_ref_nuc_freqs = _config["ref-nuc-freqs"].as<vector<double>>();
   // path to reference FASTA
   if (var_map.count("ref-fasta") || !_config["ref-fasta"]) {
     _config["ref-fasta"] = fn_ref_fa;
@@ -202,6 +232,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["mut-gl-num"] = n_mut_gl;
   }
   n_mut_gl = _config["mut-gl-num"].as<int>();
+  // fraction of homozygous germline mutations
+  if (!_config["mut-gl-hom"]) {
+    _config["mut-gl-hom"] = mut_gl_hom_ratio;
+  }
+  mut_gl_hom_ratio = _config["mut-gl-hom"].as<double>();
   // path to germline variants input VCF
   if (var_map.count("mut-gl-vcf") || !_config["mut-gl-vcf"]) {
     _config["mut-gl-vcf"] = fn_mut_gl_vcf;
@@ -275,11 +310,32 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   // sequencing-related params
   //---------------------------------------------------------------------------
 
-  // whether to generate sequencing reads (if not, generate readcounts directly)
+  // whether to generate sequencing reads
+  // (if not, read counts can be generated instead)
   if (!_config["seq-read-gen"]) {
     _config["seq-read-gen"] = seq_read_gen;
   }
   seq_read_gen = _config["seq-read-gen"].as<bool>();
+  // read length for read simulation
+  if (!_config["seq-read-len"]) {
+    _config["seq-read-len"] = seq_read_len;
+  }
+  seq_read_len = _config["seq-read-len"].as<unsigned>();
+  // mean fragment length for read simulation
+  if (!_config["seq-frag-len-mean"]) {
+    _config["seq-frag-len-mean"] = seq_frag_len_mean;
+  }
+  seq_frag_len_mean = _config["seq-frag-len-mean"].as<unsigned>();
+  // std dev of fragment lengths for read simulation
+  if (!_config["seq-frag-len-sd"]) {
+    _config["seq-frag-len-sd"] = seq_frag_len_sd;
+  }
+  seq_frag_len_sd = _config["seq-frag-len-sd"].as<unsigned>();
+  // path to external sequencing read simulator
+  if (var_map.count("seq-art-path") || !_config["seq-art-path"]) {
+    _config["seq-art-path"] = seq_art_path;
+  }
+  seq_art_path = _config["seq-art-path"].as<string>();
   // whether to use VAFs to spike in mutations (if not, assign read pairs to segment copies)
   if (!_config["seq-use-vaf"]) {
     _config["seq-use-vaf"] = seq_use_vaf;
@@ -304,6 +360,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   if (!_config["seq-rc-min"]) {
     _config["seq-rc-min"] = seq_rc_min;
   }
+  // whether to generate read counts
+  if (!_config["seq-rc-gen"]) {
+    _config["seq-rc-gen"] = seq_rc_gen;
+  }
+  seq_rc_gen = _config["seq-rc-gen"].as<bool>();
   seq_rc_min = _config["seq-rc-min"].as<int>();
   
   //---------------------------------------------------------------------------
