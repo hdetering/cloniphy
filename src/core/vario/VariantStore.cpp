@@ -31,6 +31,13 @@ VariantStore::indexSnvs ()
 }
 
 bool
+VariantStore::importGermlineVariants (
+  VariantSet variants )
+{
+
+} 
+
+bool
 VariantStore::generateGermlineVariants (
   const int num_variants,
   const GenomeReference& genome,

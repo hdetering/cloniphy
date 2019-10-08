@@ -2,6 +2,8 @@
 #define VARIANTSTORE_H
 
 #include "../vario.hpp"
+#include "Variant.hpp"
+#include "VariantSet.hpp"
 
 namespace vario {
 
