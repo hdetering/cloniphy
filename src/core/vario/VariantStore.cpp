@@ -34,7 +34,11 @@ bool
 VariantStore::importGermlineVariants (
   VariantSet variants )
 {
-
+  // NOTE: germline variants carry negative indices
+  int id_next = -1 * variants.num_variants;
+  for (auto const & var : variants.vec_variants) {
+    this->map_id_snv[id_next++] = var;
+  }
 } 
 
 bool
@@ -86,7 +90,6 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.chr = loc.id_ref;
     //var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
     var.rel_pos = double(nuc_pos)/genome_len;
-    //var.reg_copy = 0; // TODO: deprecated!
     var.pos = loc.start;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
@@ -236,13 +239,23 @@ VariantStore::generateSomaticVariants(
 bool 
 VariantStore::applyGermlineVariants (
   GenomeInstance& genome,
+  const map<string, vector<Genotype >>& gt_matrix,
   RandomNumberGenerator& rng
 )
 {
-  random_selector<> selector(rng.generator); // used to pick random SegmentCopy
+  // sanity checks
+  assert( gt_matrix.size() < 2 && "Expected at most 1 sample in germline GT matrix." );
+
+  random_selector<> selector( rng.generator ); // used to pick random SegmentCopy
+  bool is_phased = ( gt_matrix.size() > 0 ); // if genotypes are provided, variants are introduced in phase
+  vector<Genotype> vec_gt;
+  if ( is_phased ) { // use provided genotypes
+    vec_gt = gt_matrix.begin()->second;
+  }
 
   // loop over variants
-  for (auto const & id_snv : map_id_snv) {
+  int idx_var = 0;
+  for ( auto const & id_snv : map_id_snv ) {
     int id = id_snv.first;
     Variant var = id_snv.second;
 
@@ -258,8 +271,24 @@ VariantStore::applyGermlineVariants (
     vector<SegmentCopy> vec_seg_mut;
     // homozygous variants are introduced into all SegmentCopies, heterozygous ones into random one
     if ( var.is_het ) {
-      // pick random SegmentCopy to mutate
-      vec_seg_mut.push_back( selector(vec_seg_avail) );
+      if ( is_phased ) { // variants are phased
+        assert( idx_var < vec_gt.size() && "More germline vars than genotypes!" );
+        Genotype gt = vec_gt[idx_var];
+        for ( auto const & seg : vec_seg_avail ) {
+          if ( seg.gl_allele == 'A' && gt.maternal > 0 ) {
+            assert( gt.maternal < var.alleles.size() && "Genotype indicates non-present allele" );
+            vec_seg_mut.push_back( seg );
+          }
+          if ( seg.gl_allele == 'B' && gt.paternal > 0 ) {
+            assert( gt.paternal < var.alleles.size() && "Genotype indicates non-present allele" );
+            vec_seg_mut.push_back( seg );
+          }
+        }
+      } else { // variant considered unphased
+        // pick random SegmentCopy to mutate
+        vec_seg_mut.push_back( selector(vec_seg_avail) );
+      }
+      
     } else {
       // mark all SegmentCopies for mutation
       vec_seg_mut = vec_seg_avail;
@@ -273,6 +302,7 @@ VariantStore::applyGermlineVariants (
         map_seg_vars[sc.id].push_back(id);
       }
     }
+    idx_var++;
   }
 
   return true;

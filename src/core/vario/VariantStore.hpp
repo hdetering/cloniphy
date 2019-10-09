@@ -102,13 +102,15 @@ struct VariantStore
   );
 
   /** Loop over variants and for each germline variant, pick affected segment copies in genome instance.
-   *  \param genome  Genome instance to which to apply germline variants.
-   *  \param rng     Random number generator (used to pick segment copies to mutate).
-   *  \returns       true on success, false on error.
+   *  \param genome     Genome instance to which to apply germline variants.
+   *  \param gt_matrix  Allele-specific genotype. If provided, variants are considered phased.
+   *  \param rng        Random number generator (used to pick segment copies to mutate).
+   *  \returns          true on success, false on error.
    */
   bool
   applyGermlineVariants (
     GenomeInstance& genome,
+    const std::map<std::string, std::vector<Genotype >>& gt_matrix,
     RandomNumberGenerator& rng
   );
 

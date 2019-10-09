@@ -432,10 +432,11 @@ int main (int argc, char* argv[])
   }
 
   // if a VCF file was provided, read germline variants from file, otherwise simulate variants
+  map<string, vector<Genotype >> gt_matrix_gl;
   if (fn_mut_gl_vcf.size() > 0) { // TODO: check consistency VCF <-> reference
     fprintf(stderr, "using germline variants (from %s).\n", fn_mut_gl_vcf.c_str());
-    map<string, vector<Genotype >> ref_gt_matrix;
-    vario::readVcf(fn_mut_gl_vcf, varset_gl, ref_gt_matrix);
+    vario::readVcf(fn_mut_gl_vcf, varset_gl, gt_matrix_gl);
+    var_store.importGermlineVariants(varset_gl);
   } else if (n_mut_germline > 0) {
     fprintf(stderr, "simulating %d germline variants (model: %s).\n", n_mut_germline, str_model_gl.c_str());
     //vec_var_gl = var_store.generateGermlineVariants(n_mut_germline, ref_genome, model_gl, rng);
@@ -484,7 +485,7 @@ int main (int argc, char* argv[])
 
   // apply germline mutations to healthy genome
   fprintf(stderr, "applying germline variants to clone tree root...\n");
-  var_store.applyGermlineVariants(healthy_genome, rng);
+  var_store.applyGermlineVariants(healthy_genome, gt_matrix_gl, rng);
 
   // generate GenomeInstances for clones
   if (nodes.size() > 1) {
