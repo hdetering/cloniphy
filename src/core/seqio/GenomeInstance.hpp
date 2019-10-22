@@ -53,13 +53,15 @@ struct GenomeInstance {
   );
 
   /** Remove a ChromosomeInstance from this GenomeInstance.
-   *  \param sp_chr shared pointer to ChromosomeInstance
-   *  \param id_chr reference ID under which to index ChromsomeInstance
+   *  \param sp_chr       shared pointer to ChromosomeInstance
+   *  \param id_chr       reference ID under which to index ChromsomeInstance
+   *  \param idx_chr_cpy  index of ChromosomeInstance to delete
    */
   void
-  deleteChromosome(
+  deleteChromosomeInstance(
     std::shared_ptr<ChromosomeInstance> sp_chr,
-    std::string id_chr
+    std::string id_chr,
+    size_t idx_chr_cpy
   );
 
   /**

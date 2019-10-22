@@ -57,7 +57,7 @@ GenomeInstance::GenomeInstance (
 }
 
 void
-GenomeInstance::addChromosome(
+GenomeInstance::addChromosome (
   shared_ptr<ChromosomeInstance> sp_chr,
   string id_chr)
 {
@@ -67,17 +67,13 @@ GenomeInstance::addChromosome(
 }
 
 void
-GenomeInstance::deleteChromosome(
+GenomeInstance::deleteChromosomeInstance (
   shared_ptr<ChromosomeInstance> sp_chr,
-  string id_chr)
-{
-  // remove chromosome from map
-  this->map_id_chr[id_chr].erase(
-    remove(
-      this->map_id_chr[id_chr].begin(),
-      this->map_id_chr[id_chr].end(),
-      sp_chr),
-    this->map_id_chr[id_chr].end());
+  string id_chr,
+  size_t idx_chr_cpy)
+{  
+  this->map_id_chr[id_chr].erase( 
+    this->map_id_chr[id_chr].begin() + idx_chr_cpy );
 
   // rebuild indices
   this->vec_chr.clear();
