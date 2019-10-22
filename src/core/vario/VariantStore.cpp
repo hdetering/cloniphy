@@ -202,6 +202,7 @@ VariantStore::generateSomaticVariants(
           break;
         case 1: // chromosome-level event
           cnv.is_chr_wide = true;
+          cnv.len_rel = 1;
           break;
         case 2: // chromosome arm-level event
           // TODO: set pos_rel to centromere location
@@ -361,7 +362,12 @@ VariantStore::applyMutation (
 
       if (cnv.is_chr_wide) { // whole-chromosome gain/loss
         if (cnv.is_deletion) { // delete current chromosome
-          genome.deleteChromosome(sp_chr, id_chr);
+          // delete variants located on affected chromosome segments
+          for ( auto const & seg : genome.map_id_chr[id_chr][idx_chr]->lst_segments ) {
+            this->map_seg_vars.erase(seg.id);
+          }
+          // TODO: delete one copy of chrom only
+          genome.deleteChromosomeInstance(sp_chr, id_chr, idx_chr);
         } else {
           vector<seqio::seg_mod_t> vec_seg_mod;
           shared_ptr<ChromosomeInstance> sp_chr_new(new ChromosomeInstance());
