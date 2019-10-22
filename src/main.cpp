@@ -548,11 +548,13 @@ for (auto const & lbl_gi : map_clone_genome) {
     string lbl_chr = id_chr.first;
     for (auto const & chr : id_chr.second) {
       for (auto const & seg : chr->lst_segments) {
-        ofs_dbg_segs << lbl_clone << "\t";
-        ofs_dbg_segs << lbl_chr << "\t";
-        ofs_dbg_segs << seg.id << "\t";
-        ofs_dbg_segs << seg.ref_start << "\t";
-        ofs_dbg_segs << seg.ref_end << endl;
+        ofs_dbg_segs <<         lbl_chr;
+        ofs_dbg_segs << "\t" << seg.ref_start + 1;
+        ofs_dbg_segs << "\t" << seg.ref_end + 1;
+        ofs_dbg_segs << "\t" << lbl_clone;
+        ofs_dbg_segs << "\t" << seg.gl_allele;
+        ofs_dbg_segs << "\t" << seg.id;
+        ofs_dbg_segs << endl;
       }
     }    
   }
@@ -573,7 +575,7 @@ for (auto const & cg : map_clone_genome) {
           ofs_dbg_vars << seg.id;
           ofs_dbg_vars << "\t" << var_store.map_id_snv[v].id;
           ofs_dbg_vars << "\t" << var_store.map_id_snv[v].chr;
-          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].pos;
+          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].pos + 1;
           ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[0];
           ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[1];
           ofs_dbg_vars << endl;
