@@ -366,7 +366,6 @@ VariantStore::applyMutation (
           for ( auto const & seg : genome.map_id_chr[id_chr][idx_chr]->lst_segments ) {
             this->map_seg_vars.erase(seg.id);
           }
-          // TODO: delete one copy of chrom only
           genome.deleteChromosomeInstance(sp_chr, id_chr, idx_chr);
         } else {
           vector<seqio::seg_mod_t> vec_seg_mod;
