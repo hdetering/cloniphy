@@ -7,7 +7,7 @@ using boost::str;
 #include <fstream>
 #include "../core/clone.cpp"
 #include "../core/random.hpp"
-#include "../core/treeio.hpp"
+#include "../core/treeio/Tree.hpp"
 using namespace treeio;
 
 struct FixtureTreeio {

@@ -10,7 +10,7 @@ using namespace vario;
 #include "../core/random.hpp"
 #include "../core/seqio.cpp"
 using namespace seqio;
-#include "../core/treeio.hpp"
+#include "../core/treeio/Tree.hpp"
 using namespace treeio;
 #include <boost/format.hpp>
 using boost::str;

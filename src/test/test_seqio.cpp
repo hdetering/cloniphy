@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE( tile )
   BOOST_TEST_MESSAGE( "--------------------------------\n" );
   id_chr = "chr2";
   chr_copy = genome.map_id_chr[id_chr][1];
-  genome.deleteChromosome(chr_copy, id_chr);
+  genome.deleteChromosomeInstance( chr_copy, id_chr, 1 );
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
   BOOST_TEST_MESSAGE( "" );

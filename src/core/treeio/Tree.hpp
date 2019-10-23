@@ -1,36 +1,17 @@
-#ifndef TREEIO_H
-#define TREEIO_H
+#ifndef TREE_H
+#define TREE_H
 
-#include "random.hpp"
-#include <functional>
-#include <iostream>
+#include "parse.hpp"
+#include "../random.hpp"
+#include "../clone.hpp"
+// #include <functional>
+
 #include <memory>
-#include <cstdio>
+// #include <cstdio>
 #include <string>
 #include <vector>
 
 namespace treeio {
-
-/** Generic tree node */
-struct TreeNode
-{
-  int index;
-  std::string label;
-  double length;
-  double weight;
-  bool is_visible;
-  std::shared_ptr<TreeNode> parent;
-  std::vector<std::shared_ptr<TreeNode>> m_vecChildren;
-
-  TreeNode();
-  virtual ~TreeNode();
-  virtual float distanceToParent() = 0;
-  virtual bool isLeaf() = 0;
-  bool isRoot();
-};
-
-// streaming operator for easy printing
-std::ostream& operator<<(std::ostream&, const TreeNode&);
 
 namespace parse {
   // forward declaration for later use
@@ -114,24 +95,6 @@ private:
   std::shared_ptr<TNodeType> _adaptNode(const parse::node&);
 };
 
-/** Reads and writes tree files. */
-namespace parse {
-
-// typedef to ease the writing
-typedef std::vector<node> children_vector;
-
-struct node
-{
-  std::string label;
-  double length = 0;
-  children_vector children;
-};
-
-void readNewick(std::string, node&);
-void readNewick(std::istream&, node&);
-
-} // namespace parse
-
 } // namespace treeio
 
-#endif /* TREEIO_H */
+#endif // TREE_H

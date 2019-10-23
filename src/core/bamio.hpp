@@ -4,6 +4,7 @@
 #include "clone.hpp"
 #include "random.hpp"
 #include "seqio.hpp"
+#include "treeio/Tree.hpp"
 #include "vario.hpp"
 #include "vario/VariantStore.hpp"
 #include "stringio.hpp"

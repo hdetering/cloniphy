@@ -1,38 +1,12 @@
-#define DEBUG
-#include "clone.hpp"
-#include "treeio.hpp"
-#include <boost/format.hpp>
-using boost::format;
-using boost::str;
+#include "Tree.hpp"
+#include "../stringio.hpp"
+using stringio::format;
 #include <boost/lexical_cast.hpp>
-#include <boost/spirit/include/qi.hpp>
-#include <boost/fusion/include/adapt_struct.hpp>
 #include <fstream>
-#include <stdexcept>
-#include <streambuf>
 
 using namespace std;
 
 namespace treeio {
-
-TreeNode::TreeNode() {
-  parent = 0;
-}
-
-TreeNode::~TreeNode() {}
-
-// streaming operator for easy printing
-ostream& operator<<(std::ostream& stream, const TreeNode& node) {
-  stream << "<TreeNode(index=" << node.index << ", label='" << node.label << "', length=" << node.length << ")>";
-  return stream;
-}
-
-bool TreeNode::isRoot() {
-  if (this->parent == 0)
-    return true;
-  else
-    return false;
-}
 
 template<typename TNodeType>
 Tree<TNodeType>::Tree() : m_numNodes(0), m_numVisibleNodes(0), m_vecNodes(0) {}
@@ -327,9 +301,9 @@ void Tree<TNodeType>::_varyBranchLengthsRec(
 /** Assign random weights to visible nodes */
 template<typename TNodeType>
 void Tree<TNodeType>::assignWeights(vector<double> w) {
-  string str_w = str(format("%.4f") % w[0]);
+  string str_w = format("%.4f", w[0]);
   for_each(w.begin()+1, w.end(), [&] (double p) {
-    str_w += str(format(", %.4f") % p);
+    str_w += format(", %.4f", p);
   });
   fprintf(stderr, "Assigning weights:\n\t[ %s ]\n", str_w.c_str());
 
@@ -525,7 +499,7 @@ void Tree<TNodeType>::printNewick(shared_ptr<TNodeType> node, ostream& os, bool 
     }
     os << ")";
   }
-  os << boost::format("%s:%f") % node->label % node->length;
+  os << format("%s:%f", node->label, node->length);
 
   if (node == this->m_root) {
      }
@@ -551,7 +525,7 @@ void Tree<TNodeType>::printDot(shared_ptr<TNodeType> node, std::ostream& os) {
 template<typename TNodeType>
 void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os) {
   //auto node_lbl = boost::format("\"%s\\ni:%d\\nw:%.4f\"") % node->label % node->index % node->weight;
-  auto node_lbl = boost::format("\"%s\\ni:%d\"") % node->label % node->index;
+  auto node_lbl = format("\"%s\\ni:%d\"", node->label, node->index);
   os << "\t" << node->index << "[label=" << node_lbl;
   if (node==this->m_root) {
     os << ",style=filled,color=limegreen";
@@ -564,7 +538,7 @@ void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os)
     float edgeLen = child->length;
     os << "\t" << node->index << " -> " << child->index;
     if (edgeLen > 0.0) {
-      auto lbl = boost::format("%0.2f (%0.0f)") % edgeLen % edgeMut;
+      auto lbl = format("%0.2f (%0.0f)", edgeLen, edgeMut);
       os << "[style=bold,label=<<font point-size=\"10\">" << lbl << "</font>>]";
     }
     os << ";" << std::endl;
@@ -621,110 +595,6 @@ void Tree<TNodeType>::_printTreeInfo() {
 }
 
 } // namespace treeio
-
-/*--------------------------------------*/
-/*            parser logic              */
-/*--------------------------------------*/
-
-BOOST_FUSION_ADAPT_STRUCT(
-  treeio::parse::node,
-  (treeio::parse::children_vector, children)
-  (string, label)
-  (double, length)
-)
-
-namespace treeio {
-namespace parse {
-
-  namespace qi = boost::spirit::qi;
-  namespace ascii = boost::spirit::ascii;
-
-  /** Represents the Newick format grammar.
-    *
-    * For details see http://evolution.genetics.washington.edu/phylip/newick_doc.html
-    * All nodes must have labels.
-    */
-  template <typename Iterator>
-  struct newick_grammar : qi::grammar<Iterator, node(), ascii::space_type>
-  {
-    newick_grammar() : newick_grammar::base_type(tree)
-    {
-      // use %= to assign the result of the parse to the string
-      label %= quoted_label | unquoted_label;
-      // unquoted labels may not contain formatting characters
-      unquoted_label = qi::lexeme[*(qi::char_ - ':' - ',' - ';' - '(' - ')' - '[' - ']' - '\'')];
-      // quoted labels can contain any characters
-      quoted_label = '\'' >> qi::lexeme[*(qi::char_ - '\'')] >> '\'';
-
-      // use %= to assign the result of the parse to the double
-      branch_length %= ':' >> qi::double_;
-
-      // Parser return values will be assigned to corresponding struct elements
-      // in the order specified!
-      subtree = -descendant_list >> -label >> -branch_length;
-
-      // Descendant list is a vector of node, we just push back the
-      // created nodes into the vector
-      descendant_list = '(' >> subtree >> *(',' >> subtree ) >> ')';
-
-      tree %= subtree >> ';';
-
-      // prepare parsers for debugging
-      BOOST_SPIRIT_DEBUG_NODE(label);
-      BOOST_SPIRIT_DEBUG_NODE(branch_length);
-      BOOST_SPIRIT_DEBUG_NODE(subtree);
-      BOOST_SPIRIT_DEBUG_NODE(descendant_list);
-      BOOST_SPIRIT_DEBUG_NODE(tree);
-      // activate debugging output for parsers
-      //qi::debug(tree);
-      //qi::debug(subtree);
-      //qi::debug(descendant_list);
-      //qi::debug(label);
-      //qi::debug(branch_length);
-    }
-
-    private:
-      /* grammar rules, typed by element they create */
-      qi::rule<Iterator, node(), ascii::space_type> tree, subtree;
-      qi::rule<Iterator, vector<node>(), ascii::space_type> descendant_list;
-      qi::rule<Iterator, string(), ascii::space_type> label;
-      qi::rule<Iterator, string(), ascii::space_type> quoted_label;
-      qi::rule<Iterator, string(), ascii::space_type> unquoted_label;
-      qi::rule<Iterator, double(), ascii::space_type> branch_length;
-  };
-
-  template <typename Iterator>
-  bool parse_newick(Iterator first, Iterator last, node &root_node)
-  {
-    newick_grammar<Iterator> grammar;
-
-    bool result = qi::phrase_parse(first, last, grammar, ascii::space, root_node);
-    if (first != last) return false;
-
-    return result;
-  }
-
-  /***************************** readNewick *********************************/
-  /** Reads a tree in Newick format */
-  void readNewick (string newick_fn, node &tree) {
-    ifstream f_newick;
-    f_newick.open(newick_fn.c_str(), ios::in);
-    readNewick(f_newick, tree);
-    f_newick.close();
-  }
-
-  /***************************** readNewick *********************************/
-  /** Reads a tree in Newick format */
-  void readNewick (istream &input, node &tree) {
-    string line;
-    getline(input, line);
-    if (parse_newick(line.begin(), line.end(), tree) == false) {
-      throw runtime_error("Could not parse file in Newick format.");
-    }
-  }
-} // namespace parse
-} // namespace treeio
-
 
 // instantiate usable classes so they can be picked up by the linker
 template class treeio::Tree<Clone>;

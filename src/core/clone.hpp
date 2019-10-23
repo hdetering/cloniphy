@@ -1,7 +1,7 @@
 #ifndef CLONE_H
 #define CLONE_H
 
-#include "treeio.hpp"
+#include "treeio/TreeNode.hpp"
 #include <functional>
 #include <map>
 #include <memory>

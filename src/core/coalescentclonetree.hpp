@@ -2,7 +2,7 @@
 #define COALESCENTCLONETREE_H
 
 #include "clone.hpp"
-#include "treeio.hpp"
+#include "treeio/Tree.hpp"
 #include <boost/function.hpp>
 #include <vector>
 
