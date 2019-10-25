@@ -16,7 +16,7 @@
 #include "core/seqio/GenomeReference.hpp"
 #include "core/seqio/GenomeInstance.hpp"
 #include "core/seqio/KmerProfile.hpp"
-#include "core/treeio.hpp"
+#include "core/treeio/Tree.hpp"
 #include "core/vario.hpp"
 
 #include "pcg-cpp/pcg_random.hpp"
@@ -241,7 +241,8 @@ int main (int argc, char* argv[])
 
   // output file names
   const path fn_mm = path_out / "mm.csv"; // mutation map
-  const path fn_newick = path_out / "clone.tree"; // clone tree
+  const path fn_newick = path_out / "clones.tree"; // clone tree
+  const path fn_nexus = path_out / "clones.nex"; // clone tree
   const path fn_dot = path_out / "clone.tree.dot"; // DOT graph for clone tree
   const path fn_sampling_csv = path_out / "prevalences.csv"; // sampling scheme
 
@@ -287,6 +288,9 @@ int main (int argc, char* argv[])
 
   fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
   tree.printNewick(fn_newick.string());
+
+  fprintf(stderr, "\nWriting mutated tree to file (Nexus format): %s\n", fn_nexus.c_str());
+  tree.printNexus(fn_nexus.string());
 
   fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
   tree.printDot(fn_dot.string());
@@ -538,53 +542,51 @@ int main (int argc, char* argv[])
   vec_clone_lbl.push_back(lbl_clone_normal);
 
 
-// DEBUG info: export segment copies to file
-// TODO: move out to Logger class
-string fn_dbg_segs = (path_out / "segments.tsv").string();
-std::ofstream ofs_dbg_segs(fn_dbg_segs, std::ofstream::out);
-for (auto const & lbl_gi : map_clone_genome) {
-  string lbl_clone = lbl_gi.first;
-  for (auto const & id_chr : lbl_gi.second.map_id_chr) {
-    string lbl_chr = id_chr.first;
-    for (auto const & chr : id_chr.second) {
-      for (auto const & seg : chr->lst_segments) {
-        ofs_dbg_segs <<         lbl_chr;
-        ofs_dbg_segs << "\t" << seg.ref_start + 1;
-        ofs_dbg_segs << "\t" << seg.ref_end + 1;
-        ofs_dbg_segs << "\t" << lbl_clone;
-        ofs_dbg_segs << "\t" << seg.gl_allele;
-        ofs_dbg_segs << "\t" << seg.id;
-        ofs_dbg_segs << endl;
-      }
-    }    
+  // export segment copies to file
+  string fn_dbg_segs = (path_out / "segments.tsv").string();
+  std::ofstream ofs_dbg_segs(fn_dbg_segs, std::ofstream::out);
+  for (auto const & lbl_gi : map_clone_genome) {
+    string lbl_clone = lbl_gi.first;
+    for (auto const & id_chr : lbl_gi.second.map_id_chr) {
+      string lbl_chr = id_chr.first;
+      for (auto const & chr : id_chr.second) {
+        for (auto const & seg : chr->lst_segments) {
+          ofs_dbg_segs <<         lbl_chr;
+          ofs_dbg_segs << "\t" << seg.ref_start + 1;
+          ofs_dbg_segs << "\t" << seg.ref_end + 1;
+          ofs_dbg_segs << "\t" << lbl_clone;
+          ofs_dbg_segs << "\t" << seg.gl_allele;
+          ofs_dbg_segs << "\t" << seg.id;
+          ofs_dbg_segs << endl;
+        }
+      }    
+    }
   }
-}
-ofs_dbg_segs.close();
+  ofs_dbg_segs.close();
 
-// DEBUG info: export variants associated to each segment copy
-// TODO: move out to Logger class
-string fn_dbg_vars = (path_out / "segment_vars.tsv").string();
-std::ofstream ofs_dbg_vars(fn_dbg_vars, std::ofstream::out);
-for (auto const & cg : map_clone_genome) {
-  string lbl_clone = cg.first;
-  for (auto const & ic : cg.second.map_id_chr) {
-    string lbl_chr = ic.first;
-    for (auto const & chr : ic.second) {
-      for (auto const & seg : chr->lst_segments) {
-        for (auto const & v : var_store.map_seg_vars[seg.id]) {
-          ofs_dbg_vars << seg.id;
-          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].id;
-          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].chr;
-          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].pos + 1;
-          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[0];
-          ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[1];
-          ofs_dbg_vars << endl;
+  // export variants associated to each segment copy
+  string fn_dbg_vars = (path_out / "segment_vars.tsv").string();
+  std::ofstream ofs_dbg_vars(fn_dbg_vars, std::ofstream::out);
+  for (auto const & cg : map_clone_genome) {
+    string lbl_clone = cg.first;
+    for (auto const & ic : cg.second.map_id_chr) {
+      string lbl_chr = ic.first;
+      for (auto const & chr : ic.second) {
+        for (auto const & seg : chr->lst_segments) {
+          for (auto const & v : var_store.map_seg_vars[seg.id]) {
+            ofs_dbg_vars << seg.id;
+            ofs_dbg_vars << "\t" << var_store.map_id_snv[v].id;
+            ofs_dbg_vars << "\t" << var_store.map_id_snv[v].chr;
+            ofs_dbg_vars << "\t" << var_store.map_id_snv[v].pos + 1;
+            ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[0];
+            ofs_dbg_vars << "\t" << var_store.map_id_snv[v].alleles[1];
+            ofs_dbg_vars << endl;
+          }
         }
       }
     }
   }
-}
-ofs_dbg_vars.close();
+  ofs_dbg_vars.close();
 
   // for decoupling, transform sampling data frame to map
   map<string, map<string, double>> mtx_sample_clone;

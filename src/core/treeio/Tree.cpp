@@ -484,7 +484,6 @@ void Tree<TNodeType>::printNewick(ostream& os) {
   os << ';' << endl;
 }
 
-/* TODO: maybe use Boost Spirit Karma to generate Newick? */
 template<typename TNodeType>
 void Tree<TNodeType>::printNewick(shared_ptr<TNodeType> node, ostream& os, bool first) {
   bool has_children = (node->m_vecChildren.size() > 0);
@@ -499,10 +498,116 @@ void Tree<TNodeType>::printNewick(shared_ptr<TNodeType> node, ostream& os, bool 
     }
     os << ")";
   }
-  os << format("%s:%f", node->label, node->length);
+  os << format("%s:%g", node->label.c_str(), node->length);
+}
 
-  if (node == this->m_root) {
-     }
+template<typename TNodeType>
+void Tree<TNodeType>::printNexus(const string filename) {
+  ofstream fs;
+  fs.open(filename);
+  printNexus(fs);
+  fs.close();
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexus(ostream& os) {
+  os << "#NEXUS" << endl;
+  os << "BEGIN DATA;" << endl;
+  os << "  Dimensions" 
+     << " ntax=" << m_numNodes 
+     << " nchar=" << m_numMutations 
+     << ';' << endl;
+  os << "  Format datatype=standard;" << endl;
+  printNexusMatrix( os );
+  os << "END;" << endl;
+  os << "BEGIN TREES;" << endl;
+  // printNexusTranslate( os );
+  os << "  Tree clones = ";
+  printNexusTree( this->m_root, os );
+  os << ";" << endl;
+  os << "END;" << endl;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexusTranslate (
+  ostream& os
+)
+{
+  auto node = this->m_vecNodes[0];
+  os << "  Translate" << endl << (
+    node->label.length() > 0 ?
+    format("    %d %s", node->index, node->label.c_str()) :
+    format("    %d internal_%d", node->index, node->index)
+    );
+  for ( size_t i=1; i<this->m_vecNodes.size(); i++ ) {
+    node = this->m_vecNodes[i];
+    os << ',' << endl << (
+      node->label.length() > 0 ?
+      format("    %d %s", node->index, node->label.c_str()) :
+      format("    %d internal_%d", node->index, node->index)
+    );
+  }
+  os << endl << "  ;" << endl;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexusMatrix (
+  ostream& os
+)
+{
+  os << "  Matrix" << endl;
+  os << "    ['1's indicate on which branch a mutation *first* occurred]" << endl;
+  for ( size_t i=0; i<m_vecNodes.size(); i++ ) {
+    auto node = m_vecNodes[i];
+    string lbl = (
+      node->label.length() > 0 ?
+      format("    %s", node->label.c_str()) :
+      format("    I%d", node->index)
+    );
+    os << "    " << lbl;
+    // add padding to print matrix horizontally aligned
+    for ( size_t j=0; j<(10-lbl.length()); j++) {
+      os << ' ';
+    }
+    // set matrix line with new mutations for this node
+    vector<int> mm(m_numMutations, 0);
+    for ( auto const k : node->m_vec_mutations ) {
+      mm[k] = 1;
+    }
+    // print mutation matrix as 0/1 values
+    for ( size_t l=0; l<mm.size(); l++) {
+      os << mm[l];
+    }
+    os << endl;
+  }
+  os << endl << "  ;" << endl;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexusTree (
+  shared_ptr<TNodeType> node, 
+  ostream& os, 
+  bool first
+)
+{
+  bool has_children = (node->m_vecChildren.size() > 0);
+  if (!first) {
+    os << ","; }
+  if (has_children) {
+    os << "(";
+    bool first_child = true;
+    for (auto child : node->m_vecChildren) {
+      printNexusTree(child, os, first_child);
+      first_child = false;
+    }
+    os << ")";
+  }
+  string lbl = (
+    node->label.length() > 0 ? 
+    node->label : 
+    format("I%d", node->index)
+  );
+  os << format("%s:%g", lbl.c_str(), node->length);
 }
 
 /** Print tree a graph in DOT format. */
@@ -525,7 +630,7 @@ void Tree<TNodeType>::printDot(shared_ptr<TNodeType> node, std::ostream& os) {
 template<typename TNodeType>
 void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os) {
   //auto node_lbl = boost::format("\"%s\\ni:%d\\nw:%.4f\"") % node->label % node->index % node->weight;
-  auto node_lbl = format("\"%s\\ni:%d\"", node->label, node->index);
+  string node_lbl = format("\"%s\\ni:%d\"", node->label.c_str(), node->index);
   os << "\t" << node->index << "[label=" << node_lbl;
   if (node==this->m_root) {
     os << ",style=filled,color=limegreen";
@@ -538,7 +643,7 @@ void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os)
     float edgeLen = child->length;
     os << "\t" << node->index << " -> " << child->index;
     if (edgeLen > 0.0) {
-      auto lbl = format("%0.2f (%0.0f)", edgeLen, edgeMut);
+      string lbl = format("%0.2f (%0.0f)", edgeLen, edgeMut);
       os << "[style=bold,label=<<font point-size=\"10\">" << lbl << "</font>>]";
     }
     os << ";" << std::endl;

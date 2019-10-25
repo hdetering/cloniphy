@@ -66,6 +66,11 @@ struct Tree
   void printNewick(const std::string);
   void printNewick(std::ostream&);
   void printNewick(std::shared_ptr<TNodeType>, std::ostream&, bool first=true);
+  void printNexus(const std::string);
+  void printNexus(std::ostream&);
+  void printNexusTranslate(std::ostream&);
+  void printNexusMatrix(std::ostream&);
+  void printNexusTree(std::shared_ptr<TNodeType>, std::ostream&, bool first=true);
   void printDot(const std::string filename);
   void printDot(std::shared_ptr<TNodeType>, std::ostream&);
   /** outputs boolean matrix of mutational states for visible nodes */
