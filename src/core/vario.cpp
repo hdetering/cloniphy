@@ -26,34 +26,6 @@ Mutation::Mutation ()
   is_cnv(false)
 {}
 
-/* CopyNumberVariant *
- *-------------------*/
-
-CopyNumberVariant::CopyNumberVariant ()
-: id(0),
-  is_wgd(false),
-  is_deletion(false),
-  is_chr_wide(false),
-  is_telomeric(false),
-  is_forward(true),
-  len_rel(0.0),
-  start_rel(0.0),
-  ref_pos_begin(0),
-  ref_pos_end(0),
-  ref_chr("")
-{}
-
-ostream& operator<<(ostream& lhs, const CopyNumberVariant& cnv) {
-  lhs << cnv.id;
-  lhs << "\t" <<(cnv.is_wgd ? "WGD" : (cnv.is_deletion ? "DEL" : "CPY"));
-  lhs << "\t" << (cnv.is_chr_wide ? "chr" : (cnv.is_telomeric ? "tel" : "foc"));
-  lhs << "\t" << cnv.ref_chr;
-  lhs << "\t" << cnv.start_rel;
-  lhs << "\t" << cnv.is_forward ? "+" : "-";
-  lhs << "\t" << cnv.len_rel;
-  lhs << "\n";
-  return lhs;
-}
 /* VariantAlleleCount *
  *--------------------*/
 

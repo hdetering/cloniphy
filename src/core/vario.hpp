@@ -1,5 +1,4 @@
-#ifndef VARIO_H
-#define VARIO_H
+#pragma once
 
 #include "random.hpp"
 #include "seqio.hpp"
@@ -8,6 +7,7 @@
 #include "seqio/GenomeInstance.hpp"
 #include "stringio.hpp"
 #include "evolution.hpp"
+#include "vario/CopyNumberVariant.hpp"
 #include "vario/Variant.hpp"
 #include "vario/VariantSet.hpp"
 #include <boost/uuid/uuid.hpp>
@@ -54,25 +54,6 @@ struct Mutation
 
   // bool operator< (const Mutation&) const; /** make mutations sortable */
   // static std::vector<Mutation> sortByPosition(const std::vector<Mutation>&);
-};
-
-/** CopyNumberVariants encapsulate CNV events with all of their properties */
-struct CopyNumberVariant
-{
-  unsigned    id;              /** unique identifier */
-  bool        is_wgd;          /** true: CNV is Whole Genome Duplication */
-  bool        is_deletion;     /** true: CNV is deletion event */
-  bool        is_chr_wide;     /** true: event affects whole chromosome */
-  bool        is_telomeric;    /** true: event coordinates include chromosome end */
-  bool        is_forward;      /** true: event at 3' side of start_rel; false: at 5' end */
-  double      len_rel;         /** length of affected region (fraction of chromsome length) */
-  double      start_rel;       /** start position of event (fraction of chromosome length) */
-  unsigned    ref_pos_begin;   /** start coordinate (in reference chr) */
-  unsigned    ref_pos_end;     /** end coordinate (in reference chr) */
-  std::string ref_chr;         /** affected chromosome (reference ID) */
-
-  /** default c'tor */
-  CopyNumberVariant();
 };
 
 /** Encapsulates the allele counts (reference, alternative) for a given variant and genome. */
@@ -201,5 +182,3 @@ std::ostream& operator<<(std::ostream& lhs, const CopyNumberVariant& cnv);
 
 
 } /* namespace vario */
-
-#endif /* VARIO_H */
