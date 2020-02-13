@@ -60,9 +60,6 @@ using evolution::GermlineSubstitutionModel;
 using evolution::SomaticSubstitutionModel;
 using evolution::SomaticCnvModel;
 
-// global constants
-const string lbl_clone_normal = "N"; // TODO: make this a config param?
-
 int main (int argc, char* argv[])
 {
   // user params (defined in config file or command line)
@@ -89,6 +86,8 @@ int main (int argc, char* argv[])
   string fn_mut_gl_vcf = config.getValue<string>("mut-gl-vcf");
   string str_model_gl = config.m_mut_gl_model;
   string fn_tree = config.getValue<string>("tree");
+  string tree_healthy_lbl = config.getValue<string>("tree-healthy-label");
+  bool tree_add_healthy_node = config.getValue<bool>("tree-add-healthy-node");
   string fn_mut_som_vcf = config.getValue<string>("mut-som-vcf");
   string fn_mut_som_sig = config.getValue<string>("mut-som-sig-file");
   //map<string, vector<double>> mtx_sample = config.getMatrix<double>("samples");
@@ -261,6 +260,12 @@ int main (int argc, char* argv[])
     cerr << "num_nodes:\t" << tree.m_numVisibleNodes << endl;
     cerr << "n_clones:\t" << n_clones << endl;
 
+    // add a healthy node above tumor MRCA if requested
+    if (tree_add_healthy_node) {
+      cerr << "Adding healthy node '" << tree_healthy_lbl << "' as root." << endl;
+      tree.addHealthyRoot( tree_healthy_lbl );
+    }
+
     // if number of mutations have not been supplied specifically,
     // branch lengths are interpreted as number of mutations
     if (n_mut_somatic == 0) {
@@ -284,7 +289,7 @@ int main (int argc, char* argv[])
   fprintf(stderr, "\n");
 
   // drop somatic mutations on clone tree
-  tree.dropSomaticMutations(n_mut_somatic, n_mut_transforming, rng);
+  tree.dropSomaticMutations(n_mut_somatic, n_mut_transforming, tree_healthy_lbl, rng);
 
   fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
   tree.printNewick(fn_newick.string());
@@ -460,14 +465,10 @@ int main (int argc, char* argv[])
   // generate somatic mutations
   vector<Variant> vec_var_somatic;
   if (do_somatic_vars) {
-    // generate point mutations (relative position + chr copy)
+    // generate point mutations (relative position + ALT allele)
     var_store.generateSomaticVariants(vec_mut_som, ref_genome, model_sm, model_cnv, rng);
     vec_var_somatic = var_store.getSomaticSnvVector();
     varset_sm = VariantSet(vec_var_somatic);
-
-    // export variants to output files
-    path fn_cnv = path_out / "somatic.cnv.tsv";
-    var_store.writeCnvsToFile(fn_cnv.string());
 //fprintf(stderr, "\nTotal set of mutations (id, rel_pos, copy):\n");
 //for (int i=0; i<n_mut_somatic; i++)
 //  fprintf(stderr, "%d\t%f\t%d\n", mutations[i].id, mutations[i].relPos, mutations[i].copy);
@@ -480,10 +481,8 @@ int main (int argc, char* argv[])
   // generate "healthy" GenomeInstance from reference genome
   GenomeInstance healthy_genome = GenomeInstance(ref_genome);
   // root node corresponds to healthy genome (diploid)
-  map_id_genome[nodes[0]->index] = healthy_genome;
-//string keystrokes;
-//cout << "Now clearing reference genome indices. Hit any key to continue...";
-//cin >> keystrokes;
+  map_id_genome[tree.m_root->index] = healthy_genome;
+
   // MEM: ref genome index not needed after this point
   ref_genome.clearIndex();
 
@@ -510,7 +509,7 @@ int main (int argc, char* argv[])
       fprintf(stderr, "\t\t[%lu mutations...]\n", node_mut.size());
       // apply somatic mutations (SNVs + CNVs, in order)
       for (int mut : node_mut) {
-        var_store.applyMutation(vec_mut_som[mut], gi_node, rng);
+        var_store.applyMutation(vec_mut_som[mut], gi_node, model_sm, model_cnv, rng);
       }
       // store GenomeInstance for further use
       map_id_genome[nodes[i]->index] = gi_node;
@@ -538,9 +537,8 @@ int main (int argc, char* argv[])
   }
   // add "healthy" clone
   shared_ptr<Clone> c_normal = nodes[0];
-  map_clone_genome[lbl_clone_normal] = map_id_genome[c_normal->index];
-  vec_clone_lbl.push_back(lbl_clone_normal);
-
+  map_clone_genome[tree_healthy_lbl] = map_id_genome[c_normal->index];
+  vec_clone_lbl.push_back(tree_healthy_lbl);
 
   // export segment copies to file
   string fn_dbg_segs = (path_out / "segments.tsv").string();
@@ -588,6 +586,10 @@ int main (int argc, char* argv[])
   }
   ofs_dbg_vars.close();
 
+  // export copy number variants
+  path fn_cnv = path_out / "somatic.cnv.tsv";
+  var_store.writeCnvsToFile(fn_cnv.string());
+
   // for decoupling, transform sampling data frame to map
   map<string, map<string, double>> mtx_sample_clone;
   for (unsigned i=0; i<df_sampling.n_rows; i++) {
@@ -610,11 +612,11 @@ int main (int argc, char* argv[])
         map_clone_weight[df_sampling.colnames[i]] /= sum_w;
       }
       // set normal cell combination
-      map_clone_weight[lbl_clone_normal] = 0.0;
+      map_clone_weight[tree_healthy_lbl] = 0.0;
     } 
     else { // no normalization, difference to 1 is normal contamination
       // set normal cell combination
-      map_clone_weight[lbl_clone_normal] = 1.0 - sum_w;
+      map_clone_weight[tree_healthy_lbl] = 1.0 - sum_w;
     }
 
     //

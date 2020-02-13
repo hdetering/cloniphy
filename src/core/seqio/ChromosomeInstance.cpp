@@ -6,13 +6,16 @@ using boost::icl::interval;
 
 namespace seqio {
 
-ChromosomeInstance::ChromosomeInstance() : length(0) {}
+ChromosomeInstance::ChromosomeInstance()
+: id( boost::uuids::random_generator()() ),
+  length( 0 ) {}
 
 ChromosomeInstance::ChromosomeInstance (
   const ChromosomeReference ref,
   const char gl_allele
 )
-: length(ref.length) {
+: id( boost::uuids::random_generator()() ),
+  id_ref(ref.id), length(ref.length) {
   // inititally chromosome consists of a single SegmentCopy
   SegmentCopy seg_copy(0, this->length, gl_allele);
   this->lst_segments.push_back(seg_copy);
@@ -29,10 +32,14 @@ vector<SegmentCopy> ChromosomeInstance::getSegmentCopiesAt(unsigned long ref_pos
 }
 
 vector<seg_mod_t> ChromosomeInstance::amplifyRegion (
-  double start_rel,
-  double len_rel,
-  bool is_forward,
-  bool is_telomeric
+  TCoord& start_abs,
+  TCoord& end_abs,
+  TCoord& len_abs,
+  const double start_rel,
+  const double len_rel,
+  const bool is_forward,
+  const bool is_telomeric,
+  const bool is_first_arm
 ) {
   vector<seg_mod_t> vec_seg_mod;
   // iterators pointing to SegmentCopy
@@ -43,29 +50,30 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion (
   // NOTE: start_rel value may be changed to match other parameters
   //len_rel = min(len_rel, is_forward ? 1.0-start_rel : start_rel);
   // perform some sanity checks
-  assert( len_rel > 0.0 && len_rel <= 1.0 );
-  if (is_forward)
-    assert( start_rel + len_rel <= 1.0 );
-  else
-    assert( start_rel - len_rel >= 0.0 );
+  assert( (len_rel > 0.0 && len_rel <= 1.0) && "CNV event length must be in [0,1]" );
+  assert( start_rel + len_rel <= 1.0 && "CNV break points exceed chromosome limits" );
+    
   // physical start, length of event
-  unsigned long start_bp = start_rel * this->length;
-  unsigned long len_bp = len_rel * this->length;
-  // physical coordinates
-  unsigned long bkp_start, bkp_end;
-  if (is_forward) {
-    bkp_start = start_bp;
-    bkp_end = is_telomeric ? this->length : start_bp+len_bp;
-  } else { // !is_forward
-    bkp_end = start_bp;
-    bkp_start = is_telomeric ? 0 : bkp_end-len_bp;
+  TCoord start_bp = start_rel * this->length;
+  TCoord len_bp = len_rel * this->length;
+  // physical coordinates on chrom instance
+  TCoord bkp_start, bkp_end;
+  // reference chrom coordinates;
+  TCoord ref_start, ref_end;
+
+  if ( is_first_arm ) { // 1st chromosome arm is affected
+    bkp_start = is_telomeric ? 0 : start_bp;
+    bkp_end = bkp_start + len_bp;
+  } else { // 2nd chromomsome arm is affected
+    bkp_end = is_telomeric ? this->length-1 : start_bp+len_bp;
+    bkp_start = bkp_end - len_bp;
   }
   // make sure insert length is exact
   len_bp = (bkp_end - bkp_start);
 
   // identify first affected SegmentCopy
-  unsigned long pos_bp = 0; // current position
-  unsigned long seg_len = 0; // length of current SegmentCopy
+  TCoord pos_bp = 0; // current position
+  TCoord seg_len = 0; // length of current SegmentCopy
   char seg_allele = 'A'; // reference source allele of current SegmentCopy
   auto it_seg = this->lst_segments.begin();
   // NOTE: after break, pos_bp stores the start coordinate of the current SegmentCopy
@@ -75,7 +83,7 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion (
     pos_bp += seg_len;
     it_seg++;
   }
-  assert( it_seg != this->lst_segments.end() );
+  assert( it_seg != this->lst_segments.end() && "Past last SegmentCopy in ChromosomeInstance" );
 
   // breakpoint after beginning of current SegmentCopy?
   if (bkp_start >= pos_bp) {
@@ -185,39 +193,45 @@ vector<seg_mod_t> ChromosomeInstance::amplifyRegion (
   // update ChromosomeInstance length
   this->length += len_bp;
 
+  // return values
+  start_abs = bkp_start;
+  end_abs = bkp_end;
+  len_abs = len_bp;
   return vec_seg_mod;
 }
 
-vector<seg_mod_t> ChromosomeInstance::deleteRegion(
-  double start_rel,
-  double len_rel,
-  bool is_forward,
-  bool is_telomeric
+vector<seg_mod_t> 
+ChromosomeInstance::deleteRegion (
+  TCoord& start_abs,
+  TCoord& end_abs,
+  TCoord& len_abs,
+  const double start_rel,
+  const double len_rel,
+  const bool is_forward,
+  const bool is_telomeric,
+  const bool is_first_arm
 ) {
   vector<seg_mod_t> vec_seg_mod;
-  // iterators pointing to SegmentCopoe
+  // iterators pointing to SegmentCopies
   list<SegmentCopy>::iterator it_rm_from, it_rm_to;
   list<SegmentCopy> lst_seg_new;
   // perform some sanity checks
-  assert( len_rel > 0.0 && len_rel <= 1.0 );
-  if (is_forward)
-    assert( start_rel + len_rel <= 1.0 );
-  else
-    assert( start_rel - len_rel >= 0.0 );
+  assert( (len_rel > 0.0 && len_rel <= 1.0) && "CNV event length must be in [0,1]" );
+  assert( start_rel + len_rel <= 1.0 && "CNV break points exceed chromosome limits" );
   // physical start, length of event
   TCoord start_bp = start_rel * this->length;
   TCoord len_bp = len_rel * this->length;
   // physical coordinates
   TCoord bkp_start, bkp_end;
-  if (is_forward) {
-    bkp_start = start_bp;
-    bkp_end = is_telomeric ? this->length : start_bp+len_bp;
-  } else { // !is_forward
-    bkp_end = start_bp;
-    bkp_start = is_telomeric ? 0 : bkp_end-len_bp;
+  if ( is_first_arm ) { // 1st chromosome arm is affected
+    bkp_start = is_telomeric ? 0 : start_bp;
+    bkp_end = bkp_start + len_bp;
+  } else { // 2nd chromomsome arm is affected
+    bkp_end = is_telomeric ? this->length-1 : start_bp+len_bp;
+    bkp_start = bkp_end - len_bp;
   }
   // make sure insert length is exact
-  len_bp = (bkp_end - bkp_start);
+  len_bp = ( bkp_end - bkp_start );
 
   // identify first affected SegmentCopy
   TCoord pos_bp = 0; // current position
@@ -230,7 +244,7 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
     pos_bp += seg_len;
     it_seg++;
   }
-  assert( it_seg != this->lst_segments.end() );
+  assert( it_seg != this->lst_segments.end() || "Past last SegmentCopy in ChromosomeInstance" );
 
   // current SegmentCopy will be removed
   // (if only part of SegmentCopy is affected, a new SegmentCopy will be introduced)
@@ -276,10 +290,20 @@ vector<seg_mod_t> ChromosomeInstance::deleteRegion(
   // update ChromosomeInstance length
   this->length -= len_bp;
 
+  // return values
+  start_abs = bkp_start;
+  end_abs = bkp_end;
+  len_abs = len_bp;
   return vec_seg_mod;
 }
 
-void ChromosomeInstance::copy(shared_ptr<ChromosomeInstance> ci_old, vector<seg_mod_t>& out_vec_seg_mod) {
+void
+ChromosomeInstance::copy (
+  shared_ptr<ChromosomeInstance> ci_old, 
+  vector<seg_mod_t>& out_vec_seg_mod
+)
+{
+  this->id_ref = ci_old->id_ref;
   this->length = ci_old->length;
   for (auto const & seg_old : ci_old->lst_segments) {
     SegmentCopy seg_new(seg_old.ref_start, seg_old.ref_end, seg_old.gl_allele);

@@ -54,14 +54,28 @@ struct Tree
   void generateRandomTopologyInternalNodes(std::function<double()>&);
   /** Arrange nodes randomly (internal nodes are invisible) */
   void generateRandomTopologyLeafsOnly(std::function<double()>&);
+  /** Add healthy node as root of clone tree 
+   *
+   *  This ensures that
+   *  a) the healthy genome is represented in the clone tree
+   *  b) trunk mutations are assigned to ancestral clone
+   */
+  void addHealthyRoot (
+    const std::string label
+  );
   /** Shrink/expand branch length by a random factor */
   void varyBranchLengths(std::function<double()>&);
   /** Assign random weights to visible nodes */
   void assignWeights(std::vector<double> w);
-  /** Distribute somatic mutations along tree branches */
+  /** Distribute somatic mutations along tree branches 
+   *  \param n_mut_total   Total number of mutations to drop
+   *  \param n_mut_trunk   Number of mutations to place at the most ancestral node
+   *  \param lbl_outgroup  Outgroup node label (healthy clone in clone tree)
+   */
   virtual void dropSomaticMutations(
-    int n_mut_total,
-    int n_mut_trunk,
+    const int n_mut_total,
+    const int n_mut_trunk,
+    const std::string lbl_outgroup,
     RandomNumberGenerator& rng);
   void printNewick(const std::string);
   void printNewick(std::ostream&);
@@ -83,8 +97,14 @@ struct Tree
   void _printTreeInfo();
 
 private:
-  /** Assign initial mutations to founding clone. */
-  void dropTransformingMutations(int);
+  /** Assign initial mutations to founding clone. 
+   *  \param n_mutations   Number of mutations to assign.
+   *  \param lbl_outgroup  Outgroup node label (sibling receives muts).
+   */
+  void dropTransformingMutations(
+    const int n_mutations,
+    const std::string lbl_outgroup
+  );
   /** Make sure each clone has at least 1 mutation difference to every other clone. */
   void dropMandatoryMutations(std::shared_ptr<TNodeType>, int&);
   /** Drop free mutations on random clone nodes. */

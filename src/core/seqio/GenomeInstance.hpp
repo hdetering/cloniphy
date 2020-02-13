@@ -59,16 +59,14 @@ struct GenomeInstance {
    */
   void
   deleteChromosomeInstance(
-    std::shared_ptr<ChromosomeInstance> sp_chr,
-    std::string id_chr,
-    size_t idx_chr_cpy
+    std::shared_ptr<ChromosomeInstance> sp_chr
   );
 
   /**
    * Perform Whole Genome Duplication.
    *
    * Duplication is carried out by duplicating all ChromosomeInstances.
-   * \param out_vec_seg_mod Output parameter: vector of SegmentCopy modifications (id_new, id_old, start_old, end_old)
+   * \param out_vec_seg_mod  output parameter: vector of SegmentCopy modifications (id_new, id_old, start_old, end_old)
    */
   void
   duplicate(std::vector<seg_mod_t>& out_vec_seg_mod);
@@ -78,15 +76,6 @@ struct GenomeInstance {
   getSegmentCopiesAt (
     std::string id_chromosome,
     unsigned long ref_pos
-  );
-
-  /**DEPRECATED!
-   * Map genomic regions to their absolute copy number states.
-   *  \param out_map_cn_loci map storing for each copy number state a collection of genomic loci.
-   */
-  void
-  getCopyNumberStates (
-    std::map<unsigned, std::vector<std::shared_ptr<Locus>>>& out_map_cn_loci
   );
 
   /** Map genomic regions for each chromosome to their absolute copy number states.

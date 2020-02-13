@@ -38,8 +38,8 @@ typedef
 std::tuple<
   boost::uuids::uuid, 
   boost::uuids::uuid, 
-  unsigned long, 
-  unsigned long
+  TCoord, 
+  TCoord
 >
 seg_mod_t;
 

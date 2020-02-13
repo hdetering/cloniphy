@@ -50,14 +50,20 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   string fn_ref_idx = "";
   string fn_ref_bed = "";
   string fn_tree = "";
+  string tree_healthy_label = "";
+  bool tree_add_healthy_node = false;
   bool do_ref_trinuc = false;
   bool seq_read_gen = false;
   bool seq_rc_gen = true;
+  double seq_rc_error = 0.0;
+  int seq_rc_disp = 0;
+  int seq_rc_min = 1;
+  double seq_coverage = 0;
   unsigned seq_read_len = 0;
   unsigned seq_frag_len_mean = 0;
   unsigned seq_frag_len_sd = 0;
   string seq_art_path = "";
-  int seq_rc_min = 1;
+  
   bool seq_use_vaf = false;
   bool do_reuse_reads = false;
   bool do_fq_out = true;
@@ -85,7 +91,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 //    ("ref-fasta,r", po::value<string>(&fn_ref_fa), "reference sequence")
 //    ("mut-gl-vcf,v", po::value<string>(&fn_mut_gl_vcf), "germline variants")
 //    ("mut-som-trunk,i", po::value<int>(&n_mut_trunk), "number of transforming mutations (separating healthy genome from first cancer genome)")
-//    ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
+    ("tree,t", po::value<string>(&fn_tree), "file containing user defined clone tree (Newick format)")
     ("out-dir,o", po::value<string>(&dir_out), "output directory")
 //    ("verbosity,v", po::value<int>(&verb), "detail level of console output")
     ("threads,p", po::value<int>(&threads)->default_value(1), "number of parallel threads")
@@ -258,6 +264,17 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["tree"] = fn_tree;
   }
   fn_tree = _config["tree"].as<string>();
+  // node label of healthy node (either present or to be added)
+  if (!_config["tree-healthy-label"]) {
+    _config["tree-healthy-label"] = tree_healthy_label;
+  }
+  tree_healthy_label = _config["tree-healthy-label"].as<string>();
+  // whether to add a healthy node add the root of the clone tree
+  if (var_map.count("tree-add-healthy-node") || !_config["tree-add-healthy-node"]) {
+    _config["tree-add-healthy-node"] = tree_add_healthy_node;
+  }
+  tree_add_healthy_node = _config["tree-add-healthy-node"].as<bool>();
+
   // prefix to use for output files
   if (var_map.count("out-dir") || !_config["out-dir"]) {
     _config["out-dir"] = dir_out;
@@ -321,6 +338,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["seq-read-len"] = seq_read_len;
   }
   seq_read_len = _config["seq-read-len"].as<unsigned>();
+  // mean depth of coverage for read simulation
+  if (!_config["seq-coverage"]) {
+    _config["seq-coverage"] = seq_coverage;
+  }
+  seq_coverage = _config["seq-coverage"].as<double>();
   // mean fragment length for read simulation
   if (!_config["seq-frag-len-mean"]) {
     _config["seq-frag-len-mean"] = seq_frag_len_mean;
@@ -356,15 +378,26 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       _config["seq-sam-out"] = do_sam_out;
   }
   do_fq_out = _config["seq-sam-out"].as<bool>();
-  // when generating read counts, minimum ALT read count for which to output a VCF line
-  if (!_config["seq-rc-min"]) {
-    _config["seq-rc-min"] = seq_rc_min;
-  }
+  
   // whether to generate read counts
   if (!_config["seq-rc-gen"]) {
     _config["seq-rc-gen"] = seq_rc_gen;
   }
   seq_rc_gen = _config["seq-rc-gen"].as<bool>();
+  // sequencing error reate when simulating read counts
+  if (!_config["seq-rc-error"]) {
+    _config["seq-rc-error"] = seq_rc_error;
+  }
+  seq_rc_error = _config["seq-rc-error"].as<double>();
+  // dispersal parameter for beta-binomial read counts
+  if (!_config["seq-rc-disp"]) {
+    _config["seq-rc-disp"] = seq_rc_disp;
+  }
+  seq_rc_disp = _config["seq-rc-disp"].as<int>();
+  // when generating read counts, minimum ALT read count for which to output a VCF line
+  if (!_config["seq-rc-min"]) {
+    _config["seq-rc-min"] = seq_rc_min;
+  }
   seq_rc_min = _config["seq-rc-min"].as<int>();
   
   //---------------------------------------------------------------------------
@@ -558,13 +591,13 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     if (fn_bam_input.length()>0) {
       fprintf(stderr, "  importing reads from BAM FILE provided by user\n");
       fprintf(stderr, "  input reads:\t%s\n", fn_bam_input.c_str());
-    } else if (!seq_read_gen) {
+    } else if (seq_rc_gen) {
       fprintf(stderr, "  simulating READ COUNTS\n");
       fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
       fprintf(stderr, "  depth dispersion:\t%.1f\n", this->getValue<double>("seq-rc-disp"));
       fprintf(stderr, "  seq error:\t\t%.2f\n", this->getValue<double>("seq-rc-error"));
       fprintf(stderr, "  min ALT read count:\t%d\n", this->getValue<int>("seq-rc-min"));
-    } else {
+    } else if (seq_read_gen) {
       fprintf(stderr, "  simulating SEQUENCING READS\n");
       fprintf(stderr, "  reuse healthy reads:\t%s\n", do_reuse_reads ? "yes" : "no");
       fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));

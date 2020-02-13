@@ -130,7 +130,8 @@ vector<shared_ptr<TNodeType>> Tree<TNodeType>::getVisibleNodes() {
 }
 
 template<typename TNodeType>
-vector<int> Tree<TNodeType>::getVisibleNodesIdx() {
+vector<int>
+Tree<TNodeType>::getVisibleNodesIdx() {
   vector<int> vis_nodes_idx;
   for (auto node : m_vecNodes) {
     if (node->is_visible)
@@ -140,16 +141,20 @@ vector<int> Tree<TNodeType>::getVisibleNodesIdx() {
 }
 
 template<typename TNodeType>
-vector<shared_ptr<TNodeType>> Tree<TNodeType>::getNodesPreOrder() {
+vector<shared_ptr<TNodeType>>
+Tree<TNodeType>::getNodesPreOrder ()
+{
   vector<shared_ptr<TNodeType>> nodes;
   getNodesPreOrderRec(this->m_root, nodes);
   return nodes;
 }
 
 template<typename TNodeType>
-void Tree<TNodeType>::getNodesPreOrderRec (
+void
+Tree<TNodeType>::getNodesPreOrderRec (
   const shared_ptr<TNodeType> n,
-  vector<shared_ptr<TNodeType>>& nodes)
+  vector<shared_ptr<TNodeType>>& nodes
+)
 {
   nodes.push_back(n);
   for (auto const c : n->m_vecChildren) {
@@ -159,7 +164,11 @@ void Tree<TNodeType>::getNodesPreOrderRec (
 
 
 template<typename TNodeType>
-void Tree<TNodeType>::generateRandomTopology(function<double()>& rng) {
+void 
+Tree<TNodeType>::generateRandomTopology (
+  function<double()>& rng
+)
+{
   // TODO: call appropriate method based on user params
   if (true) {
     generateRandomTopologyInternalNodes(rng);
@@ -170,7 +179,11 @@ void Tree<TNodeType>::generateRandomTopology(function<double()>& rng) {
 }
 
 template<typename TNodeType>
-void Tree<TNodeType>::generateRandomTopologyInternalNodes(function<double()>& random) {
+void
+Tree<TNodeType>::generateRandomTopologyInternalNodes (
+  function<double()>& random
+)
+{
   // create root node
   shared_ptr<TNodeType> r(new TNodeType());
   r->label = "0";
@@ -199,7 +212,11 @@ void Tree<TNodeType>::generateRandomTopologyInternalNodes(function<double()>& ra
 }
 
 template<typename TNodeType>
-void Tree<TNodeType>::generateRandomTopologyLeafsOnly(function<double()>& random) {
+void 
+Tree<TNodeType>::generateRandomTopologyLeafsOnly (
+  function<double()>& random
+)
+{
   // generate N-1 internal nodes (each representing a coalescence event)
   int numNodes = m_numVisibleNodes;
   int k = numNodes-1;
@@ -245,29 +262,40 @@ void Tree<TNodeType>::generateRandomTopologyLeafsOnly(function<double()>& random
     _printNodes();
 #endif
   }
-
   // generate a "healthy" clone as root node
-  shared_ptr<TNodeType> r(new TNodeType());
-  r->index = nextIndex;
-  r->label = "0";
-  //r->is_healthy = true;
-  r->is_visible = true;
-  r->m_vecChildren.push_back(m_vecNodes[nextIndex-1]);
-  r->parent = 0;
-  m_vecNodes[nextIndex-1]->parent = r;
-  m_vecNodes.push_back(r);
-  m_numNodes++;
-  m_numVisibleNodes++;
-  m_root = r;
+  addHealthyRoot( "0" );
 #ifdef DEBUG
   fprintf(stderr, "\twe have been ROOTed: %s\n", r->label.c_str());
   _printNodes();
 #endif
 }
 
+// generate a "healthy" clone as root node
+template <typename TNodeType>
+void
+Tree<TNodeType>::addHealthyRoot (
+  const std::string label
+)
+{
+  int nextIndex = m_vecNodes.size();
+  shared_ptr<TNodeType> r( new TNodeType() );
+  r->index = nextIndex;
+  r->label = label;
+  r->is_healthy = true;
+  r->is_visible = true;
+  r->m_vecChildren.push_back( m_vecNodes[m_root->index] );
+  r->parent = 0; // using 0 as NULL value for shared_ptr
+  m_root->parent = r;
+  m_vecNodes.push_back(r);
+  m_numNodes++;
+  m_numVisibleNodes++;
+  m_root = r;
+}
+
 /** Shrink/expand branch length by a random factor */
 template <typename TNodeType>
-void Tree<TNodeType>::varyBranchLengths(
+void
+Tree<TNodeType>::varyBranchLengths (
   function<double()>& random_double
 )
 {
@@ -281,7 +309,8 @@ void Tree<TNodeType>::varyBranchLengths(
 }
 
 template <typename TNodeType>
-void Tree<TNodeType>::_varyBranchLengthsRec(
+void
+Tree<TNodeType>::_varyBranchLengthsRec (
   shared_ptr<TNodeType> node,
   function<double()>& random_double
 )
@@ -300,7 +329,11 @@ void Tree<TNodeType>::_varyBranchLengthsRec(
 
 /** Assign random weights to visible nodes */
 template<typename TNodeType>
-void Tree<TNodeType>::assignWeights(vector<double> w) {
+void
+Tree<TNodeType>::assignWeights (
+  vector<double> w
+)
+{
   string str_w = format("%.4f", w[0]);
   for_each(w.begin()+1, w.end(), [&] (double p) {
     str_w += format(", %.4f", p);
@@ -333,10 +366,12 @@ void Tree<TNodeType>::assignWeights(vector<double> w) {
 
 /** Assign weights recursively (pre-order traversal) */
 template<typename TNodeType>
-void Tree<TNodeType>::_assignWeightsRec(
+void
+Tree<TNodeType>::_assignWeightsRec (
   shared_ptr<TNodeType> node,
   vector<double>::iterator &it_w,
-  vector<double> w)
+  vector<double> w
+)
 {
   if (node->is_visible) {
     if (it_w == w.end()) {
@@ -359,16 +394,19 @@ void Tree<TNodeType>::_assignWeightsRec(
  * After dropping mutations, branch lengths are reassigned as number of mutations.
  */
 template<typename TNodeType>
-void Tree<TNodeType>::dropSomaticMutations(
-  int n_mutations,
-  int n_transforming,
-  RandomNumberGenerator &rng)
+void
+Tree<TNodeType>::dropSomaticMutations (
+  const int n_mutations,
+  const int n_transforming,
+  const string lbl_outgroup,
+  RandomNumberGenerator &rng
+)
 {
   this->m_numMutations = n_mutations;
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
 #endif
-  dropTransformingMutations(n_transforming);
+  dropTransformingMutations(n_transforming, lbl_outgroup);
   int next_mut_id = n_transforming; // identifier for next mutation
 #ifdef DEBUG
   //fprintf(stderr, "Now dropping mandatory mutations...\n");
@@ -395,28 +433,38 @@ void Tree<TNodeType>::dropSomaticMutations(
   }
 }
 
-/** Drop transforming mutations on root (i.e. healthy) node. 
+/** Drop transforming mutations on child of root node. 
  */
 template<typename TNodeType>
-void Tree<TNodeType>::dropTransformingMutations(int n_mutations) {
+void Tree<TNodeType>::dropTransformingMutations (
+  const int n_mutations,
+  const string lbl_outgroup
+)
+{
+  bool is_proper_outgroup = false;
   shared_ptr<TNodeType> node = m_root;
-//  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
-//  assert ( topNodes.size() == 1 && "Root should have only one child." );
-//  for (unsigned i=0; i<topNodes.size(); ++i) {
-//    shared_ptr<TNodeType> node = topNodes[i];
+  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
+  //assert ( topNodes.size() == 1 && "Root should have only one child." );
+  for (unsigned i=0; i<topNodes.size(); ++i) {
+    shared_ptr<TNodeType> node = topNodes[i];
+    if (node->label == lbl_outgroup) {
+      is_proper_outgroup = true;
+      continue;
+    }
     for (int m=0; m<n_mutations; ++m) {
-cerr << "\tDropping mutation " << m << " on " << *node << endl;;
+//cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
       node->m_vec_mutations.push_back(m);
     }
-//  }
+  }
+  assert ( is_proper_outgroup  && "Outgroup must be direct descendent of root." );
 }
 
 /** Drop one mutation on a given node and repeat for children. */
 template<typename TNodeType>
 void Tree<TNodeType>::dropMandatoryMutations(shared_ptr<TNodeType> node, int &mutation_id) {
   if (node!=m_root) {
-cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
+//cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
     node->m_vec_mutations.push_back(mutation_id);
   }
@@ -555,6 +603,16 @@ void Tree<TNodeType>::printNexusMatrix (
   ostream& os
 )
 {
+  // determine maximum label length (to align matrix rows)
+  unsigned max_len_lbl = 0;
+  for ( size_t i=0; i<m_vecNodes.size(); i++ ) {
+    auto node = m_vecNodes[i];
+    unsigned len_lbl = node->label.length();
+    if ( len_lbl > max_len_lbl ) {
+      max_len_lbl = len_lbl;
+    }
+  }
+
   os << "  Matrix" << endl;
   os << "    ['1's indicate on which branch a mutation *first* occurred]" << endl;
   for ( size_t i=0; i<m_vecNodes.size(); i++ ) {
@@ -566,7 +624,7 @@ void Tree<TNodeType>::printNexusMatrix (
     );
     os << "    " << lbl;
     // add padding to print matrix horizontally aligned
-    for ( size_t j=0; j<(10-lbl.length()); j++) {
+    for ( size_t j=0; j<(max_len_lbl-node->label.length()+1); j++) {
       os << ' ';
     }
     // set matrix line with new mutations for this node

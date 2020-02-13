@@ -95,8 +95,8 @@ struct VariantStore
   generateSomaticVariants (
     const std::vector<Mutation>& vec_mutations,
     const GenomeReference& genome,
-    SomaticSubstitutionModel& model_snv,
-    SomaticCnvModel& model_cnv,
+    const SomaticSubstitutionModel& model_snv,
+    const SomaticCnvModel& model_cnv,
     RandomNumberGenerator& rng,
     const bool infinite_sites = false
   );
@@ -115,11 +115,32 @@ struct VariantStore
   );
 
   /** Apply a mutation to a GenomeInstance.
-   *  - SNV: A SegmentCopy will be chosen from the affected ChromosomeInstance.
+   *  - SNV : A SegmentCopy will be chosen from the affected ChromosomeInstance.
    *  - CNV (gain): new SequenceCopies will be introduced
    *  - CNV (loss): existing SequenceCopies will be split
    */
-  void applyMutation(Mutation m, GenomeInstance& g, RandomNumberGenerator& r);
+  void
+  applyMutation (
+    Mutation m, 
+    GenomeInstance& g,
+    const SomaticSubstitutionModel& model_snv,
+    const SomaticCnvModel& model_cnv,
+    RandomNumberGenerator& r
+  );
+
+  /** Apply a mutation to a GenomeInstance.
+   *  \param cnv     CNV to be applied; its properties will be updated.
+   *  \param genome  GenomeInstance to be affected by CNV.
+   *  \param model   Somatic CNV model defining parameters for CNVs (min length etc.)
+   *  \param rng     Random number generator.
+   */
+  void
+  applyCopyNumberVariant (
+    CopyNumberVariant& cnv, 
+    GenomeInstance& genome,
+    const SomaticCnvModel& model,
+    RandomNumberGenerator& rng
+  );
 
   /** Transfer mutations from existing SegmentCopies to new ones. */
   void transferMutations(std::vector<seqio::seg_mod_t> vec_seg_mod);

@@ -676,7 +676,7 @@ BulkSampleGenerator::initCloneGenomes (
       double cn_total = cn_state.count_A + cn_state.count_B;
 
       f_bed << format("%s\t%lu\t%lu\t%.2f\t%.2f\n", 
-                  id_chr.c_str(), ref_start, ref_end, 
+                  id_chr.c_str(), ref_start+1, ref_end+1, 
                   cn_state.count_A, cn_state.count_B);
     }
   }
@@ -807,7 +807,8 @@ BulkSampleGenerator::writeBulkCopyNumber (
         ref_end = reg.upper();
         seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
         ofs_bed << format("%s\t%lu\t%lu\t%0.2f\t%0.2f\n", 
-          id_chr.c_str(), ref_start, ref_end, cn_state.count_A, cn_state.count_B);
+          id_chr.c_str(), ref_start+1, ref_end+1, 
+          cn_state.count_A, cn_state.count_B);
       }
     }
   }
@@ -1712,7 +1713,7 @@ BulkSampleGenerator::writeFastaTiledBak (
     double cn_total = cn_state.count_A + cn_state.count_B;
 
     f_bed << format("%s\t%lu\t%lu\t%.2f\t%.2f\n", 
-                    id_chr.c_str(), ref_start, ref_end, 
+                    id_chr.c_str(), ref_start+1, ref_end+1, 
                     cn_state.count_A, cn_state.count_B);
 
     // add fragment length to CN->len index
