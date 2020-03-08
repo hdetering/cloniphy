@@ -56,7 +56,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   bool seq_read_gen = false;
   bool seq_rc_gen = true;
   double seq_rc_error = 0.0;
-  int seq_rc_disp = 0;
+  double seq_rc_disp = 0;
   int seq_rc_min = 1;
   double seq_coverage = 0;
   unsigned seq_read_len = 0;
@@ -393,7 +393,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   if (!_config["seq-rc-disp"]) {
     _config["seq-rc-disp"] = seq_rc_disp;
   }
-  seq_rc_disp = _config["seq-rc-disp"].as<int>();
+  seq_rc_disp = _config["seq-rc-disp"].as<double>();
   // when generating read counts, minimum ALT read count for which to output a VCF line
   if (!_config["seq-rc-min"]) {
     _config["seq-rc-min"] = seq_rc_min;

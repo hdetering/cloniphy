@@ -48,6 +48,12 @@ struct Tree
   void getNodesPreOrderRec(
     const std::shared_ptr<TNodeType> n,
     std::vector<std::shared_ptr<TNodeType>>& nodes);
+  /** Return MRCA of non-outgroup lineages */
+  std::shared_ptr<TNodeType> getMrca(
+    const std::string lbl_outgroup);
+  /** Return outgroup lineage */
+  std::shared_ptr<TNodeType> getOutgroup(
+    const std::string lbl_outgroup);
   /** Build random tree topology. */
   void generateRandomTopology(std::function<double()>&);
   /** Arrange nodes randomly (internal nodes are visible) */
@@ -63,8 +69,15 @@ struct Tree
   void addHealthyRoot (
     const std::string label
   );
-  /** Shrink/expand branch length by a random factor */
-  void varyBranchLengths(std::function<double()>&);
+  /** Shrink/expand branch length by a random factor
+   *  \param lbl_outgrp  Label of outgroup lineage (will not be affected).
+   *  \param rnd_dbl     Function returning random double values.
+  */
+  void 
+  varyBranchLengths (
+    const std::string lbl_outgrp, 
+    std::function<double()>& rand_dbl
+  );
   /** Assign random weights to visible nodes */
   void assignWeights(std::vector<double> w);
   /** Distribute somatic mutations along tree branches 
@@ -97,18 +110,27 @@ struct Tree
   void _printTreeInfo();
 
 private:
-  /** Assign initial mutations to founding clone. 
-   *  \param n_mutations   Number of mutations to assign.
-   *  \param lbl_outgroup  Outgroup node label (sibling receives muts).
+  /** Assign initial mutations to founding clone.
+   *  \param sp_mrca  MRCA of non-outgroup lineages.
+   *  \param n_muts   Number of mutations to assign.
    */
   void dropTransformingMutations(
-    const int n_mutations,
-    const std::string lbl_outgroup
+    std::shared_ptr<TNodeType> sp_mrca,
+    const int n_muts
   );
   /** Make sure each clone has at least 1 mutation difference to every other clone. */
   void dropMandatoryMutations(std::shared_ptr<TNodeType>, int&);
-  /** Drop free mutations on random clone nodes. */
-  void dropRandomMutations(int, int&, RandomNumberGenerator&);
+  /** Drop free mutations on random clone nodes. 
+   *  \param lbl_outgroup  Label of outgroup lineage.
+   *  \param n_muts        Number of mutations to assign.
+   *  \param id_mut        Identifier of next mutation (for consistent numbering).
+   *  \param rng           Random number generator.
+   */
+  void dropRandomMutations(
+    const std::string lbl_outgroup,
+    const int n_muts,
+    int& id_mut, 
+    RandomNumberGenerator& rng);
   /** Reset mutation ids to follow pre-oder traversal sequence. */
   void _relabelMutationsRec(std::shared_ptr<TNodeType>, int&);
   void _varyBranchLengthsRec(std::shared_ptr<TNodeType>, std::function<double()>&);

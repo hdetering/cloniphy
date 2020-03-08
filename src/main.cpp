@@ -280,7 +280,7 @@ int main (int argc, char* argv[])
     tree = treeio::Tree<Clone>(n_clones);
     fprintf(stderr, "\nGenerating random topology for %d clones...\n", n_clones);
     tree.generateRandomTopologyLeafsOnly(random_dbl);
-    tree.varyBranchLengths(random_gamma);
+    tree.varyBranchLengths(tree_healthy_lbl, random_gamma);
     fprintf(stderr, "done.\n");
   }
 
@@ -480,7 +480,7 @@ int main (int argc, char* argv[])
   map<int, GenomeInstance> map_id_genome;
   // generate "healthy" GenomeInstance from reference genome
   GenomeInstance healthy_genome = GenomeInstance(ref_genome);
-  // root node corresponds to healthy genome (diploid)
+  // root node (MRCA of healthy and tumor) receives healthy genome (diploid)
   map_id_genome[tree.m_root->index] = healthy_genome;
 
   // MEM: ref genome index not needed after this point
@@ -536,12 +536,13 @@ int main (int argc, char* argv[])
     }
   }
   // add "healthy" clone
-  shared_ptr<Clone> c_normal = nodes[0];
-  map_clone_genome[tree_healthy_lbl] = map_id_genome[c_normal->index];
-  vec_clone_lbl.push_back(tree_healthy_lbl);
+  //shared_ptr<Clone> c_normal = nodes[0];
+  //map_clone_genome[tree_healthy_lbl] = map_id_genome[c_normal->index];
+  //vec_clone_lbl.push_back(tree_healthy_lbl);
 
   // export segment copies to file
   string fn_dbg_segs = (path_out / "segments.tsv").string();
+  fprintf(stderr, "writing segment copies meta info to file '%s'...\n", fn_dbg_segs.c_str());
   std::ofstream ofs_dbg_segs(fn_dbg_segs, std::ofstream::out);
   for (auto const & lbl_gi : map_clone_genome) {
     string lbl_clone = lbl_gi.first;
@@ -564,6 +565,7 @@ int main (int argc, char* argv[])
 
   // export variants associated to each segment copy
   string fn_dbg_vars = (path_out / "segment_vars.tsv").string();
+  fprintf(stderr, "writing segment copies variants to file '%s'...\n", fn_dbg_vars.c_str());
   std::ofstream ofs_dbg_vars(fn_dbg_vars, std::ofstream::out);
   for (auto const & cg : map_clone_genome) {
     string lbl_clone = cg.first;
@@ -704,59 +706,6 @@ int main (int argc, char* argv[])
   f_vcf.open(fn_vcf);
   vario::writeVcf(ref_genome.records, vec_var_somatic, vec_vis_nodes_idx, vec_labels, mat_mut, f_vcf);
   f_vcf.close();
-
-  // DEPRECATED: Now handled by BulkSampleGenerator :)
-  // // get clones and mutation map from intermediate files
-  // vector<shared_ptr<Clone>> clones = tree.getVisibleNodes();
-  // int num_mm_rows = 0;
-  // map<string, vector<bool>> mm;
-  // num_mm_rows = vario::readMutMapFromCSV(mm, fn_mm.string());
-  // assert( num_mm_rows == clones.size() );
-
-  // // spike-in mutations in baseline reads
-  // VariantSet varset_spikein;
-
-  // // generate normal sample
-  // path fn_normal_bam = "";
-  // fprintf(stderr, "---\nGenerating sequencing reads for normal (healthy) sample...\n");
-  // if (do_germline_vars) {
-  //   varset_spikein = varset_gl + varset_sm;
-  //   fn_normal_bam = path_out / "normal.sam";
-  //   path fn_fqout = path_out / "normal.fastq";
-  //   path fn_baseline = fn_ref_bam;
-  //   string id_sample("normal");
-  //   vector<double> vec_freq(n_clones-1, 0.0);
-  //   fprintf(stderr, "\nSpike in variants from file: %s\n", fn_mut_gl_vcf.c_str());
-  //   fprintf(stderr, "  into baseline reads: %s\n", fn_ref_bam.c_str());
-  //   bamio::mutateReads(fn_fqout, fn_normal_bam, fn_baseline, varset_spikein,
-  //     clones, mm, vec_freq, id_sample, ref_genome.ploidy, rng, seq_fq_out);
-  //   fprintf(stderr, "\nReads containing germline mutations are in file: %s\n", fn_normal_bam.c_str());
-  // } else { // there are no germline variants
-  //   fn_normal_bam = fn_ref_bam;
-  // }
-  // fprintf(stderr, "---\nGenerating sequencing reads for %ld tumor samples...\n", mtx_sample.size());
-  // for (auto sample : mtx_sample) {
-  //   path fn_baseline;
-  //   if (seq_reuse_reads) {
-  //     // use normal sample reads as baseline for tumor samples
-  //     fn_baseline = fn_normal_bam;
-  //     // germline variants are already contained in baseline reads
-  //     varset_spikein = varset_sm;
-  //   }
-  //   else  {
-  //     // choose sample-specific baseline files
-  //     fn_baseline = path_out / str(format("%s.baseline.sam") % sample.first);
-  //     // include germline variants in spike-in variants
-  //     varset_spikein = varset_gl + varset_sm;
-  //   }
-  //   path fn_fqout = path_out / str(format("%s.bulk.fq") % sample.first);
-  //   path fn_samout = path_out / str(format("%s.bulk.sam") % sample.first);
-
-  //   //VariantSet varset_spikein(vec_var_spikein);
-  //   vector<shared_ptr<Clone>> vec_vis_clones = tree.getVisibleNodes();
-  //   bamio::mutateReads(fn_fqout, fn_samout, fn_baseline, varset_spikein,
-  //     clones, mm, sample.second, sample.first, ref_genome.ploidy, rng);
-  // }
 
   return EXIT_SUCCESS;
 }

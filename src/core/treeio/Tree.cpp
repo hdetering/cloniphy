@@ -296,11 +296,14 @@ Tree<TNodeType>::addHealthyRoot (
 template <typename TNodeType>
 void
 Tree<TNodeType>::varyBranchLengths (
+  const string lbl_outgroup,
   function<double()>& random_double
 )
 {
-  shared_ptr<TNodeType> root = this->m_root;
-  _varyBranchLengthsRec(root, random_double);
+  shared_ptr<TNodeType> mrca = getMrca(lbl_outgroup);
+  double scale_factor = random_double();
+  mrca->length *= scale_factor;
+  _varyBranchLengthsRec(mrca, random_double);
   // normalize branch lengths to MRCA's length
   /*double len_mrca = this->m_root->m_vecChildren[0]->length;
   for (T* node : this->m_vecNodes) {
@@ -387,6 +390,52 @@ Tree<TNodeType>::_assignWeightsRec (
   }
 }
 
+/** Return MRCA of non-outgroup lineages */
+template<typename TNodeType>
+shared_ptr<TNodeType>
+Tree<TNodeType>::getMrca (
+  const string lbl_outgroup
+) 
+{
+  shared_ptr<TNodeType> mrca;
+  bool is_proper_outgroup = false;
+  shared_ptr<TNodeType> node = m_root;
+  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
+  assert ( topNodes.size() == 2 && "Root should have exactly two children (outgroup, MRCA)." );
+  if (topNodes[0]->label == lbl_outgroup) {
+    is_proper_outgroup = true;
+     mrca = topNodes[1];
+  } else if (topNodes[1]->label == lbl_outgroup) {
+    is_proper_outgroup = true;
+     mrca = topNodes[0];
+  }
+  assert ( is_proper_outgroup  && "Outgroup must be direct descendent of root." );
+  
+  return mrca;
+}
+
+/** Return MRCA of non-outgroup lineages */
+template<typename TNodeType>
+shared_ptr<TNodeType>
+Tree<TNodeType>::getOutgroup (
+  const string lbl_outgroup
+) 
+{
+  shared_ptr<TNodeType> sp_outgrp;
+  bool is_proper_outgroup = false;
+  shared_ptr<TNodeType> node = m_root;
+  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
+  for (size_t i=0; i<topNodes.size(); ++i) {
+    if (topNodes[i]->label == lbl_outgroup) {
+      is_proper_outgroup = true;
+      sp_outgrp = topNodes[i];
+    }
+  }
+  assert ( is_proper_outgroup  && "Outgroup must be direct descendent of root." );
+  
+  return sp_outgrp;
+}
+
 /** Place mutations randomly on the tree.
  * Relative branch lengths are used as prior probabilities during assignment,
  * so longer branches receive more mutations, compared to shorter ones.
@@ -403,10 +452,12 @@ Tree<TNodeType>::dropSomaticMutations (
 )
 {
   this->m_numMutations = n_mutations;
+  // determine tumor MRCA
+  shared_ptr<TNodeType> sp_mrca = getMrca(lbl_outgroup);
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
 #endif
-  dropTransformingMutations(n_transforming, lbl_outgroup);
+  dropTransformingMutations(sp_mrca, n_transforming);
   int next_mut_id = n_transforming; // identifier for next mutation
 #ifdef DEBUG
   //fprintf(stderr, "Now dropping mandatory mutations...\n");
@@ -421,7 +472,7 @@ Tree<TNodeType>::dropSomaticMutations (
 #ifdef DEBUG
   fprintf(stderr, "Now dropping %d random mutations...\n", n_random);
 #endif
-  dropRandomMutations(n_random, ++next_mut_id, rng);
+  dropRandomMutations(lbl_outgroup, n_random, ++next_mut_id, rng);
 
   // relabel mutations to pre-order sequence
   next_mut_id = 0;
@@ -436,33 +487,27 @@ Tree<TNodeType>::dropSomaticMutations (
 /** Drop transforming mutations on child of root node. 
  */
 template<typename TNodeType>
-void Tree<TNodeType>::dropTransformingMutations (
-  const int n_mutations,
-  const string lbl_outgroup
+void 
+Tree<TNodeType>::dropTransformingMutations (
+  shared_ptr<TNodeType> sp_mrca,
+  const int n_mutations
 )
 {
-  bool is_proper_outgroup = false;
-  shared_ptr<TNodeType> node = m_root;
-  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
-  //assert ( topNodes.size() == 1 && "Root should have only one child." );
-  for (unsigned i=0; i<topNodes.size(); ++i) {
-    shared_ptr<TNodeType> node = topNodes[i];
-    if (node->label == lbl_outgroup) {
-      is_proper_outgroup = true;
-      continue;
-    }
-    for (int m=0; m<n_mutations; ++m) {
+  for (int m=0; m<n_mutations; ++m) {
 //cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
-      node->m_vec_mutations.push_back(m);
-    }
+      sp_mrca->m_vec_mutations.push_back(m);
   }
-  assert ( is_proper_outgroup  && "Outgroup must be direct descendent of root." );
 }
 
 /** Drop one mutation on a given node and repeat for children. */
 template<typename TNodeType>
-void Tree<TNodeType>::dropMandatoryMutations(shared_ptr<TNodeType> node, int &mutation_id) {
+void 
+Tree<TNodeType>::dropMandatoryMutations(
+  shared_ptr<TNodeType> node, 
+  int &mutation_id
+) 
+{
   if (node!=m_root) {
 //cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
@@ -480,11 +525,14 @@ void Tree<TNodeType>::dropMandatoryMutations(shared_ptr<TNodeType> node, int &mu
 template<typename TNodeType>
 void 
 Tree<TNodeType>::dropRandomMutations (
-  int n_mutations, 
+  const string lbl_outgroup,
+  const int n_mutations, 
   int &mutation_id, 
   RandomNumberGenerator& rng
 ) {
   long n_nodes = this->m_vecNodes.size();
+  shared_ptr<TNodeType> sp_mrca = getMrca(lbl_outgroup);
+  shared_ptr<TNodeType> sp_outgrp = getOutgroup(lbl_outgroup);
   function<int()> f_random_index;
   // are branch lengths specified?
   double tot_len = this->getTotalBranchLength();
@@ -492,9 +540,11 @@ Tree<TNodeType>::dropRandomMutations (
   if (tot_len == 0) { // if tree has no branch length, assign equal weight to each
     vec_branch_len = vector<double>(n_nodes, 1);
   }
-  // avoid MRCA node receiving random mutations
-  shared_ptr<TNodeType> mrca = this->m_root;
-  vec_branch_len[mrca->index] = 0.0;
+  // avoid root, outgroup and MRCA node receiving random mutations 
+  // (MRCA receives transforming muts)
+  vec_branch_len[m_root->index] = 0.0;
+  vec_branch_len[sp_mrca->index] = 0.0;
+  vec_branch_len[sp_outgrp->index] = 0.0;
   f_random_index = rng.getRandomIndexWeighted(vec_branch_len);
   // drop mutations randomly, but in proportion to branch length
   for (int i=0; i<n_mutations; ++i) {
