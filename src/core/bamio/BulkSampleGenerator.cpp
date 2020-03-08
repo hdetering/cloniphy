@@ -96,13 +96,14 @@ BulkSampleGenerator::generateBulkSamples (
       int nthreads = omp_get_num_threads();
 
     string lbl_sample = lbl_smp.first;
+    // NOTE: This copies the BulkSample object. Do not use to modify!!
     BulkSample sample = lbl_smp.second;
 #ifndef NDEBUG
     fprintf(stderr, "lbl_sample: %s (thread %d of %d)\n", lbl_sample.c_str(), ithread, nthreads);
 #endif
     // initialize expected SNV allele frequencies
     map<string, double> w = sample.m_clone_weight;
-    sample.initAlleleCounts(w, var_store, m_map_clone_chr_seg);
+    this->m_samples[lbl_sample].initAlleleCounts(w, var_store, m_map_clone_chr_seg);
 
     // output expected read counts to BED file.
     path fn_vaf = path_bed / format("%s.vaf.bed", lbl_sample.c_str()) ;
@@ -315,7 +316,7 @@ BulkSampleGenerator::writeReadCountsVcf (
   // write header
   ofs << "##fileformat=VCFv4.1" << endl;
   ofs << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
-  ofs << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele Count\">" << endl;
+  ofs << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"ALT allele Count\">" << endl;
   //ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
   ofs << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" << endl;
 
