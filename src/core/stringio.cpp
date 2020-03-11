@@ -4,6 +4,21 @@ using namespace std;
 
 namespace stringio {
 
+double strToDub(const string& str) {
+   stringstream ss(str);
+   double d = 0;
+   ss >> d;
+
+   if (ss.fail()) {
+      string s = "Unable to format ";
+      s += str;
+      s += " as a number!";
+      throw (s);
+   }
+
+   return (d);
+}
+
 vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
     string item;

@@ -70,10 +70,10 @@ int main (int argc, char* argv[])
   // params specified by user (in config file or command line)
   path fn_bam_input(config.getValue<string>("bam-input"));
   int n_clones = config.getValue<int>("clones");
-  int n_mut_somatic = config.getValue<int>("mut-som-num");
-  int n_mut_transforming = config.getValue<int>("mut-som-trunk");
-  int n_mut_germline = config.getValue<int>("mut-gl-num");
+  double r_mut_germline = config.getValue<double>("mut-gl-rate");
   double mut_gl_hom = config.getValue<double>("mut-gl-hom");
+  double r_mut_somatic = config.getValue<double>("mut-som-rate");
+  double r_mut_transforming = config.getValue<double>("mut-som-trunk");
   unsigned ref_seq_num = config.getValue<int>("ref-seq-num");
   unsigned long ref_seq_len_mean = config.getValue<unsigned long>("ref-seq-len-mean");
   unsigned long ref_seq_len_sd = config.getValue<unsigned long>("ref-seq-len-sd");
@@ -142,7 +142,7 @@ int main (int argc, char* argv[])
   GermlineSubstitutionModel model_gl; // model of germline seq evolution
   SomaticSubstitutionModel model_sm; // model of somatic seq evolution
   vector<Mutation> vec_mut_gl; // germline mutations
-  vector<Mutation> vec_mut_som = vector<Mutation>(n_mut_somatic); // somatic mutations
+  vector<Mutation> vec_mut_som; // somatic mutations
   vector<Variant> vec_var_gl; // germline variants
   VariantSet varset_gl; // germline variants
   VariantSet varset_sm; // somatic variants
@@ -153,57 +153,9 @@ int main (int argc, char* argv[])
   // set number of parallel threads
   omp_set_num_threads(num_threads);
 
-  // inititalize germline model of sequence evolution
-  if (str_model_gl == "JC") {
-    model_gl.init_JC();
-  } else if (str_model_gl == "F81") {
-    //vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
-    vector<double> vec_freqs = config.m_mut_gl_model_params_nucfreq;
-    model_gl.init_F81(&vec_freqs[0]);
-  } else if (str_model_gl == "K80") {
-    //double kappa = config.getValue<double>("mut-gl-model-params:kappa");
-    double kappa = config.m_mut_gl_model_params_kappa;
-    model_gl.init_K80(kappa);
-  } else if (str_model_gl == "HKY") {
-    //string kappa = config.getValue<string>("mut-gl-model-params:kappa");
-    //vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
-    double kappa = config.m_mut_gl_model_params_kappa;
-    vector<double> vec_freqs = config.m_mut_gl_model_params_nucfreq;
-    double pi_i[4];
-    copy(vec_freqs.begin(), vec_freqs.end(), pi_i);
-    model_gl.init_HKY(pi_i, kappa);
-  }
-  // print substitution rate matrix for germline mutations?
-  if (verbosity >= 2) {
-    map<string, vector<double>> Q;
-    int i = 0;
-    for (auto row = begin(model_gl.Q); row!=end(model_gl.Q); ++row, i++) {
-      //string nuc_from = stringio::format("%s", seqio::idx2nuc(i));
-      stringstream ss;
-      string nuc_from;
-      ss << seqio::idx2nuc(i);
-      ss >> nuc_from;
-      Q[nuc_from] = vector<double>(begin(*row), end(*row));
-    }
-    fprintf(stdout, "Germline nucleotide substitution rates:\n%s", stringio::printMatrix(Q).c_str());
-  }
-
-  // initialize somatic model of sequence evolution
-  if (do_somatic_vars) {
-    map<string, double> map_mut_som_sig_mix = config.getMap<double>("mut-som-sig-mix");
-    model_sm = SomaticSubstitutionModel(fn_mut_som_sig, map_mut_som_sig_mix);
-  }
-  SomaticCnvModel model_cnv; // model of somatic structural evolution
-  if (do_cnv_sim) {
-    model_cnv.len_min = config.getValue<double>("mut-som-cnv-len-min");
-    model_cnv.len_exp = config.getValue<double>("mut-som-cnv-len-exp");
-    model_cnv.gain_prob = config.getValue<double>("mut-som-cnv-gain-prob");
-    model_cnv.rate_wgd = config.getValue<double>("mut-som-cnv-rate-wgd");
-    model_cnv.rate_chr = config.getValue<double>("mut-som-cnv-rate-chr");
-    model_cnv.rate_arm = config.getValue<double>("mut-som-cnv-rate-arm");
-    model_cnv.rate_tel = config.getValue<double>("mut-som-cnv-rate-tel");
-    model_cnv.rate_foc = config.getValue<double>("mut-som-cnv-rate-foc");
-  }
+  /*--------------------------------------------------------------------------
+       SET UP ENVIRONMENT
+    --------------------------------------------------------------------------*/
 
   // create output directories
   path path_out(dir_out);
@@ -261,57 +213,9 @@ int main (int argc, char* argv[])
   function<double()> random_dbl = rng.getRandomFunctionReal(0.0, 1.0);
   function<double()> random_gamma = rng.getRandomFunctionGamma(2.0, 0.25);
 
-  if (fn_tree.size() > 0) {
-    cerr << "Reading tree from file '" << fn_tree << "'" << endl;
-    tree = *(new treeio::Tree<Clone>(fn_tree));
-    n_clones = tree.getVisibleNodes().size();
-    cerr << "num_nodes:\t" << tree.m_numVisibleNodes << endl;
-    cerr << "n_clones:\t" << n_clones << endl;
-
-    // add a healthy node above tumor MRCA if requested
-    if (tree_add_healthy_node) {
-      cerr << "Adding healthy node '" << tree_healthy_lbl << "' as root." << endl;
-      tree.addHealthyRoot( tree_healthy_lbl );
-    }
-
-    // if number of mutations have not been supplied specifically,
-    // branch lengths are interpreted as number of mutations
-    if (n_mut_somatic == 0) {
-      fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths (expected number of mutations).\n");
-      // TODO: should absolute number of mutations be encodable in branch lengths?
-      double dbl_branch_length = tree.getTotalBranchLength();
-      n_mut_somatic = floor(dbl_branch_length);
-      fprintf(stderr, "Simulating a total of %d mutations.\n", n_mut_somatic);
-    }
-  }
-  else if (n_clones > 0) {
-    tree = treeio::Tree<Clone>(n_clones);
-    fprintf(stderr, "\nGenerating random topology for %d clones...\n", n_clones);
-    tree.generateRandomTopologyLeafsOnly(random_dbl);
-    tree.varyBranchLengths(tree_healthy_lbl, random_gamma);
-    fprintf(stderr, "done.\n");
-  }
-
-  fprintf(stderr, "\nNewick representation of underlying tree:\n");
-  tree.printNewick(cerr);
-  fprintf(stderr, "\n");
-
-  // drop somatic mutations on clone tree
-  tree.dropSomaticMutations(n_mut_somatic, n_mut_transforming, tree_healthy_lbl, rng);
-
-  fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
-  tree.printNewick(fn_newick.string());
-
-  fprintf(stderr, "\nWriting mutated tree to file (Nexus format): %s\n", fn_nexus.c_str());
-  tree.printNexus(fn_nexus.string());
-
-  fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
-  tree.printDot(fn_dot.string());
-
-  // TODO: should output contain only SNVs here?
-  // write mutation matrix to file
-  fprintf(stderr, "Writing mutation matrix for visible clones to file: %s\n", fn_mm.c_str());
-  tree.writeMutationMatrix(fn_mm.string());
+  /*--------------------------------------------------------------------------
+       REFERENCE GENOME
+    --------------------------------------------------------------------------*/
 
   // get reference genome
   GenomeReference ref_genome;
@@ -410,6 +314,133 @@ int main (int argc, char* argv[])
   ref_genome.indexRecords();
   fprintf(stderr, "read (%u bp in %u sequences).\n", ref_genome.length, ref_genome.num_records);
 
+  /*--------------------------------------------------------------------------
+       GERMLINE MUTATIONS
+    --------------------------------------------------------------------------*/
+
+  // calculate number of mutations from mutation rate
+  int n_mut_germline = r_mut_germline * ref_genome.length;
+
+  // inititalize germline model of sequence evolution
+  if (str_model_gl == "JC") {
+    model_gl.init_JC();
+  } else if (str_model_gl == "F81") {
+    //vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
+    vector<double> vec_freqs = config.m_mut_gl_model_params_nucfreq;
+    model_gl.init_F81(&vec_freqs[0]);
+  } else if (str_model_gl == "K80") {
+    //double kappa = config.getValue<double>("mut-gl-model-params:kappa");
+    double kappa = config.m_mut_gl_model_params_kappa;
+    model_gl.init_K80(kappa);
+  } else if (str_model_gl == "HKY") {
+    //string kappa = config.getValue<string>("mut-gl-model-params:kappa");
+    //vector<double> vec_freqs = config.getValue<vector<double>>("mut-gl-model-params:nucFreq");
+    double kappa = config.m_mut_gl_model_params_kappa;
+    vector<double> vec_freqs = config.m_mut_gl_model_params_nucfreq;
+    double pi_i[4];
+    copy(vec_freqs.begin(), vec_freqs.end(), pi_i);
+    model_gl.init_HKY(pi_i, kappa);
+  }
+  // print substitution rate matrix for germline mutations?
+  if (verbosity >= 2) {
+    map<string, vector<double>> Q;
+    int i = 0;
+    for (auto row = begin(model_gl.Q); row!=end(model_gl.Q); ++row, i++) {
+      //string nuc_from = stringio::format("%s", seqio::idx2nuc(i));
+      stringstream ss;
+      string nuc_from;
+      ss << seqio::idx2nuc(i);
+      ss >> nuc_from;
+      Q[nuc_from] = vector<double>(begin(*row), end(*row));
+    }
+    fprintf(stdout, "Germline nucleotide substitution rates:\n%s", stringio::printMatrix(Q).c_str());
+  }
+
+  /*--------------------------------------------------------------------------
+       SOMATIC MUTATIONS
+    --------------------------------------------------------------------------*/
+
+  // calculate number of mutations from mutation rate
+  int n_mut_somatic = r_mut_somatic * ref_genome.length;
+
+  // initialize somatic model of sequence evolution
+  if (do_somatic_vars) {
+    map<string, double> map_mut_som_sig_mix = config.getMap<double>("mut-som-sig-mix");
+    model_sm = SomaticSubstitutionModel(fn_mut_som_sig, map_mut_som_sig_mix);
+  }
+  SomaticCnvModel model_cnv; // model of somatic structural evolution
+  if (do_cnv_sim) {
+    model_cnv.len_min = config.getValue<double>("mut-som-cnv-len-min");
+    model_cnv.len_exp = config.getValue<double>("mut-som-cnv-len-exp");
+    model_cnv.gain_prob = config.getValue<double>("mut-som-cnv-gain-prob");
+    model_cnv.rate_wgd = config.getValue<double>("mut-som-cnv-rate-wgd");
+    model_cnv.rate_chr = config.getValue<double>("mut-som-cnv-rate-chr");
+    model_cnv.rate_arm = config.getValue<double>("mut-som-cnv-rate-arm");
+    model_cnv.rate_tel = config.getValue<double>("mut-som-cnv-rate-tel");
+    model_cnv.rate_foc = config.getValue<double>("mut-som-cnv-rate-foc");
+  }
+
+  /*--------------------------------------------------------------------------
+       CLONE TREE
+    --------------------------------------------------------------------------*/
+
+  if (fn_tree.size() > 0) {
+    cerr << "Reading tree from file '" << fn_tree << "'" << endl;
+    tree = *(new treeio::Tree<Clone>(fn_tree));
+    n_clones = tree.getVisibleNodes().size();
+    cerr << "num_nodes:\t" << tree.m_numVisibleNodes << endl;
+    cerr << "n_clones:\t" << n_clones << endl;
+
+    // add a healthy node above tumor MRCA if requested
+    if (tree_add_healthy_node) {
+      cerr << "Adding healthy node '" << tree_healthy_lbl << "' as root." << endl;
+      tree.addHealthyRoot( tree_healthy_lbl );
+    }
+
+    // if number of mutations have not been supplied specifically,
+    // branch lengths are interpreted as number of mutations
+    if (n_mut_somatic == 0) {
+      fprintf(stderr, "\nNumber of mutations not specified, using tree branch lengths (expected number of mutations).\n");
+      // TODO: should absolute number of mutations be encodable in branch lengths?
+      double dbl_branch_length = tree.getTotalBranchLength();
+      n_mut_somatic = floor(dbl_branch_length);
+      fprintf(stderr, "Simulating a total of %d mutations.\n", n_mut_somatic);
+    }
+  }
+  else if (n_clones > 0) {
+    tree = treeio::Tree<Clone>(n_clones);
+    fprintf(stderr, "\nGenerating random topology for %d clones...\n", n_clones);
+    tree.generateRandomTopologyLeafsOnly(random_dbl);
+    tree.varyBranchLengths(tree_healthy_lbl, random_gamma);
+    fprintf(stderr, "done.\n");
+  }
+
+  fprintf(stderr, "\nNewick representation of underlying tree:\n");
+  tree.printNewick(cerr);
+  fprintf(stderr, "\n");
+
+  // drop somatic mutations on clone tree
+  int n_mut_transforming = r_mut_transforming * n_mut_somatic;
+  tree.dropSomaticMutations(n_mut_somatic, n_mut_transforming, tree_healthy_lbl, rng);
+
+  fprintf(stderr, "\nWriting mutated tree to file (Newick format): %s\n", fn_newick.c_str());
+  tree.printNewick(fn_newick.string());
+
+  fprintf(stderr, "\nWriting mutated tree to file (Nexus format): %s\n", fn_nexus.c_str());
+  tree.printNexus(fn_nexus.string());
+
+  fprintf(stderr, "Writing mutated tree to file (DOT format): %s\n", fn_dot.c_str());
+  tree.printDot(fn_dot.string());
+
+  // TODO: should output contain only SNVs here?
+  // write mutation matrix to file
+  fprintf(stderr, "Writing mutation matrix for visible clones to file: %s\n", fn_mm.c_str());
+  tree.writeMutationMatrix(fn_mm.string());
+
+  /*--------------------------------------------------------------------------
+       SIMULATE SEQUENCING READS
+    --------------------------------------------------------------------------*/
+
   path fn_ref_bam;
   if (do_ref_reads) {
     // generate baseline sequencing reads from reference genome (haploid)
@@ -467,6 +498,7 @@ int main (int argc, char* argv[])
   }
 
   // assign somatic mutation types (single-nucleotide vs. copy-number)
+  vec_mut_som = vector<Mutation>(n_mut_somatic);
   unsigned n_som_cnv = vario::assignSomaticMutationType(vec_mut_som, mut_som_cnv_ratio, rng);
   fprintf(stdout, "Set %u/%lu somatic mutations as CNVs.\n", n_som_cnv, vec_mut_som.size());
 

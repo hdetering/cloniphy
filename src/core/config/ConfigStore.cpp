@@ -30,9 +30,9 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 {
   // default values
   int n_clones = 0;
-  int n_mut_somatic = 0;
-  int n_mut_trunk = 0;
-  int n_mut_gl = 0;
+  double r_mut_gl = 0.0;
+  double r_mut_somatic = 0.0;
+  double r_mut_trunk = 0.0;
   int n_ref_seq = 0;
   unsigned long ref_seq_len_mean = 0.0;
   unsigned long ref_seq_len_sd = 0.0;
@@ -159,16 +159,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["clones"] = n_clones;
   }
   n_clones = _config["clones"].as<int>();
-  // number of somatic mutations
-  if (var_map.count("mut-som-num") || !_config["mut-som-num"]) {
-    _config["mut-som-num"] = n_mut_somatic;
-  }
-  n_mut_somatic = _config["mut-som-num"].as<int>();
-  // number of somatic mutations assigned to trunk of clone tree
-  if (var_map.count("mut-som-trunk") || !_config["mut-som-trunk"]) {
-    _config["mut-som-trunk"] = n_mut_trunk;
-  }
-  n_mut_trunk = _config["mut-som-trunk"].as<int>();
 
   //---------------------------------------------------------------------------
   // reference-related params
@@ -223,21 +213,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   // mutation-related params
   //---------------------------------------------------------------------------
 
-  // path to somatic mutation signature file
-  if (!_config["mut-som-sig-file"]) {
-    _config["mut-som-sig-file"] = fn_mut_som_sig;
-  } 
-  fn_mut_som_sig = _config["mut-som-sig-file"].as<string>();
-  if (_config["bam-input"]) {
-    fn_bam_input = _config["bam-input"].as<string>();
-  } else {
-    _config["bam-input"] = fn_bam_input;
+  // germline mutation rate (per reference base pair)
+  if (!_config["mut-gl-rate"]) {
+    _config["mut-gl-rate"] = r_mut_gl;
   }
-  // number of germline mutations
-  if (!_config["mut-gl-num"]) {
-    _config["mut-gl-num"] = n_mut_gl;
-  }
-  n_mut_gl = _config["mut-gl-num"].as<int>();
+  r_mut_gl = _config["mut-gl-rate"].as<double>();
   // fraction of homozygous germline mutations
   if (!_config["mut-gl-hom"]) {
     _config["mut-gl-hom"] = mut_gl_hom_ratio;
@@ -248,6 +228,26 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["mut-gl-vcf"] = fn_mut_gl_vcf;
   }
   fn_mut_gl_vcf = _config["mut-gl-vcf"].as<string>();
+  // somatic mutation rate (per ref base pair)
+  if (var_map.count("mut-som-rate") || !_config["mut-som-rate"]) {
+    _config["mut-som-rate"] = r_mut_somatic;
+  }
+  r_mut_somatic = _config["mut-som-rate"].as<double>();
+  // fraction of somatic mutations assigned to trunk of clone tree
+  if (var_map.count("mut-som-trunk") || !_config["mut-som-trunk"]) {
+    _config["mut-som-trunk"] = r_mut_trunk;
+  }
+  r_mut_trunk = _config["mut-som-trunk"].as<double>();
+  // path to somatic mutation signature file
+  if (!_config["mut-som-sig-file"]) {
+    _config["mut-som-sig-file"] = fn_mut_som_sig;
+  } 
+  fn_mut_som_sig = _config["mut-som-sig-file"].as<string>();
+  if (_config["bam-input"]) {
+    fn_bam_input = _config["bam-input"].as<string>();
+  } else {
+    _config["bam-input"] = fn_bam_input;
+  }
   // path to somatic variants input VCF
   if (var_map.count("mut-som-vcf") || !_config["mut-som-vcf"]) {
     _config["mut-som-vcf"] = fn_mut_som_vcf;
@@ -405,15 +405,15 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   //---------------------------------------------------------------------------
 
   // at least one mutation per clone?
-  if (n_mut_somatic < n_clones) {
-    if (n_mut_somatic > 0) {
-      fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut_somatic, n_clones);
-      return false;
-    } else if (n_mut_somatic == 0 && fn_tree.length()==0) {
-      fprintf(stderr, "\nArgumentError: When setting number of mutations = 0, a tree file needs to be specified. (Branch lengths -> #mutations)\n");
-      return false;
-    }
-  }
+  // if (n_mut_somatic < n_clones) {
+  //   if (n_mut_somatic > 0) {
+  //     fprintf(stderr, "\nArgumentError: Number of mutations (%d) needs to be >= #clones (%d).\n", n_mut_somatic, n_clones);
+  //     return false;
+  //   } else if (n_mut_somatic == 0 && fn_tree.length()==0) {
+  //     fprintf(stderr, "\nArgumentError: When setting number of mutations = 0, a tree file needs to be specified. (Branch lengths -> #mutations)\n");
+  //     return false;
+  //   }
+  // }
   // initial mutations do not exceed total mutations?
   //if (n_mut_trunk > (n_mut-n_clones)) {
   //  fprintf(stderr, "\nArgumentError: Too many initial mutations (%d)\n -> can't be more than total mutations minus #clones (%d).\n", n_mut_trunk, n_mut-n_clones);
@@ -582,8 +582,19 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  germline VCF:\t%s\n", fn_mut_gl_vcf.c_str());
     } else {
       // TODO: print germline mutation params
-      fprintf(stderr, "  number of mutations: %d\n", n_mut_gl);
+      fprintf(stderr, "  germline mutation rate: %g\n", r_mut_gl);
       fprintf(stderr, "  evolutionary model:\t%s\n", m_mut_gl_model.c_str());
+    }
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
+    fprintf(stderr, "Somatic mutations\n");
+    fprintf(stderr, "--------------------------------------------------------------------------------\n");
+    fprintf(stderr, "  somatic mutation rate:\t%g\n", r_mut_somatic);
+    fprintf(stderr, "  fraction of trunk mutations:\t%g\n", r_mut_trunk);
+    if (_config["sampling"]) {
+      fprintf(stderr, "--------------------------------------------------------------------------------\n");
+      fprintf(stderr, "Sampling scheme:\n");
+      fprintf(stderr, "--------------------------------------------------------------------------------\n");
+      fprintf(stderr, "%s", df_sampling.to_string().c_str());
     }
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Sequencing data\n");
@@ -604,17 +615,6 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  seq read length:\t%d\n", this->getValue<int>("seq-read-len"));
       fprintf(stderr, "  seq insert size:\t%d (+-%d)\n", this->getValue<int>("seq-frag-len-mean"), this->getValue<int>("seq-frag-len-sd"));
       fprintf(stderr, "  simulator:\t\t%s\n", this->getValue<string>("seq-art-path").c_str());
-    }
-    fprintf(stderr, "--------------------------------------------------------------------------------\n");
-    fprintf(stderr, "Somatic mutations\n");
-    fprintf(stderr, "--------------------------------------------------------------------------------\n");
-    fprintf(stderr, "  number of mutations:\t%d\n", n_mut_somatic);
-    fprintf(stderr, "  trunk mutations:\t%d\n", n_mut_trunk);
-    if (_config["sampling"]) {
-      fprintf(stderr, "--------------------------------------------------------------------------------\n");
-      fprintf(stderr, "Sampling scheme:\n");
-      fprintf(stderr, "--------------------------------------------------------------------------------\n");
-      fprintf(stderr, "%s", df_sampling.to_string().c_str());
     }
     fprintf(stderr, "################################################################################\n");
   }
