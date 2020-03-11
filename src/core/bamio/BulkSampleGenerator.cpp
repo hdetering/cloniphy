@@ -1,6 +1,7 @@
 #include "BulkSampleGenerator.hpp"
 #include <chrono>
 #include <tuple>
+#include <time.h> // for debugging purposes
 using namespace std;
 using namespace boost::filesystem;
 using namespace seqan;
@@ -181,6 +182,12 @@ BulkSampleGenerator::generateReadCounts (
   // calculate expected coverage per single copy
   double cvg_per_cpy = double(seq_coverage) * m_ref_len / sample.genome_len_abs;
 
+#ifndef NDEBUG
+  time_t tm = time(NULL);
+  fprintf(stderr, "%s", ctime(&tm));
+  fprintf(stderr, "  starting read count sim\n\n");
+#endif
+
   // STEP 1: generate read counts for true variants
   //---------------------------------------------------------------------------
   for (auto snv_vaf : sample.m_map_snv_vaf) {
@@ -218,12 +225,17 @@ BulkSampleGenerator::generateReadCounts (
     }
     if ( map_chr_pos_base_rc[var.chr].count(var.pos) > 0 ) {
       // TODO: How to handle this case consistently?
-fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding variants at '%s_%lu'!", var.chr.c_str(), var.pos);      
+      fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding variants at '%s_%lu'!\n", var.chr.c_str(), var.pos);
     }
     map_chr_pos_base_rc[var.chr][var.pos] = map<string, int>();
     map_chr_pos_base_rc[var.chr][var.pos][var.alleles[0]] = rc_tot - rc_alt;
     map_chr_pos_base_rc[var.chr][var.pos][var.alleles[1]] = rc_alt;
-  } 
+  }
+
+#ifndef NDEBUG
+  fprintf(stderr, "%s", ctime(&tm));
+  fprintf(stderr, "  done with true variants\n\n");
+#endif
 
   // STEP 2: introduce sequencing errors (incl. FP variant loci)
   //---------------------------------------------------------------------------
@@ -292,7 +304,10 @@ fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding varian
       map_chr_pos_base_rc[chr_err][pos_err][nuc_err] += 1;
     }
   }
-
+#ifndef NDEBUG
+  fprintf(stderr, "%s", ctime(&tm));
+  fprintf(stderr, "  done with seq errors.\n\n");
+#endif
   // OUTPUT: Write read counts to file
   //---------------------------------------------------------------------------
   
