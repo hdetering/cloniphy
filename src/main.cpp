@@ -127,6 +127,14 @@ int main (int argc, char* argv[])
   seq_reuse_reads = !do_cnv_sim && seq_reuse_reads;
   // optimization: ref genome reads are generated as baseline for samples
   bool do_ref_reads = !seq_user_bam && seq_reuse_reads;
+  // check if healthy cell contamination is included explicitly in sampling matrix
+  bool do_infer_contamination = (
+    find(
+      df_sampling.colnames.begin(), 
+      df_sampling.colnames.end(),
+      tree_healthy_lbl
+    ) == df_sampling.colnames.end()
+  );
 
   // internal vars
   map<shared_ptr<Clone>, string> clone2fn; // stores genome file names for each clone
@@ -614,11 +622,15 @@ int main (int argc, char* argv[])
         map_clone_weight[df_sampling.colnames[i]] /= sum_w;
       }
       // set normal cell combination
-      map_clone_weight[tree_healthy_lbl] = 0.0;
+      if (do_infer_contamination) {
+        map_clone_weight[tree_healthy_lbl] = 0.0;
+      }
     } 
     else { // no normalization, difference to 1 is normal contamination
       // set normal cell combination
-      map_clone_weight[tree_healthy_lbl] = 1.0 - sum_w;
+      if (do_infer_contamination) {
+        map_clone_weight[tree_healthy_lbl] = 1.0 - sum_w;
+      }
     }
 
     //

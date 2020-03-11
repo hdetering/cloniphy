@@ -2,6 +2,37 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(gdb) readcounts",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/src/cloniphy",
+            "args": [
+                "-c", "/home/harry/Dropbox/PhD/cd-bench/sims/pilot/e1ca9bbc-6162-11ea-a97d-650b2ad5c98b/config.yml",
+                "-o", "/home/harry/Dropbox/PhD/cd-bench/sims/pilot/e1ca9bbc-6162-11ea-a97d-650b2ad5c98b/output"
+            ],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}/build",
+            "environment": [],
+            "externalConsole": false,
+            "logging": {
+                "exceptions": true,
+                "moduleLoad": true,
+                "programOutput": true,
+                "engineLogging": false,
+                "trace": false,
+                "traceResponse": false
+            },
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+
+        {
             "name": "(gdb) Run on minimal cfg",
             "type": "cppdbg",
             "request": "launch",
