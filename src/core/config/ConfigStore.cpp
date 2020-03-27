@@ -30,8 +30,10 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 {
   // default values
   int n_clones = 0;
+  int n_mut_gl = 0;
+  int n_mut_som = 0;
   double r_mut_gl = 0.0;
-  double r_mut_somatic = 0.0;
+  double r_mut_som = 0.0;
   double r_mut_trunk = 0.0;
   int n_ref_seq = 0;
   unsigned long ref_seq_len_mean = 0.0;
@@ -218,6 +220,11 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     _config["mut-gl-rate"] = r_mut_gl;
   }
   r_mut_gl = _config["mut-gl-rate"].as<double>();
+  // number of germline mutations
+  if (!_config["mut-gl-num"]) {
+    _config["mut-gl-num"] = n_mut_gl;
+  }
+  n_mut_gl = _config["mut-gl-num"].as<int>();
   // fraction of homozygous germline mutations
   if (!_config["mut-gl-hom"]) {
     _config["mut-gl-hom"] = mut_gl_hom_ratio;
@@ -230,9 +237,14 @@ bool ConfigStore::parseArgs (int ac, char* av[])
   fn_mut_gl_vcf = _config["mut-gl-vcf"].as<string>();
   // somatic mutation rate (per ref base pair)
   if (var_map.count("mut-som-rate") || !_config["mut-som-rate"]) {
-    _config["mut-som-rate"] = r_mut_somatic;
+    _config["mut-som-rate"] = r_mut_som;
   }
-  r_mut_somatic = _config["mut-som-rate"].as<double>();
+  r_mut_som = _config["mut-som-rate"].as<double>();
+  // somatic mutation rate (per ref base pair)
+  if (var_map.count("mut-som-num") || !_config["mut-som-num"]) {
+    _config["mut-som-num"] = n_mut_som;
+  }
+  n_mut_som = _config["mut-som-num"].as<int>();
   // fraction of somatic mutations assigned to trunk of clone tree
   if (var_map.count("mut-som-trunk") || !_config["mut-som-trunk"]) {
     _config["mut-som-trunk"] = r_mut_trunk;
@@ -573,7 +585,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
     } else {
       fprintf(stderr, "  generate in-silico:\tyes\n");
       fprintf(stderr, "  ref seqs:\t\t%d\n", this->getValue<int>("ref-seq-num"));
-      fprintf(stderr, "  seq len:\t\t%d (+/-%d)\n", this->getValue<int>("ref-seq-len-mean"), this->getValue<int>("ref-seq-len-mean"));
+      fprintf(stderr, "  seq len:\t\t%d (+/-%d)\n", this->getValue<int>("ref-seq-len-mean"), this->getValue<int>("ref-seq-len-sd"));
     }
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Germline mutations:\n");
@@ -582,13 +594,15 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  germline VCF:\t%s\n", fn_mut_gl_vcf.c_str());
     } else {
       // TODO: print germline mutation params
-      fprintf(stderr, "  germline mutation rate: %g\n", r_mut_gl);
+      //fprintf(stderr, "  germline mutation rate: %g\n", r_mut_gl);
+      fprintf(stderr, "  germline mutations: %d\n", n_mut_gl);
       fprintf(stderr, "  evolutionary model:\t%s\n", m_mut_gl_model.c_str());
     }
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
     fprintf(stderr, "Somatic mutations\n");
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
-    fprintf(stderr, "  somatic mutation rate:\t%g\n", r_mut_somatic);
+    //fprintf(stderr, "  somatic mutation rate:\t%g\n", r_mut_somatic);
+    fprintf(stderr, "  somatic mutations:\t%d\n", n_mut_som);
     fprintf(stderr, "  fraction of trunk mutations:\t%g\n", r_mut_trunk);
     if (_config["sampling"]) {
       fprintf(stderr, "--------------------------------------------------------------------------------\n");

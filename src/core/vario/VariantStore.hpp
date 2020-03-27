@@ -98,7 +98,7 @@ struct VariantStore
     const SomaticSubstitutionModel& model_snv,
     const SomaticCnvModel& model_cnv,
     RandomNumberGenerator& rng,
-    const bool infinite_sites = false
+    const bool infinite_sites = true
   );
 
   /** Loop over variants and for each germline variant, pick affected segment copies in genome instance.

@@ -70,9 +70,12 @@ int main (int argc, char* argv[])
   // params specified by user (in config file or command line)
   path fn_bam_input(config.getValue<string>("bam-input"));
   int n_clones = config.getValue<int>("clones");
-  double r_mut_germline = config.getValue<double>("mut-gl-rate");
+  //double r_mut_germline = config.getValue<double>("mut-gl-rate");
+  // TODO: ConfigStore should indicate whether to use mut rates or nums
+  int n_mut_germline = config.getValue<double>("mut-gl-num");
+  int n_mut_somatic = config.getValue<double>("mut-som-num");
   double mut_gl_hom = config.getValue<double>("mut-gl-hom");
-  double r_mut_somatic = config.getValue<double>("mut-som-rate");
+  //double r_mut_somatic = config.getValue<double>("mut-som-rate");
   double r_mut_transforming = config.getValue<double>("mut-som-trunk");
   unsigned ref_seq_num = config.getValue<int>("ref-seq-num");
   unsigned long ref_seq_len_mean = config.getValue<unsigned long>("ref-seq-len-mean");
@@ -319,7 +322,7 @@ int main (int argc, char* argv[])
     --------------------------------------------------------------------------*/
 
   // calculate number of mutations from mutation rate
-  int n_mut_germline = r_mut_germline * ref_genome.length;
+  //int n_mut_germline = r_mut_germline * ref_genome.length;
 
   // inititalize germline model of sequence evolution
   if (str_model_gl == "JC") {
@@ -361,7 +364,7 @@ int main (int argc, char* argv[])
     --------------------------------------------------------------------------*/
 
   // calculate number of mutations from mutation rate
-  int n_mut_somatic = r_mut_somatic * ref_genome.length;
+  //int n_mut_somatic = r_mut_somatic * ref_genome.length;
 
   // initialize somatic model of sequence evolution
   if (do_somatic_vars) {

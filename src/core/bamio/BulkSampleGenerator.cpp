@@ -243,20 +243,31 @@ BulkSampleGenerator::generateReadCounts (
   // determine expected number of seq errors
   unsigned n_err_exp = m_ref_len * seq_error * seq_coverage;
   // sample number of seq errors to introduce
-  unsigned n_err = rng.getRandomFunctionPoisson(n_err_exp)();
+  // NO! Using Poisson for this leads to huge variance!
+  //unsigned n_err = rng.getRandomFunctionPoisson(n_err_exp)();
   // random function to sample relative genome positions
   function<double()> r_pos_rel = rng.getRandomFunctionReal(0.0, 1.0);
 
-  // introduce sequencing errors at random genomic positions
-  function<TCoord()> r_unif = rng.getRandomFunctionInt(TCoord(0), m_ref_len);
-  for (unsigned i=0; i<n_err; i++) {
-    // pick random reference position
-    TCoord pos_abs = r_pos_rel() * this->m_ref_len;
-    // identify chromosome and bp position
-    seqio::Locus loc_err = this->m_ref_genome->getLocusByGlobalPos(pos_abs);
+#ifndef NDEBUG
+  fprintf(stderr, "Introducing %d sequencing errors...\n", n_err_exp);
+#endif
+
+  // select random locus using its (length * copy number) as weight
+  function<int()> r_idx_loc = rng.getRandomIndexWeighted(sample.m_vec_loc_weight);
+
+  for (unsigned i=0; i<n_err_exp; i++) {
+    // pick random locus
+    size_t idx_loc = r_idx_loc();
+    seqio::Locus loc_err = sample.m_vec_loc[idx_loc];
+    // identify chromosome and bp positions
     string chr_err = loc_err.id_ref;
-    TCoord pos_err = loc_err.start;
-    
+    TCoord loc_err_start = loc_err.start;
+    TCoord loc_err_end = loc_err.end;
+    TCoord loc_err_len = loc_err_end - loc_err_start;
+    // pick random position inside region
+    TCoord pos_rel = TCoord(r_pos_rel() * loc_err_len);
+    TCoord pos_err = loc_err_start + pos_rel;
+
     // init error locus if necessary
     if ( map_chr_pos_base_rc.count(chr_err) == 0 ) {
       map_chr_pos_base_rc[chr_err] = map<TCoord, map<string, int>>();
@@ -748,6 +759,9 @@ BulkSampleGenerator::calculateBulkCopyNumber (
     string id_sample = kv.first;
     map<string, double> w = kv.second.m_clone_weight;
 
+    this->m_samples[id_sample].m_vec_loc.clear();
+    this->m_samples[id_sample].m_vec_loc_weight.clear();
+
     // merge CN states for individual clone genomes (use interval_map)
     map<string, TImapCn> map_chr_cn;
     for (auto const lbl_w : w) {
@@ -777,12 +791,21 @@ BulkSampleGenerator::calculateBulkCopyNumber (
 
     // calculate real genome length for sample (used in exp. cvg. calc)
     TCoord g_len = 0;
+    vector<seqio::Locus> vec_loc;
+    vector<double> vec_loc_weight;
     for (auto & chr_cn : map_chr_cn) {
+      string id_chr = chr_cn.first;
       TImapCn imap_cn = chr_cn.second;
       for (auto it = imap_cn.begin(); it != imap_cn.end(); ++it) {
-        TCoord seg_len = it->first.upper() - it->first.lower();
+        TCoord pos_start = it->first.lower();
+        TCoord pos_end = it->first.upper();
+        TCoord seg_len = pos_end - pos_start;
         double seg_cn  = it->second.count_A + it->second.count_B;
-        g_len += TCoord(seg_len * seg_cn); 
+        g_len += TCoord(seg_len * seg_cn);
+        // index locus
+        seqio::Locus loc(id_chr, pos_start, pos_end);
+        this->m_samples[id_sample].m_vec_loc.push_back(loc);
+        this->m_samples[id_sample].m_vec_loc_weight.push_back(seg_len * seg_cn);
       }
     }
     this->m_samples[id_sample].genome_len_abs = g_len;

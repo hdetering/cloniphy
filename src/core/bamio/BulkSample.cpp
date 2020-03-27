@@ -107,11 +107,15 @@ BulkSample::initAlleleCounts (
     string id_clone = clone_chr_seg.first;
     // segment copy map for clone, indexed by chromosome
     map<string, seqio::TSegMap> map_chr_seg = clone_chr_seg.second;
+    // clone cellular prevalence in this BulkSample
+    double clone_weight = map_clone_ccf.at(id_clone);
 
     // initialize map for clone
     m_map_clone_snv_vac[id_clone] = map<int, vario::VariantAlleleCount>();
 
+    //--------------------------------------------------------------------------
     // populate allele counts for SNVs
+    //--------------------------------------------------------------------------
     for (auto const & kv : var_store.map_id_snv) {
       int id_var = kv.first;
       Variant var = kv.second;
