@@ -175,7 +175,8 @@ BulkSample::initAlleleCounts (
       double ccf = clone_ccf.second;
       vario::VariantAlleleCount vac = this->m_map_clone_snv_vac[id_clone][id_snv];
 
-      vaf += ccf * vac.num_alt / vac.num_tot;
+      if (vac.num_tot > 0)
+        vaf += ccf * vac.num_alt / vac.num_tot;
     }
 
     this->m_map_snv_vaf[id_snv] = vaf;
