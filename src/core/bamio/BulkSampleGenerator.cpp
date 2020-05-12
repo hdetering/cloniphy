@@ -324,7 +324,7 @@ BulkSampleGenerator::generateReadCounts (
   
   // create output file
   string fn_out = (path_out / format("%s.rc.vcf", lbl_sample.c_str())).string();
-  writeReadCountsVcf(fn_out, map_chr_pos_base_rc, map_chr_pos_var, seq_min_rc);
+  writeReadCountsVcf(fn_out, lbl_sample, map_chr_pos_base_rc, map_chr_pos_var, seq_min_rc);
 
   return true;
 }
@@ -332,6 +332,7 @@ BulkSampleGenerator::generateReadCounts (
 bool
 BulkSampleGenerator::writeReadCountsVcf (
   const string filename,
+  const string id_sample,
   const map<string, map<TCoord, map<string, int>>> map_chr_pos_nuc_rc,
   const map<string, map<TCoord, vector<string>>> map_chr_pos_var,
   const int min_rc
@@ -341,12 +342,12 @@ BulkSampleGenerator::writeReadCountsVcf (
 
   // write header
   ofs << "##fileformat=VCFv4.1" << endl;
-  ofs << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
-  ofs << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"ALT allele Count\">" << endl;
+  ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Total depth\">" << endl;
+  ofs << "##FORMAT=<ID=AD,Number=A,Type=Integer,Description=\"ALT allele(s) depth\">" << endl;
   //ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
-  ofs << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" << endl;
+  ofs << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << id_sample << endl;
 
-  //string fmt = "DP:AC";
+  string fmt = "DP:AD";
 
   // write variable positions
   for (auto & chr_rc : map_chr_pos_nuc_rc) {
@@ -391,11 +392,12 @@ BulkSampleGenerator::writeReadCountsVcf (
         }
       }
 
-      string info = format("DP=%d;AC=%s", depth, ac.c_str());
-      // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO
-      ofs << format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t%s\n", 
+      string data = format("DP=%d;AC=%s", depth, ac.c_str());
+      // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO  FORMAT  <SAMPLE>
+      ofs << format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t.\t%s\t%s\n",
                     chr.c_str(), (pos+1), id_vars.c_str(), 
-                    ref.c_str(), alt.c_str(), info.c_str());
+                    ref.c_str(), alt.c_str(), fmt.c_str(), 
+                    data.c_str());
     }
   }
 
