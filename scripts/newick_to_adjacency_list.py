@@ -5,7 +5,7 @@
 # Convert tree in Newick notation to adjacency list.
 #
 # Usage:
-#   awk -f tree_to_adjacency_list.awk tree.nwk
+#   python3 newick_to_adjacency_list.py tree.nwk
 # Output:
 #   from,to
 #------------------------------------------------------------------------------

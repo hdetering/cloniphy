@@ -5,7 +5,7 @@
 # Convert tree in NEXUS notation to adjacency list.
 #
 # Usage:
-#   awk -f tree_to_adjacency_list.awk tree.nex
+#   python3 nexus_to_adjacency_list.py tree.nex
 # Output:
 #   from,to
 #------------------------------------------------------------------------------
