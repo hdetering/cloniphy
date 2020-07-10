@@ -26,8 +26,6 @@ GenomeInstance::GenomeInstance (
     // sanity check: chromsome IDs should be unique
     assert (( format("Seqid '%s' already exists.", chr_ref.id.c_str()),
               this->map_id_chr.count(chr_ref.id)==0 ));
-    // shared_ptr<ChromosomeInstance> sp_chr_inst1(up_chr_inst1);
-    // shared_ptr<ChromosomeInstance> sp_chr_inst2(up_chr_inst2);
     this->map_id_chr[chr_ref.id] = { sp_chr_inst1, sp_chr_inst2 };
   }
 }
@@ -50,14 +48,15 @@ GenomeInstance::GenomeInstance (
     for (const shared_ptr<ChromosomeInstance> ci_old : id_chr.second) {
       ChromosomeInstance ci_new;
       ci_new.copy(ci_old, out_vec_seg_mod);
-      this->vec_chr.push_back(make_shared<ChromosomeInstance>(ci_new));
-      this->map_id_chr[id].push_back(make_shared<ChromosomeInstance>(ci_new));
+      shared_ptr<ChromosomeInstance> sp_chr = make_shared<ChromosomeInstance>(ci_new);
+      this->vec_chr.push_back(sp_chr);
+      this->map_id_chr[id].push_back(sp_chr);
     }
   }
 }
 
 void
-GenomeInstance::addChromosome(
+GenomeInstance::addChromosome (
   shared_ptr<ChromosomeInstance> sp_chr,
   string id_chr)
 {
@@ -67,17 +66,28 @@ GenomeInstance::addChromosome(
 }
 
 void
-GenomeInstance::deleteChromosome(
-  shared_ptr<ChromosomeInstance> sp_chr,
-  string id_chr)
+GenomeInstance::deleteChromosomeInstance (
+  shared_ptr<ChromosomeInstance> sp_chr
+)
 {
-  // remove chromosome from map
-  this->map_id_chr[id_chr].erase(
-    remove(
+  string id_chr = sp_chr->id_ref;
+  // apply "erase-remove idiom" 
+  // (http://en.wikipedia.org/wiki/Erase%E2%80%93remove_idiom)
+  // !!! DOES NOT WORK !!!
+  this->map_id_chr[id_chr].erase( 
+    remove_if (
       this->map_id_chr[id_chr].begin(),
-      this->map_id_chr[id_chr].end(),
-      sp_chr),
-    this->map_id_chr[id_chr].end());
+      this->map_id_chr[id_chr].end(), 
+      [&sp_chr](shared_ptr<ChromosomeInstance> &i){return i->id==sp_chr->id;}
+    )
+  );
+  // !!! SegFault !!!
+  // for ( auto it=this->map_id_chr[id_chr].begin(); it!=this->map_id_chr[id_chr].end(); it++ ) {
+  //   ChromosomeInstance* sp_ci = it->get();
+  //   if ( sp_ci->id == sp_chr->id ) {
+  //     it = this->map_id_chr[id_chr].erase( it );
+  //   }
+  // }
 
   // rebuild indices
   this->vec_chr.clear();
@@ -131,34 +141,6 @@ GenomeInstance::getSegmentCopiesAt (
   }
 
   return res_segments;
-}
-
-void
-GenomeInstance::getCopyNumberStates(
-  map<unsigned, vector<shared_ptr<Locus>>>& map_cn_loci) {
-  // for all chromosomes
-  for ( auto const & id_chr : this->map_id_chr ) {
-    string id = id_chr.first;
-    interval_map<unsigned long, int> imap_reg_cn;
-    // for all ChromosomeInstances
-    for ( auto const & sp_chr : id_chr.second ) {
-      // for all SegmentCopies
-      for ( auto const & seg : sp_chr->lst_segments ) {
-        auto i_reg = interval<unsigned long>::right_open(seg.ref_start, seg.ref_end);
-        imap_reg_cn += make_pair(i_reg, 1);
-      }
-    }
-
-    // collect genomic regions and CN states
-    for (auto const & i_reg_cn : imap_reg_cn) {
-      auto reg = i_reg_cn.first;
-      int cn = i_reg_cn.second;
-      if (map_cn_loci.count(cn) == 0)
-        map_cn_loci[cn] = vector<shared_ptr<Locus>>();
-      shared_ptr<Locus> sp_loc(new Locus(id, reg.lower(), reg.upper()));
-      map_cn_loci[cn].push_back(sp_loc);
-    }
-  }
 }
 
 void

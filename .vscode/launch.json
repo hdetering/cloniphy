@@ -1,6 +1,68 @@
 {
     "version": "0.2.0",
     "configurations": [
+        {
+            "name": "(gdb) readcounts",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/src/cloniphy",
+            "args": [
+                "-c", "/home/harry/Dropbox/PhD/cd-bench/sims/test/config.yml",
+                "-o", "/home/harry/Dropbox/PhD/cd-bench/sims/test/output"
+            ],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}/build",
+            "environment": [],
+            "externalConsole": false,
+            "logging": {
+                "exceptions": true,
+                "moduleLoad": true,
+                "programOutput": true,
+                "engineLogging": false,
+                "trace": false,
+                "traceResponse": false
+            },
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+
+        {
+            "name": "(gdb) Run on minimal cfg",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/src/cloniphy",
+            "args": [
+                "-c", "/home/harry/Dropbox/PhD/simgle-cell/data/20_gen_muts/config.yml",
+                "-t", "/home/harry/Dropbox/PhD/simgle-cell/data/20_gen_muts/01_cell_tree.nwk", 
+                "-o", "/home/harry/Dropbox/PhD/simgle-cell/data/20_gen_muts/01/output"
+            ],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}/build",
+            "environment": [],
+            "externalConsole": false,
+            "logging": {
+                "exceptions": true,
+                "moduleLoad": true,
+                "programOutput": true,
+                "engineLogging": false,
+                "trace": false,
+                "traceResponse": false
+            },
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
 
         {
             "name": "(gdb) Test",
@@ -21,14 +83,15 @@
                 }
             ]
         },
+
         {
             "name": "(gdb) Run",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/build/src/cloniphy",
             "args": [
-                "-c", "${workspaceRoot}/data/hg18/config.yml", "-o" , 
-                "${workspaceRoot}/build/test"
+                "-c", "/home/harry/Dropbox/PhD/simgle-cell/sim_005/config.yml", "-o" , 
+                "/home/harry/Dropbox/PhD/simgle-cell/sim_005/output"
             ],
             "stopAtEntry": true,
             "cwd": "${workspaceRoot}/build",

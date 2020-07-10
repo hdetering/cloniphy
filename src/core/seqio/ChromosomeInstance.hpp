@@ -6,6 +6,9 @@
 #include "types.hpp"
 #include <boost/icl/interval.hpp>
 #include <boost/icl/interval_map.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <list>
 
 namespace seqio {
@@ -29,6 +32,10 @@ TSegSet;
  *  which represent regions of the reference sequence.
  */
 struct ChromosomeInstance {
+  /** Universally-unique identifier to globally refer to the object. */
+  boost::uuids::uuid id;
+  /** Identifier of chromosome in reference genome */
+  std::string id_ref;
   /** Real length (in bp) of ChromosomeInstance */
   unsigned long length;
   /** SegmentCopies that are associated with this ChromosomeInstance */
@@ -37,7 +44,7 @@ struct ChromosomeInstance {
   /** default c'tor */
   ChromosomeInstance();
 
-  /** Generate ChromsomeInstance from reference chromosome.
+  /** Generate ChromosomeInstance from reference chromosome.
    *  A single SegmentCopy will be created comprising the whole chromosome.
    *  \param chr_ref    Reference chromosome of which to create an instance.
    *  \param gl_allele  Germline source allele, will be assigned to segment copies.
@@ -54,32 +61,47 @@ struct ChromosomeInstance {
   );
 
   /** Amplify a region of this ChromosomeInstance by creating new SegmentCopies
+   *  \param start_abs    Output param: absolute start coord in reference (bp)
+   *  \param end_abs      Output param: absolute end coord in reference (bp)
+   *  \param len_abs      Output param: absolute length of event (bp)
    *  \param start_rel    Relative start coordinate of deletion (fraction of chromosome length).
    *  \param len_rel      Relative length of region to delete (fraction of chromosome length).
    *  \param is_forward   true: Deletion affects region towards 3' end from start_rel; false: towards 5' end.
    *  \param is_telomeric true: Deletion includes chromosome end (facilitates end coordinate calculation)
-   *  \param is_deletion  true: Deletion event; false: Amplification event
+   *  \param is_first_arm true: First chrom arm is affected; false: second arm affected
    */
   std::vector<seg_mod_t> 
   amplifyRegion (
-    double start_rel,
-    double len_rel,
-    bool is_forward,
-    bool is_telomeric
+    seqio::TCoord& start_abs,
+    seqio::TCoord& end_abs,
+    seqio::TCoord& len_abs,
+    const double start_rel,
+    const double len_rel,
+    const bool is_forward,
+    const bool is_telomeric,
+    const bool is_first_arm
   );
 
   /** Delete a region of this ChromosomeInstance by creating new SegmentCopies.
+   *  \param start_abs    Output param: absolute start coord in reference (bp)
+   *  \param end_abs      Output param: absolute end coord in reference (bp)
+   *  \param len_abs      Output param: absolute length of event (bp)
    *  \param start_rel    Relative start coordinate of deletion (fraction of chromosome length).
    *  \param len_rel      Relative length of region to delete (fraction of chromosome length).
    *  \param is_forward   true: Deletion affects region towards 3' end from start_rel; false: towards 5' end.
    *  \param is_telomeric true: Deletion includes chromosome end (facilitates end coordinate calculation)
+   *  \param is_first_arm true: First chrom arm is affected; false: second arm affected
    */
   std::vector<seg_mod_t> 
   deleteRegion (
-    double start_rel,
-    double len_rel,
-    bool is_forward,
-    bool is_telomeric
+    seqio::TCoord& start_abs,
+    seqio::TCoord& end_abs,
+    seqio::TCoord& len_abs,
+    const double start_rel,
+    const double len_rel,
+    const bool is_forward,
+    const bool is_telomeric,
+    const bool is_first_arm
   );
 
   /** Create a copy of an existing ChromosomeInstance.

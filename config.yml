@@ -67,7 +67,7 @@ ref-trinuc-profile: "../resources/trinuc_freqs.hs37d5.csv"
 
 # germline variants (to generate personal genome from reference)
 #mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-gl-num : 60000
+mut-gl-rate : 1e-3
 # ratio of homozygous germline variants (not yet implemented...)
 mut-gl-hom : 0.2
 
@@ -90,10 +90,9 @@ mut-gl-model-params:
 #------------------------------#
 
 # number of total mutations to simulate
-mut-som-num: 6000
-# number of transforming mutations shared by all clones
-# (included in total mutations)
-mut-som-trunk: 2000
+mut-som-rate: 1e-4
+# fraction of transforming mutations shared by all clones
+mut-som-trunk: 0.1
 
 # single nucleotide variants
 #------------------------------

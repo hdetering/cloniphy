@@ -182,6 +182,9 @@ BOOST_AUTO_TEST_CASE( cnv )
   BOOST_CHECK( g_inst.vec_chr_len.size() == 2*n_ref_chr );
 
   VariantStore var_store;
+  SomaticSubstitutionModel model_snv;
+  SomaticCnvModel model_cnv;
+  model_cnv.len_min = 1000;
 
   // Initialize mutations
   Mutation mut_cnv_del;
@@ -190,7 +193,7 @@ BOOST_AUTO_TEST_CASE( cnv )
   CopyNumberVariant var_cnv_del;
   var_cnv_del.is_deletion = true;
   var_cnv_del.is_telomeric = false;
-  var_cnv_del.is_forward = true;
+  var_cnv_del.is_downstream = true;
   var_cnv_del.ref_chr = "chr0";
   var_cnv_del.len_rel = 0.5;
   var_cnv_del.start_rel = 0.25;
@@ -201,7 +204,7 @@ BOOST_AUTO_TEST_CASE( cnv )
   CopyNumberVariant var_cnv_amp;
   var_cnv_amp.is_deletion = false;
   var_cnv_amp.is_telomeric = false;
-  var_cnv_amp.is_forward = true;
+  var_cnv_amp.is_downstream = true;
   var_cnv_amp.ref_chr = "chr0";
   var_cnv_amp.len_rel = 0.2;
   var_cnv_amp.start_rel = 0.6;
@@ -236,7 +239,7 @@ BOOST_AUTO_TEST_CASE( cnv )
 
   BOOST_TEST_MESSAGE( "CNV: DEL<chr=" << var_cnv_del.ref_chr << ", start=" << var_cnv_del.start_rel << ", len=" << var_cnv_del.len_rel << ">" );
 
-  var_store.applyMutation(mut_cnv_del, g_inst, rng);
+  var_store.applyMutation(mut_cnv_del, g_inst, model_snv, model_cnv, rng);
   BOOST_TEST_MESSAGE( "Genome after focal deletion:\n" << g_inst );
 
   // FOCAL AMPLIFICATION
@@ -247,7 +250,7 @@ BOOST_AUTO_TEST_CASE( cnv )
 
   BOOST_TEST_MESSAGE( "CNV: CPY<chr=" << var_cnv_amp.ref_chr << ", start=" << var_cnv_amp.start_rel << ", len=" << var_cnv_amp.len_rel << ">" );
 
-  var_store.applyMutation(mut_cnv_amp, g_inst, rng);
+  var_store.applyMutation(mut_cnv_amp, g_inst, model_snv, model_cnv, rng);
   BOOST_TEST_MESSAGE( "Genome after focal amplification:\n" << g_inst );
 
 
@@ -256,7 +259,7 @@ BOOST_AUTO_TEST_CASE( cnv )
 
   BOOST_TEST_MESSAGE( "\nNow performing WHOLE GENOME DUPLICATION..." );
 
-  var_store.applyMutation(mut_cnv_wgd, g_inst, rng);
+  var_store.applyMutation(mut_cnv_wgd, g_inst, model_snv, model_cnv, rng);
   BOOST_TEST_MESSAGE( "Genome after WGD:\n" << g_inst );
 
   // where chromosomes duplicated?

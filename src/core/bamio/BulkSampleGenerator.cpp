@@ -1,6 +1,7 @@
 #include "BulkSampleGenerator.hpp"
 #include <chrono>
 #include <tuple>
+#include <time.h> // for debugging purposes
 using namespace std;
 using namespace boost::filesystem;
 using namespace seqan;
@@ -96,13 +97,14 @@ BulkSampleGenerator::generateBulkSamples (
       int nthreads = omp_get_num_threads();
 
     string lbl_sample = lbl_smp.first;
+    // NOTE: This copies the BulkSample object. Do not use to modify!!
     BulkSample sample = lbl_smp.second;
 #ifndef NDEBUG
     fprintf(stderr, "lbl_sample: %s (thread %d of %d)\n", lbl_sample.c_str(), ithread, nthreads);
 #endif
     // initialize expected SNV allele frequencies
     map<string, double> w = sample.m_clone_weight;
-    sample.initAlleleCounts(w, var_store, m_map_clone_chr_seg);
+    this->m_samples[lbl_sample].initAlleleCounts(w, var_store, m_map_clone_chr_seg);
 
     // output expected read counts to BED file.
     path fn_vaf = path_bed / format("%s.vaf.bed", lbl_sample.c_str()) ;
@@ -180,6 +182,12 @@ BulkSampleGenerator::generateReadCounts (
   // calculate expected coverage per single copy
   double cvg_per_cpy = double(seq_coverage) * m_ref_len / sample.genome_len_abs;
 
+#ifndef NDEBUG
+  time_t tm = time(NULL);
+  fprintf(stderr, "%s", ctime(&tm));
+  fprintf(stderr, "  starting read count sim\n\n");
+#endif
+
   // STEP 1: generate read counts for true variants
   //---------------------------------------------------------------------------
   for (auto snv_vaf : sample.m_map_snv_vaf) {
@@ -217,12 +225,17 @@ BulkSampleGenerator::generateReadCounts (
     }
     if ( map_chr_pos_base_rc[var.chr].count(var.pos) > 0 ) {
       // TODO: How to handle this case consistently?
-fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding variants at '%s_%lu'!", var.chr.c_str(), var.pos);      
+      fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding variants at '%s_%lu'!\n", var.chr.c_str(), var.pos);
     }
     map_chr_pos_base_rc[var.chr][var.pos] = map<string, int>();
     map_chr_pos_base_rc[var.chr][var.pos][var.alleles[0]] = rc_tot - rc_alt;
     map_chr_pos_base_rc[var.chr][var.pos][var.alleles[1]] = rc_alt;
-  } 
+  }
+
+#ifndef NDEBUG
+  fprintf(stderr, "%s", ctime(&tm));
+  fprintf(stderr, "  done with true variants\n\n");
+#endif
 
   // STEP 2: introduce sequencing errors (incl. FP variant loci)
   //---------------------------------------------------------------------------
@@ -230,20 +243,31 @@ fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding varian
   // determine expected number of seq errors
   unsigned n_err_exp = m_ref_len * seq_error * seq_coverage;
   // sample number of seq errors to introduce
-  unsigned n_err = rng.getRandomFunctionPoisson(n_err_exp)();
+  // NO! Using Poisson for this leads to huge variance!
+  //unsigned n_err = rng.getRandomFunctionPoisson(n_err_exp)();
   // random function to sample relative genome positions
   function<double()> r_pos_rel = rng.getRandomFunctionReal(0.0, 1.0);
 
-  // introduce sequencing errors at random genomic positions
-  function<TCoord()> r_unif = rng.getRandomFunctionInt(TCoord(0), m_ref_len);
-  for (unsigned i=0; i<n_err; i++) {
-    // pick random reference position
-    TCoord pos_abs = r_pos_rel() * this->m_ref_len;
-    // identify chromosome and bp position
-    seqio::Locus loc_err = this->m_ref_genome->getLocusByGlobalPos(pos_abs);
+#ifndef NDEBUG
+  fprintf(stderr, "Introducing %d sequencing errors...\n", n_err_exp);
+#endif
+
+  // select random locus using its (length * copy number) as weight
+  function<int()> r_idx_loc = rng.getRandomIndexWeighted(sample.m_vec_loc_weight);
+
+  for (unsigned i=0; i<n_err_exp; i++) {
+    // pick random locus
+    size_t idx_loc = r_idx_loc();
+    seqio::Locus loc_err = sample.m_vec_loc[idx_loc];
+    // identify chromosome and bp positions
     string chr_err = loc_err.id_ref;
-    TCoord pos_err = loc_err.start;
-    
+    TCoord loc_err_start = loc_err.start;
+    TCoord loc_err_end = loc_err.end;
+    TCoord loc_err_len = loc_err_end - loc_err_start;
+    // pick random position inside region
+    TCoord pos_rel = TCoord(r_pos_rel() * loc_err_len);
+    TCoord pos_err = loc_err_start + pos_rel;
+
     // init error locus if necessary
     if ( map_chr_pos_base_rc.count(chr_err) == 0 ) {
       map_chr_pos_base_rc[chr_err] = map<TCoord, map<string, int>>();
@@ -291,13 +315,16 @@ fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding varian
       map_chr_pos_base_rc[chr_err][pos_err][nuc_err] += 1;
     }
   }
-
+#ifndef NDEBUG
+  fprintf(stderr, "%s", ctime(&tm));
+  fprintf(stderr, "  done with seq errors.\n\n");
+#endif
   // OUTPUT: Write read counts to file
   //---------------------------------------------------------------------------
   
   // create output file
   string fn_out = (path_out / format("%s.rc.vcf", lbl_sample.c_str())).string();
-  writeReadCountsVcf(fn_out, map_chr_pos_base_rc, map_chr_pos_var, seq_min_rc);
+  writeReadCountsVcf(fn_out, lbl_sample, map_chr_pos_base_rc, map_chr_pos_var, seq_min_rc);
 
   return true;
 }
@@ -305,6 +332,7 @@ fprintf(stderr, "### BulkSampleGenerator::GenerateReadCounts(): colliding varian
 bool
 BulkSampleGenerator::writeReadCountsVcf (
   const string filename,
+  const string id_sample,
   const map<string, map<TCoord, map<string, int>>> map_chr_pos_nuc_rc,
   const map<string, map<TCoord, vector<string>>> map_chr_pos_var,
   const int min_rc
@@ -314,12 +342,12 @@ BulkSampleGenerator::writeReadCountsVcf (
 
   // write header
   ofs << "##fileformat=VCFv4.1" << endl;
-  ofs << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
-  ofs << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele Count\">" << endl;
+  ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Total depth\">" << endl;
+  ofs << "##FORMAT=<ID=AD,Number=A,Type=Integer,Description=\"ALT allele(s) depth\">" << endl;
   //ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
-  ofs << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" << endl;
+  ofs << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << id_sample << endl;
 
-  //string fmt = "DP:AC";
+  string fmt = "DP:AD";
 
   // write variable positions
   for (auto & chr_rc : map_chr_pos_nuc_rc) {
@@ -364,11 +392,12 @@ BulkSampleGenerator::writeReadCountsVcf (
         }
       }
 
-      string info = format("DP=%d;AC=%s", depth, ac.c_str());
-      // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO
-      ofs << format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t%s\n", 
+      string data = format("DP=%d;AC=%s", depth, ac.c_str());
+      // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO  FORMAT  <SAMPLE>
+      ofs << format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t.\t%s\t%s\n",
                     chr.c_str(), (pos+1), id_vars.c_str(), 
-                    ref.c_str(), alt.c_str(), info.c_str());
+                    ref.c_str(), alt.c_str(), fmt.c_str(), 
+                    data.c_str());
     }
   }
 
@@ -676,7 +705,7 @@ BulkSampleGenerator::initCloneGenomes (
       double cn_total = cn_state.count_A + cn_state.count_B;
 
       f_bed << format("%s\t%lu\t%lu\t%.2f\t%.2f\n", 
-                  id_chr.c_str(), ref_start, ref_end, 
+                  id_chr.c_str(), ref_start+1, ref_end+1, 
                   cn_state.count_A, cn_state.count_B);
     }
   }
@@ -732,6 +761,9 @@ BulkSampleGenerator::calculateBulkCopyNumber (
     string id_sample = kv.first;
     map<string, double> w = kv.second.m_clone_weight;
 
+    this->m_samples[id_sample].m_vec_loc.clear();
+    this->m_samples[id_sample].m_vec_loc_weight.clear();
+
     // merge CN states for individual clone genomes (use interval_map)
     map<string, TImapCn> map_chr_cn;
     for (auto const lbl_w : w) {
@@ -761,12 +793,21 @@ BulkSampleGenerator::calculateBulkCopyNumber (
 
     // calculate real genome length for sample (used in exp. cvg. calc)
     TCoord g_len = 0;
+    vector<seqio::Locus> vec_loc;
+    vector<double> vec_loc_weight;
     for (auto & chr_cn : map_chr_cn) {
+      string id_chr = chr_cn.first;
       TImapCn imap_cn = chr_cn.second;
       for (auto it = imap_cn.begin(); it != imap_cn.end(); ++it) {
-        TCoord seg_len = it->first.upper() - it->first.lower();
+        TCoord pos_start = it->first.lower();
+        TCoord pos_end = it->first.upper();
+        TCoord seg_len = pos_end - pos_start;
         double seg_cn  = it->second.count_A + it->second.count_B;
-        g_len += TCoord(seg_len * seg_cn); 
+        g_len += TCoord(seg_len * seg_cn);
+        // index locus
+        seqio::Locus loc(id_chr, pos_start, pos_end);
+        this->m_samples[id_sample].m_vec_loc.push_back(loc);
+        this->m_samples[id_sample].m_vec_loc_weight.push_back(seg_len * seg_cn);
       }
     }
     this->m_samples[id_sample].genome_len_abs = g_len;
@@ -807,7 +848,8 @@ BulkSampleGenerator::writeBulkCopyNumber (
         ref_end = reg.upper();
         seqio::AlleleSpecCopyNum cn_state = reg_cn.second;
         ofs_bed << format("%s\t%lu\t%lu\t%0.2f\t%0.2f\n", 
-          id_chr.c_str(), ref_start, ref_end, cn_state.count_A, cn_state.count_B);
+          id_chr.c_str(), ref_start+1, ref_end+1, 
+          cn_state.count_A, cn_state.count_B);
       }
     }
   }
@@ -1712,7 +1754,7 @@ BulkSampleGenerator::writeFastaTiledBak (
     double cn_total = cn_state.count_A + cn_state.count_B;
 
     f_bed << format("%s\t%lu\t%lu\t%.2f\t%.2f\n", 
-                    id_chr.c_str(), ref_start, ref_end, 
+                    id_chr.c_str(), ref_start+1, ref_end+1, 
                     cn_state.count_A, cn_state.count_B);
 
     // add fragment length to CN->len index

@@ -1,4 +1,5 @@
 #include "VariantStore.hpp"
+// #include <algorithm>
 #include <boost/container/flat_set.hpp>
 using namespace std;
 using boost::uuids::uuid;
@@ -29,6 +30,17 @@ VariantStore::indexSnvs ()
 
   return num_snvs;
 }
+
+bool
+VariantStore::importGermlineVariants (
+  VariantSet variants )
+{
+  // NOTE: germline variants carry negative indices
+  int id_next = -1 * variants.num_variants;
+  for (auto const & var : variants.vec_variants) {
+    this->map_id_snv[id_next++] = var;
+  }
+} 
 
 bool
 VariantStore::generateGermlineVariants (
@@ -79,7 +91,6 @@ fprintf(stderr, "[INFO] Infinite sites assumption: locus %ld has been mutated be
     var.chr = loc.id_ref;
     //var.rel_pos = double(nuc_pos-(var.chr_copy*genome_len))/genome_len;
     var.rel_pos = double(nuc_pos)/genome_len;
-    //var.reg_copy = 0; // TODO: deprecated!
     var.pos = loc.start;
     var.alleles.push_back(string(1, seqio::idx2nuc(idx_bucket)));
     var.alleles.push_back(string(1, seqio::idx2nuc(nuc_alt)));
@@ -100,8 +111,8 @@ bool
 VariantStore::generateSomaticVariants(
   const vector<Mutation>& vec_mutations,
   const GenomeReference& genome,
-  SomaticSubstitutionModel& model_snv,
-  SomaticCnvModel& model_cnv,
+  const SomaticSubstitutionModel& model_snv,
+  const SomaticCnvModel& model_cnv,
   RandomNumberGenerator& rng,
   const bool inf_sites)
 {
@@ -112,27 +123,8 @@ VariantStore::generateSomaticVariants(
   boost::container::flat_set<int> var_pos;
   // random function, returns substitution index
   function<int()> r_idx_sub = rng.getRandomIndexWeighted(model_snv.m_weight);
-  // TODO: deprecated!
-  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(1)); // was genome.ploidy-1
   random_selector<> selector(rng.generator); // used to pick random vector indices
   unsigned long genome_len = genome.length; // haploid genome length
-  //------------
-
-  // CNV events
-  //------------
-  // random function, selects CNV event type
-  function<int()> r_idx_cnv_type = rng.getRandomIndexWeighted({
-    model_cnv.rate_wgd, // 0
-    model_cnv.rate_chr, // 1
-    model_cnv.rate_arm, // 2
-    model_cnv.rate_tel, // 3
-    model_cnv.rate_foc  // 4
-  });
-  // random function, selects affected reference chromosome (weighted by size)
-  function<int()> r_idx_chr = rng.getRandomIndexWeighted(genome.vec_chr_len);
-  // random function, selects CNV event length (relative to CHR len)
-  // random function, gives a random number between 0 and 1.
-  function<double()> r_prob = rng.getRandomFunctionReal(0.0, 1.0);
   //------------
 
   for (auto m : vec_mutations) {
@@ -170,53 +162,8 @@ VariantStore::generateSomaticVariants(
     else { // CNV event
       CopyNumberVariant cnv;
       cnv.id = m.id;
-      // pick event type
-      int idx_cnv_type = r_idx_cnv_type();
-      // pick affected chromosome
-      int idx_cnv_chr = r_idx_chr();
-      cnv.ref_chr = genome.vec_chr_id[idx_cnv_chr];
-      // pick length of affected region
-      double min_len_rel = double(model_cnv.len_min) / genome.vec_chr_len[idx_cnv_chr];
-      double cnv_len_rel = rng.getRandomParetoBounded(model_cnv.len_exp, min_len_rel, 1.0);
-      cnv.len_rel = cnv_len_rel;
-      // pick a direction (i.e., insert up- vs. down-stream from pos_rel)
-      cnv.is_forward = (r_prob() <= 0.5);
-      // pick insertion vs. deletion
-      cnv.is_deletion = (r_prob() > model_cnv.gain_prob);
-
-      // set event-specific properties
-      // NOTE: some properties assigned above may be ignored depending on event-type
-      switch (idx_cnv_type) {
-        case 0: // whole genome duplication
-          cnv.is_wgd = true;
-          break;
-        case 1: // chromosome-level event
-          cnv.is_chr_wide = true;
-          break;
-        case 2: // chromosome arm-level event
-          // TODO: set pos_rel to centromere location
-          cnv.start_rel = 0.5;
-          cnv.len_rel = 0.5;
-          break;
-        case 3: // telomere-bounded event
-          cnv.is_telomeric = true;
-          cnv.start_rel = cnv.is_forward ? 1-cnv.len_rel : cnv.len_rel;
-          break;
-        case 4: // focal event
-          // pick random breakpoint location
-          cnv.start_rel = r_prob();
-          // make sure that chromosome ends are respected
-          if (cnv.is_forward) {
-            cnv.start_rel = min(cnv.start_rel, 1.0-cnv.len_rel);
-          } else {
-            cnv.start_rel = max(cnv.start_rel, cnv.len_rel);
-          }
-          break;
-        default: // do nothing
-          break;
-      }
-
       this->map_id_cnv[m.id] = cnv;
+      // remaining params set in applyCopyNumberVariant()
     }
   }
 
@@ -229,13 +176,23 @@ VariantStore::generateSomaticVariants(
 bool 
 VariantStore::applyGermlineVariants (
   GenomeInstance& genome,
+  const map<string, vector<Genotype >>& gt_matrix,
   RandomNumberGenerator& rng
 )
 {
-  random_selector<> selector(rng.generator); // used to pick random SegmentCopy
+  // sanity checks
+  assert( gt_matrix.size() < 2 && "Expected at most 1 sample in germline GT matrix." );
+
+  random_selector<> selector( rng.generator ); // used to pick random SegmentCopy
+  bool is_phased = ( gt_matrix.size() > 0 ); // if genotypes are provided, variants are introduced in phase
+  vector<Genotype> vec_gt;
+  if ( is_phased ) { // use provided genotypes
+    vec_gt = gt_matrix.begin()->second;
+  }
 
   // loop over variants
-  for (auto const & id_snv : map_id_snv) {
+  int idx_var = 0;
+  for ( auto const & id_snv : map_id_snv ) {
     int id = id_snv.first;
     Variant var = id_snv.second;
 
@@ -251,8 +208,24 @@ VariantStore::applyGermlineVariants (
     vector<SegmentCopy> vec_seg_mut;
     // homozygous variants are introduced into all SegmentCopies, heterozygous ones into random one
     if ( var.is_het ) {
-      // pick random SegmentCopy to mutate
-      vec_seg_mut.push_back( selector(vec_seg_avail) );
+      if ( is_phased ) { // variants are phased
+        assert( idx_var < vec_gt.size() && "More germline vars than genotypes!" );
+        Genotype gt = vec_gt[idx_var];
+        for ( auto const & seg : vec_seg_avail ) {
+          if ( seg.gl_allele == 'A' && gt.maternal > 0 ) {
+            assert( gt.maternal < var.alleles.size() && "Genotype indicates non-present allele" );
+            vec_seg_mut.push_back( seg );
+          }
+          if ( seg.gl_allele == 'B' && gt.paternal > 0 ) {
+            assert( gt.paternal < var.alleles.size() && "Genotype indicates non-present allele" );
+            vec_seg_mut.push_back( seg );
+          }
+        }
+      } else { // variant considered unphased
+        // pick random SegmentCopy to mutate
+        vec_seg_mut.push_back( selector(vec_seg_avail) );
+      }
+      
     } else {
       // mark all SegmentCopies for mutation
       vec_seg_mut = vec_seg_avail;
@@ -266,6 +239,7 @@ VariantStore::applyGermlineVariants (
         map_seg_vars[sc.id].push_back(id);
       }
     }
+    idx_var++;
   }
 
   return true;
@@ -275,6 +249,8 @@ void
 VariantStore::applyMutation (
   Mutation mut,
   GenomeInstance& genome,
+  const SomaticSubstitutionModel& model_snv,
+  const SomaticCnvModel& model_cnv,
   RandomNumberGenerator& rng
 )
 {
@@ -303,53 +279,167 @@ VariantStore::applyMutation (
   }
   else { // CNV mutation
     CopyNumberVariant cnv = this->map_id_cnv[mut.id];
-    // track modifications to SegmentCopies
-    vector<seqio::seg_mod_t> vec_seg_mod;
+    applyCopyNumberVariant( cnv, genome, model_cnv, rng );
+    this->map_id_cnv[mut.id] = cnv;
+  }
+}
 
-    if (cnv.is_wgd) { // Whole Genome Duplication
-      genome.duplicate(vec_seg_mod);
-      this->transferMutations(vec_seg_mod);
-    }
-    else { // Not a WGD, chromosome region is affected
-      // pick a ChromsomeInstance randomly (weighted by chromosome lengths)
-      string id_chr = cnv.ref_chr;
-      assert( genome.map_id_chr.find(id_chr) != genome.map_id_chr.end() );
-      vector<unsigned long> chr_len;
-      for (auto const & chr_inst : genome.map_id_chr[id_chr]) {
-        chr_len.push_back(chr_inst->length);
-      }
-      function<int()> r_idx_chr = rng.getRandomIndexWeighted(chr_len);
-      int idx_chr = r_idx_chr();
-      shared_ptr<ChromosomeInstance> sp_chr = genome.map_id_chr[id_chr][idx_chr];
+void 
+VariantStore::applyCopyNumberVariant (
+  CopyNumberVariant& cnv,
+  GenomeInstance& genome,
+  const SomaticCnvModel& model, 
+  RandomNumberGenerator& rng
+)
+{
+  // absolute coordinates of copy number event
+  TCoord ref_start = 0;
+  TCoord ref_end = 0;
+  TCoord len_abs = 0;
 
-      if (cnv.is_chr_wide) { // whole-chromosome gain/loss
-        if (cnv.is_deletion) { // delete current chromosome
-          genome.deleteChromosome(sp_chr, id_chr);
-        } else {
-          vector<seqio::seg_mod_t> vec_seg_mod;
-          shared_ptr<ChromosomeInstance> sp_chr_new(new ChromosomeInstance());
-          sp_chr_new->copy(sp_chr, vec_seg_mod);
-          this->transferMutations(vec_seg_mod);
+  // random function, selects CNV event type
+  function<int()> r_idx_cnv_type = rng.getRandomIndexWeighted({
+    model.rate_wgd, // 0
+    model.rate_chr, // 1
+    model.rate_arm, // 2
+    model.rate_tel, // 3
+    model.rate_foc  // 4
+  });
+  // random function, selects affected chromosome instance (weighted by size)
+  function<int()> r_idx_chr = rng.getRandomIndexWeighted(genome.vec_chr_len);
+  // random function, selects CNV event length (relative to CHR len)
+  // random function, gives a random number between 0 and 1.
+  function<double()> r_prob = rng.getRandomFunctionReal(0.0, 1.0);
+
+  // track modifications to SegmentCopies
+  vector<seqio::seg_mod_t> vec_seg_mod;
+
+  // pick event type
+  int idx_cnv_type = r_idx_cnv_type();
+  switch (idx_cnv_type) {
+    case 0: // whole genome duplication
+      cnv.is_wgd = true;
+      cnv.ref_chr = "*";
+      break;
+    case 1: // chromosome-level event
+      cnv.is_chr_wide = true;
+      cnv.start_rel = 0;
+      cnv.len_rel = 1;
+      break;
+    case 2: // chromosome arm-level event
+      // TODO: set breakpoint to centromere location
+      cnv.start_rel = ( cnv.is_first_arm ? 0.0 : 0.5 );
+      cnv.len_rel = 0.5;
+      break;
+    case 3: // telomere-bounded event
+      cnv.is_telomeric = true;
+      break;
+    case 4: // focal event
+      // pick random breakpoint location
+      cnv.start_rel = r_prob();
+      break;
+    default: // do nothing
+      break;
+  }
+
+  if ( cnv.is_wgd ) { // Whole Genome Duplication
+    
+    genome.duplicate( vec_seg_mod );
+    this->transferMutations( vec_seg_mod );
+  
+  }
+  else { // Not a WGD, single chromosome is affected
+    
+    // pick insertion vs. deletion
+    cnv.is_deletion = (r_prob() > model.gain_prob);
+
+    // pick affected chromosome copy (using lengths as weights)
+    int idx_chr_cpy = r_idx_chr();
+    shared_ptr<ChromosomeInstance> sp_chr_cpy = genome.vec_chr[idx_chr_cpy];
+    cnv.ref_chr = sp_chr_cpy->id_ref;
+    cnv.ref_allele = sp_chr_cpy->lst_segments.begin()->gl_allele;
+
+    if ( cnv.is_chr_wide ) { // whole-chromosome gain/loss
+
+      ref_start = 0;
+      ref_end = sp_chr_cpy->lst_segments.back().ref_end;
+      len_abs = sp_chr_cpy->length;
+      
+      if ( cnv.is_deletion ) { // delete current chromosome instance
+        // delete variants located on affected chromosome segments
+        for ( auto const & seg : sp_chr_cpy->lst_segments ) {
+          this->map_seg_vars.erase( seg.id );
         }
-      } else if (cnv.is_deletion) { // delete a genomic region
-        vec_seg_mod = sp_chr->deleteRegion(cnv.start_rel, cnv.len_rel, cnv.is_forward, cnv.is_telomeric);
+        genome.deleteChromosomeInstance( sp_chr_cpy );
+      } else { // copy chromosome instance
+        vector<seqio::seg_mod_t> vec_seg_mod;
+        shared_ptr<ChromosomeInstance> sp_chr_new( new ChromosomeInstance() );
+        sp_chr_new->copy( sp_chr_cpy, vec_seg_mod );
+        this->transferMutations( vec_seg_mod );
+        // include new chromosome's segments in genome indices
+        genome.vec_chr.push_back( sp_chr_new );
+        genome.vec_chr_len.push_back( sp_chr_new->length );
+        genome.map_id_chr[sp_chr_new->id_ref].push_back( sp_chr_new );
+      }
+
+    } else { // chromosome region is affected
+
+      // pick chromosome arm to be affected (relevant for aem-level and telomeric events)
+      cnv.is_first_arm = ( r_prob() <= 0.5 );
+      // pick a direction (i.e., insert up- vs. down-stream from amplified region)
+      cnv.is_downstream = ( r_prob() <= 0.5 );
+      
+      // pick length of affected region
+      unsigned long len_chr = genome.vec_chr_len[idx_chr_cpy];
+      assert( model.len_min <= len_chr && "Chromosome length shorter than minimum CNV length" );
+      double min_len_rel = double(model.len_min) / len_chr;
+      double cnv_len_rel = rng.getRandomParetoBounded(model.len_exp, min_len_rel, 1.0);
+      cnv.len_rel = cnv_len_rel;
+      // make sure that chromosome ends are respected
+      cnv.start_rel = min(cnv.start_rel, 1.0-cnv.len_rel);
+    
+      if (cnv.is_deletion) { // delete a genomic region
+        vec_seg_mod = sp_chr_cpy->deleteRegion(
+          ref_start, ref_end, len_abs,
+          cnv.start_rel, 
+          cnv.len_rel, 
+          cnv.is_downstream, 
+          cnv.is_telomeric,
+          cnv.is_first_arm
+        );
         this->transferMutations(vec_seg_mod);
       } else { // amplify a genomic region
-        vec_seg_mod = sp_chr->amplifyRegion(cnv.start_rel, cnv.len_rel, cnv.is_forward, cnv.is_telomeric);
+        vec_seg_mod = sp_chr_cpy->amplifyRegion(
+          ref_start, ref_end, len_abs,
+          cnv.start_rel, 
+          cnv.len_rel, 
+          cnv.is_downstream, 
+          cnv.is_telomeric,
+          cnv.is_first_arm
+        );
         this->transferMutations(vec_seg_mod);
       }
+
+    }
+    // make sure genomic segments are indexed properly
+    genome.indexSegmentCopies();
+    
+    // update CNV properties
+    cnv.len_abs = len_abs;
+    cnv.ref_pos_begin = ref_start;
+    cnv.ref_pos_end = ref_end;
+
 // sanity check: does chromosome length equal length of SegmentCopies?
 ulong len = 0;
 vector<ulong> lens;
-for (auto s : sp_chr->lst_segments) {
+for (auto s : sp_chr_cpy->lst_segments) {
   lens.push_back(s.ref_end - s.ref_start);
   len += (s.ref_end - s.ref_start);
 }
-if (len != sp_chr->length) {
+if (len != sp_chr_cpy->length) {
   cerr << "### Lengths are off!! ###";
 }
     }
-  }
 }
 
 void VariantStore::transferMutations(vector<seqio::seg_mod_t> vec_seg_mod) {
@@ -493,7 +583,7 @@ VariantStore::writeCnvsToFile (
 {
   ofstream f_out;
   f_out.open(filename);
-  f_out << "id_cnv\tclass\tscope\tchr\tstart_rel\tdirection\tlen_rel\n";
+  f_out << "id_cnv\tclass\tscope\tchr\tpos_start\tpos_end\tlength\tallele\tdirection\n";
   for (auto kv : this->map_id_cnv) {
     f_out << kv.second;
   }

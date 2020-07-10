@@ -20,6 +20,7 @@ FastaIndex::parseFai(ifstream& input) {
   try {
     while (input.good()) {
       stringio::safeGetline(input, line);
+      if (line.length() == 0) continue;
       vector<string> row = stringio::split(line, '\t');
       if (row.size()<5) {
         cerr << "[ERROR] Malformed line in FASTA index file (>=5 columns expected)." << endl;

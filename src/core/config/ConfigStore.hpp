@@ -1,5 +1,4 @@
-#ifndef CONFIGSTORE_H
-#define CONFIGSTORE_H
+#pragma once
 
 #include "../stringio.hpp"
 #include "../model/DataFrame.hpp"
@@ -43,6 +42,8 @@ public:
   model::DataFrame<double> getSamplingScheme() const;
   bool parseArgs(int ac, char* av[]);
   template<typename T>
+    T parse(const YAML::Node& node);
+  template<typename T>
     T getValue(const char* key);
   template<typename T>
     T getValue(const std::string key);
@@ -60,6 +61,19 @@ bool fileExists(std::string filename);
 /*--------------------------------*
  * function templates definitions *
  *--------------------------------*/
+
+template<typename T>
+T ConfigStore::parse(const YAML::Node& node) {
+  T val = node.as<T>();
+  return val;
+}
+/** This specialization can parse numbers in scientific format. */
+template<> inline
+double ConfigStore::parse<double>(const YAML::Node& node) {
+  std::string s = node.as<std::string>();
+  double val = stringio::strToDub(s);
+  return val;
+}
 
 template<typename T>
 T ConfigStore::getValue(const char* key) {
@@ -146,5 +160,3 @@ ConfigStore::getMap(const char* key) {
 }
 
 } /* namespace config */
-
-#endif /* CONFIGSTORE_H */

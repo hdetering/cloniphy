@@ -1,5 +1,4 @@
 #include "clonetree.hpp"
-#include "treeio.hpp"
 #include <boost/lexical_cast.hpp>
 #include <cstdio>
 
