@@ -33,7 +33,6 @@ struct GenomeReference
   std::vector<unsigned> vec_cumlen_masked; /** cumulative lengths of unmasked regions */
   double nuc_freq[4];                     /** nucleotide frequencies */
   /** absolute bp positions indexed by nucleotide */
-  //std::map<char, std::vector<long> > map_nuc_pos;
   std::vector<std::vector<long> > nuc_pos;
   /** absolute bp positions indexed by tri-nucleotides */
   std::map<std::string, std::vector<long> > map_3mer_pos;
@@ -126,7 +125,7 @@ struct GenomeReference
    * Clear out indexing data structures to free memory.
    */
   void clearIndex();
-
+  
   /**
    * Get chromosome and local position for global position
    */

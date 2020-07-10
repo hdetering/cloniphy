@@ -77,9 +77,7 @@ GenomeReference::GenomeReference (
   num_records = records.size();
 }
 
-GenomeReference::~GenomeReference() {
-
-}
+GenomeReference::~GenomeReference () {}
 
 void GenomeReference::addChromosome(shared_ptr<ChromosomeReference> sp_chr) {
   this->chromosomes[sp_chr->id] = sp_chr;
