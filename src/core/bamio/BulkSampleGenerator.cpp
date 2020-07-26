@@ -392,7 +392,7 @@ BulkSampleGenerator::writeReadCountsVcf (
         }
       }
 
-      string data = format("DP=%d;AD=%s", depth, ac.c_str());
+      string data = format("DP=%d:AD=%s", depth, ac.c_str());
       // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO  FORMAT  <SAMPLE>
       ofs << format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t.\t%s\t%s\n",
                     chr.c_str(), (pos+1), id_vars.c_str(), 
