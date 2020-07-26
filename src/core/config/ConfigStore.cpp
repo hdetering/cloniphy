@@ -620,7 +620,7 @@ bool ConfigStore::parseArgs (int ac, char* av[])
       fprintf(stderr, "  simulating READ COUNTS\n");
       fprintf(stderr, "  seq depth:\t\t%d\n", this->getValue<int>("seq-coverage"));
       fprintf(stderr, "  depth dispersion:\t%.1f\n", this->getValue<double>("seq-rc-disp"));
-      fprintf(stderr, "  seq error:\t\t%.2f\n", this->getValue<double>("seq-rc-error"));
+      fprintf(stderr, "  seq error:\t\t%g\n", this->getValue<double>("seq-rc-error"));
       fprintf(stderr, "  min ALT read count:\t%d\n", this->getValue<int>("seq-rc-min"));
     } else if (seq_read_gen) {
       fprintf(stderr, "  simulating SEQUENCING READS\n");
