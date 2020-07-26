@@ -1034,7 +1034,7 @@ BulkSampleGenerator::transformBamTileSeg (
     TCoord loc_min = pad;
     TCoord loc_max = ref_len - pad;
     TCoord offset = loc_start - pad;
-    TMinMaxOffset coords = make_tuple(loc_min, loc_max, offset);
+    TMinMaxOffset coords = make_tuple(loc_min + offset, loc_max + offset, offset);
     map_ref_coords[ref_id] = coords;
   }
 
@@ -1053,8 +1053,8 @@ BulkSampleGenerator::transformBamTileSeg (
     string r1_ref = toCString(contigNames(bam_context)[read1.rID]);
     string r2_ref = toCString(contigNames(bam_context)[read2.rID]);
     // determine local->global coordinate mapping
-    TCoord min_loc = 0, max_loc = 0, off_glob = 0;
-    tie(min_loc, max_loc, off_glob) = map_ref_coords[r1_ref];
+    TCoord min_pos = 0, max_pos = 0, off_glob = 0;
+    tie(min_pos, max_pos, off_glob) = map_ref_coords[r1_ref];
 
     // update alignment ref seq
     int rid_new = map_ref_loc_glob[read1.rID];
@@ -1078,7 +1078,7 @@ BulkSampleGenerator::transformBamTileSeg (
     char r2_rc = hasFlagRC(read2) ? '+' : '-';
 
     // check if mapping lies within target coordinates
-    if (r1_begin < min_loc || r2_begin < min_loc || r1_end > max_loc || r2_end > max_loc) {
+    if (r1_begin < min_pos || r2_begin < min_pos || r1_end > max_pos || r2_end > max_pos) {
       fprintf(stderr, "[INFO] (BulkSampleGenerator::transformBamTile) discarding read pair because of coordinate constraints:\n");
       fprintf(stderr, "       %s (%d..%d), %s (%d..%d)\n", toCString(read1.qName), r1_begin, r1_end, toCString(read2.qName), r2_begin, r2_end);
       continue;
