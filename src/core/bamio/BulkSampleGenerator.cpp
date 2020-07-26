@@ -171,6 +171,9 @@ BulkSampleGenerator::generateReadCounts (
   // store read counts per chromosome, position and base
   map<string, map<TCoord, map<string, int>>> map_chr_pos_base_rc;
 
+  // store ref allele per chromosome and position (avoids lookup when writing VCF)
+  map<string, map<TCoord, string>> map_chr_pos_ref;
+
   // store true variants per chromosome, position and variant
   // (colliding variants identified by their int index)
   //map<string, map<TCoord, map<int, pair<int, int>>>> map_chr_pos_var_rc;
@@ -218,6 +221,14 @@ BulkSampleGenerator::generateReadCounts (
     }
     //map_chr_pos_var_rc[var.chr][var.pos][var.idx_mutation] = make_pair(rc_tot, rc_alt);
     map_chr_pos_var[var.chr][var.pos].push_back(var.id);
+
+    // store REF allele for true variant
+    if ( map_chr_pos_ref.count(var.chr) == 0 ) {
+      map_chr_pos_ref[var.chr] = map<TCoord, string>();
+    }
+    if ( map_chr_pos_ref[var.chr].count(var.pos) == 0 ) {
+      map_chr_pos_ref[var.chr][var.pos] = var.alleles[0];
+    }
 
     // store per-base read counts
     if ( map_chr_pos_base_rc.count(var.chr) == 0 ) {
@@ -276,6 +287,7 @@ BulkSampleGenerator::generateReadCounts (
       // get reference nucleotide for error position
       string ref_nuc;
       this->m_ref_genome->getSequence(chr_err, pos_err, pos_err+1, ref_nuc);
+
       // calculate copy number-adjusted expected coverage
       double cn_seg;
       TCoord seg_len;
@@ -285,6 +297,14 @@ BulkSampleGenerator::generateReadCounts (
       int rc_tot = rng.getRandomNegativeBinomial(cvg_exp, seq_disp);
 
       map_chr_pos_base_rc[chr_err][pos_err][ref_nuc] = rc_tot;
+
+      // store REF allele
+      if ( map_chr_pos_ref.count(chr_err) == 0 ) {
+        map_chr_pos_ref[chr_err] = map<TCoord, string>();
+      }
+      if ( map_chr_pos_ref[chr_err].count(pos_err) == 0 ) {
+        map_chr_pos_ref[chr_err][pos_err] = ref_nuc;
+      }
     }
 
     // change one nucleotide due to error
@@ -324,7 +344,14 @@ BulkSampleGenerator::generateReadCounts (
   
   // create output file
   string fn_out = (path_out / format("%s.rc.vcf", lbl_sample.c_str())).string();
-  writeReadCountsVcf(fn_out, lbl_sample, map_chr_pos_base_rc, map_chr_pos_var, seq_min_rc);
+  writeReadCountsVcf(
+    fn_out,
+    lbl_sample,
+    m_map_ref_len,
+    map_chr_pos_ref,
+    map_chr_pos_base_rc,
+    map_chr_pos_var,
+    seq_min_rc);
 
   return true;
 }
@@ -333,6 +360,8 @@ bool
 BulkSampleGenerator::writeReadCountsVcf (
   const string filename,
   const string id_sample,
+  const map<string, TCoord> map_ref_len,
+  const map<string, map<TCoord, string>> map_chr_pos_ref,
   const map<string, map<TCoord, map<string, int>>> map_chr_pos_nuc_rc,
   const map<string, map<TCoord, vector<string>>> map_chr_pos_var,
   const int min_rc
@@ -343,8 +372,13 @@ BulkSampleGenerator::writeReadCountsVcf (
   // write header
   ofs << "##fileformat=VCFv4.1" << endl;
   ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Total depth\">" << endl;
-  ofs << "##FORMAT=<ID=AD,Number=A,Type=Integer,Description=\"ALT allele(s) depth\">" << endl;
+  ofs << "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"ALT allele(s) depth\">" << endl;
   //ofs << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
+  for (auto & ref_len : map_ref_len) {
+    string id_seq = ref_len.first;
+    TCoord seq_len = ref_len.second;
+    ofs << "##contig=<ID=" << id_seq << ",length=" << seq_len << ">" << endl;
+  }
   ofs << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << id_sample << endl;
 
   string fmt = "DP:AD";
@@ -355,11 +389,13 @@ BulkSampleGenerator::writeReadCountsVcf (
     for (auto & pos_rc : chr_rc.second) {
       TCoord pos = pos_rc.first;
       // determine REF allele
-      string ref;
-      this->m_ref_genome->getSequence(chr, pos, pos+1, ref);
+      assert ( map_chr_pos_ref.at(pos).count(ref) > 0 && "Missing REF allele!" );
+      string ref = map_chr_pos_ref.at(chr).at(pos);
 
       int depth = 0;
-      string alt, ac;
+      string alt;
+      assert ( pos.rc.second.count(ref) > 0 && "Missing REF read count!" );
+      string ad = to_string(pos_rc.second.at(ref));
       bool do_write_line = false;
       bool is_first_allele = true;
       for (auto & nuc_rc : pos_rc.second) {
@@ -370,7 +406,7 @@ BulkSampleGenerator::writeReadCountsVcf (
         // check if ALT allele
         if ( nuc != ref ) {
           alt += (is_first_allele ? "" : ",") + nuc;
-          ac  += (is_first_allele ? "" : ",") + to_string(rc);
+          ad  += "," + to_string(rc);
           is_first_allele = false;
 
           // check if ALT allele exceeds minimum read count threshold
@@ -392,7 +428,8 @@ BulkSampleGenerator::writeReadCountsVcf (
         }
       }
 
-      string data = format("DP=%d;AC=%s", depth, ac.c_str());
+      //string info = format("DP=%d;AD=%s", depth, ac.c_str());
+      string data = format("%d:%s", depth, ad.c_str());
       // #CHROM  POS  ID  REF  ALT  QUAL  FILTER  INFO  FORMAT  <SAMPLE>
       ofs << format("%s\t%lu\t%s\t%s\t%s\t.\tPASS\t.\t%s\t%s\n",
                     chr.c_str(), (pos+1), id_vars.c_str(), 
