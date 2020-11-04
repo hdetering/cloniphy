@@ -1,5 +1,5 @@
 add_subdirectory (core)
-add_subdirectory (test)
+#add_subdirectory (test)
 
 link_directories(${CMAKE_SOURCE_DIR}/lib)
 
