@@ -12,7 +12,7 @@
 #include <gitversion/version.h>
 #include <yaml-cpp/yaml.h>
 
-#define PROGRAM_NAME "CloniPhy"
+#define PROGRAM_NAME "TumGenomSim"
 
 namespace config {
 
