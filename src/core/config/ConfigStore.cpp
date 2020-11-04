@@ -1,3 +1,5 @@
+// vim: syntax=c tabstop=2 shiftwidth=2 expandtab
+// coding: utf-8
 #include "ConfigStore.hpp"
 #include "DataFrame.hpp"
 #include "../stringio.hpp"
@@ -562,13 +564,17 @@ bool ConfigStore::parseArgs (int ac, char* av[])
 
   if(_config["verbosity"].as<int>() > 0) {
     fprintf(stderr, "################################################################################\n");
-    fprintf(stderr, " / ___| | ___  _ __ (_)  _ \\| |__  _   _ \n");
-    fprintf(stderr, "| |   | |/ _ \\| '_ \\| | |_) | '_ \\| | | |\n");
-    fprintf(stderr, "| |___| | (_) | | | | |  __/| | | | |_| |\n");
-    fprintf(stderr, " \\____|_|\\___/|_| |_|_|_|   |_| |_|\\__, |\n");
-    fprintf(stderr, "                                   |___/  (%s)\n", version::GIT_TAG_NAME);
-    //fprintf(stderr, "%s %s\n", PROGRAM_NAME, version::GIT_TAG_NAME);
-    fprintf(stderr, "================================================================================\n");
+    const char * banner = R"(
+  _____                 ____                            ____  _           
+ |_   _|   _ _ __ ___  / ___| ___ _ __   ___  _ __ ___ / ___|(_)_ __ ___  
+   | || | | | '_ ` _ \| |  _ / _ \ '_ \ / _ \| '_ ` _ \\___ \| | '_ ` _ \ 
+   | || |_| | | | | | | |_| |  __/ | | | (_) | | | | | |___) | | | | | | |
+   |_| \__,_|_| |_| |_|\____|\___|_| |_|\___/|_| |_| |_|____/|_|_| |_| |_|
+                                                                          
+)";
+    fprintf(stderr, "%s", banner);
+    fprintf(stderr, "(%s)\n", version::GIT_TAG_NAME);
+    fprintf(stderr, "################################################################################\n");
     fprintf(stderr, "Running with the following options:\n");
     fprintf(stderr, "================================================================================\n");
     fprintf(stderr, "  random seed:\t\t%ld\n", seed);
