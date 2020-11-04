@@ -17,91 +17,6 @@ using seqio::TCoord;
 
 namespace vario {
 
-Variant::Variant(std::string id, std::string chr, unsigned long pos)
- : id(id), chr(chr), pos(pos) {}
-
-/* VariantSet
- *------------*/
-
-VariantSet::VariantSet() {}
-VariantSet::~VariantSet() {}
-
-VariantSet::VariantSet(vector<Variant> variants) {
-  this->vec_variants = variants;
-  this->indexVariants();
-  this->calculateSumstats();
-}
-
-VariantSet& VariantSet::operator+=(const VariantSet& rhs) {
-  this->vec_variants.insert(
-    this->vec_variants.end(),
-    rhs.vec_variants.begin(),
-    rhs.vec_variants.end()
-  );
-  this->indexVariants();
-  this->calculateSumstats();
-  return *this; // return the result by reference
-}
-
-long VariantSet::indexVariants() {
-  long num_variants;
-  this->map_chr2pos2var.clear();
-
-  for (Variant var : this->vec_variants) {
-    if (this->map_chr2pos2var.find(var.chr) == this->map_chr2pos2var.end())
-      this->map_chr2pos2var[var.chr] = map<unsigned long, vector<Variant>>();
-    //if (this->map_chr2pos2var[var.chr].find(var.pos) == this->map_chr2pos2var[var.chr].end())
-    //  this->map_chr2pos2var[var.chr][var.pos] = vector<Variant>>();
-    this->map_chr2pos2var[var.chr][var.pos].push_back(var);
-    num_variants++;
-  }
-
-  this->num_variants = num_variants;
-  return num_variants;
-}
-
-long VariantSet::calculateSumstats() {
-  string nucs = "ACGTacgt";
-  long num_variants = 0;
-  long num_substitutions = 0;
-  long mat_subs[4][4] = {
-    { 0, 0, 0, 0},
-    { 0, 0, 0, 0},
-    { 0, 0, 0, 0},
-    { 0, 0, 0, 0}
-  };
-
-  for (Variant v : vec_variants) {
-    num_variants++;
-    string ref = v.alleles[0];
-    if (ref.length() == 1) { // make sure we're not dealing with an InDel
-      char ref_nuc = ref[0];
-      for (unsigned i=1; i<v.alleles.size(); ++i) {
-        string alt = v.alleles[i];
-        if (alt.length() == 1) { // make sure we're not dealing with an InDel
-          char alt_nuc = alt[0];
-          if (nucs.find(alt_nuc) != string::npos) {
-            num_substitutions++;
-            short ref_idx = seqio::nuc2idx(ref_nuc);
-            short alt_idx = seqio::nuc2idx(alt_nuc);
-            mat_subs[ref_idx][alt_idx] += 1;
-          }
-        }
-      }
-    }
-  }
-
-  // normalize substitution counts
-  for (auto i=0; i<4; ++i) {
-    for (auto j=0; j<4; ++j) {
-      mat_freqs[i][j] = (double)mat_subs[i][j] / num_substitutions;
-    }
-  }
-
-  this->num_variants = num_variants;
-  return num_substitutions;
-}
-
 /* Mutation *
  *----------*/
 
@@ -110,97 +25,6 @@ Mutation::Mutation ()
   is_snv(false),
   is_cnv(false)
 {}
-
-/* CopyNumberVariant *
- *-------------------*/
-
-CopyNumberVariant::CopyNumberVariant ()
-: id(0),
-  is_wgd(false),
-  is_deletion(false),
-  is_chr_wide(false),
-  is_telomeric(false),
-  is_forward(true),
-  len_rel(0.0),
-  start_rel(0.0),
-  ref_pos_begin(0),
-  ref_pos_end(0),
-  ref_chr("")
-{}
-
-ostream& operator<<(ostream& lhs, const CopyNumberVariant& cnv) {
-  lhs << cnv.id;
-  lhs << "\t" <<(cnv.is_wgd ? "WGD" : (cnv.is_deletion ? "DEL" : "CPY"));
-  lhs << "\t" << (cnv.is_chr_wide ? "chr" : (cnv.is_telomeric ? "tel" : "foc"));
-  lhs << "\t" << cnv.ref_chr;
-  lhs << "\t" << cnv.start_rel;
-  lhs << "\t" << cnv.is_forward ? "+" : "-";
-  lhs << "\t" << cnv.len_rel;
-  lhs << "\n";
-  return lhs;
-}
-
-/* Variant *
- *---------*/
-
-Variant::Variant ()
-: id(""),
-  chr(""),
-  pos(0),
-  alleles(0),
-  idx_mutation(0),
-  rel_pos(0.0),
-  is_somatic(false),
-  is_het(true),
-  is_error(false)
-{}
-Variant::~Variant () {}
-
-bool Variant::operator< (const Variant &other) const {
-  return rel_pos < other.rel_pos;
-}
-
-vector<Variant> Variant::sortByPosition(const vector<Variant> &variants) {
-  vector<Variant> variantsCopy = variants;
-  sort(variantsCopy.begin(), variantsCopy.end());
-  return variantsCopy;
-}
-
-vector<Variant> Variant::sortByPositionLex(const vector<Variant> &variants) {
-  vector<Variant> variantsCopy = variants;
-  sort(variantsCopy.begin(), variantsCopy.end(),
-      [](const Variant &a, const Variant &b) -> bool {
-        if (a.chr < b.chr) return true;
-        if (a.chr == b.chr) return a.pos < b.pos;
-        return false;
-      });
-  return variantsCopy;
-}
-
-// vector<Variant> Variant::sortByPositionPoly(const vector<Variant> &variants) {
-//   vector<Variant> variantsCopy = variants;
-//   sort(variantsCopy.begin(), variantsCopy.end(),
-//       [](const Variant &a, const Variant &b) -> bool {
-//         return (a.rel_pos + a.chr_copy) < (b.rel_pos + b.chr_copy);
-//       });
-//   return variantsCopy;
-// }
-
-vector<Variant> Variant::sortByPositionRef(const vector<Variant> &variants) {
-  vector<Variant> variantsCopy = variants;
-  sort(variantsCopy.begin(), variantsCopy.end(),
-      [](const Variant &a, const Variant &b) -> bool {
-        return a.pos < b.pos;
-      });
-  return variantsCopy;
-}
-
-bool Variant::isSnv() {
-  for (vector<string>::iterator allele=this->alleles.begin(); allele!=this->alleles.end(); ++allele) {
-    if ((*allele).size()>1) { return false; }
-  }
-  return true;
-}
 
 /* VariantAlleleCount *
  *--------------------*/
@@ -599,8 +423,9 @@ long getRandomMutPos(
 //   return variants;
 // }
 
+/* !DEPRECATED! (use vario::VariantStore::generateGermlineVariants) */
 /** Generate variant loci in a given genome based on evolutionary model.
-    Nucleotide substitution probabilities guide selection of loci. */
+    Nucleotide substitution probabilities guide selection of loci. 
 vector<Variant> generateVariantsRandomPos(
   const int num_variants,
   const GenomeReference& genome,
@@ -612,7 +437,6 @@ vector<Variant> generateVariantsRandomPos(
   boost::container::flat_set<int> var_pos; // keep track of variant positions
   function<double()> random_float = rng.getRandomFunctionReal(0.0, 1.0);
   function<long()> random_pos = rng.getRandomFunctionInt<long>(0, genome.length);
-  function<short()> random_copy = rng.getRandomFunctionInt(short(0), short(genome.ploidy-1));
   random_selector<> selector(rng.generator); // used to pick random vector indices
 
   for (int i=0; i<num_variants; ++i) {
@@ -633,7 +457,6 @@ fprintf(stderr, "locus %ld has been mutated before, picking another one...\n", n
     Variant var;
     var.id = to_string(i);
     var.chr = id_chr;
-    //var.chr_copy = random_copy();
     //var.reg_copy = 0; // TODO: when implementing CNVs, use this property to indicate affected copy
     var.pos = nuc_pos;
     var.rel_pos = double(nuc_pos)/genome.length;
@@ -643,7 +466,7 @@ fprintf(stderr, "locus %ld has been mutated before, picking another one...\n", n
   }
 
   return variants;
-}
+} */
 
 /* DEPRECATED! */
 // void applyVariants(

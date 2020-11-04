@@ -13,6 +13,9 @@
 
 namespace stringio {
 
+/** Parse string (incl. in scientific format) to double. */
+double strToDub(const std::string& str);
+
 /** String formatting. */
 template<typename ... Args>
 std::string format(const std::string& format, Args ... args);

@@ -252,7 +252,7 @@ struct RandomNumberGenerator {
   /**
    *  Internally samples from a uniform distribution (U~Unif(0,1)) and transforms to
    *  Bounded Pareto by inverse-transform menthod:
-   *   x = \left(-\frac{U H^\alpha - U L^\alpha - H^\alpha}{H^\alpha L^\alpha}\right)^{-\frac{1}{\alpha}}
+   *   x = \left( -\frac{ U H^\alpha - U L^\alpha - H^\alpha }{H^\alpha L^\alpha}\right)^{-\frac{1}{\alpha}}
    *
    *  \param a shape
    *  \param l minimum value (>0)
@@ -269,8 +269,9 @@ struct RandomNumberGenerator {
 	  assert( a > 0 );
 	  assert( l > 0 );
 	  assert( h > l );
-	  std::function<RealType()> r_unif = getRandomFunctionReal(0, 1);
-	  RealType u = r_unif();
+    RealType u = 0.0;
+	  std::function<RealType()> r_unif = getRandomFunctionReal(0.0, 1.0);
+	  u = r_unif();
 
 	  RealType x = pow(-(u*pow(h,a)-u*pow(l,a)-pow(h,a))/(pow(h,a)*pow(l,a)),-1.0/a);
 	  return x;

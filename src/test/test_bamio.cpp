@@ -10,7 +10,7 @@ using namespace vario;
 #include "../core/random.hpp"
 #include "../core/seqio.cpp"
 using namespace seqio;
-#include "../core/treeio.hpp"
+#include "../core/treeio/Tree.hpp"
 using namespace treeio;
 #include <boost/format.hpp>
 using boost::str;
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE( bulk )
   tree.varyBranchLengths(random_gamma);
   int num_mutations = 1010;
   int num_transmuts =   10;
-  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, "N", rng);
   // TODO: assignMutationType
 
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
@@ -118,7 +118,6 @@ BOOST_AUTO_TEST_CASE( bulk )
 
   // read personal genome
   GenomeReference genome("pers.fa");
-  genome.ploidy = 2;
   genome.indexRecords();
 
   // generate (sub)clonal variants
@@ -168,7 +167,7 @@ BOOST_AUTO_TEST_CASE( multisample )
   tree.generateRandomTopologyLeafsOnly(random_dbl);
   tree.varyBranchLengths(random_gamma);
   // drop mutations on tree
-  tree.dropSomaticMutations(num_mutations, num_transmuts, rng);
+  tree.dropSomaticMutations(num_mutations, num_transmuts, "N", rng);
   // TODO: assignMutationType
   BOOST_CHECK( tree.m_numVisibleNodes == num_clones+1 );
   BOOST_CHECK( tree.m_numNodes == tree.m_vecNodes.size() );
@@ -189,7 +188,6 @@ BOOST_AUTO_TEST_CASE( multisample )
 
   // read personal genome
   GenomeReference genome("pers.fa");
-  genome.ploidy = 2;
   genome.indexRecords();
 
   // generate (sub)clonal variants

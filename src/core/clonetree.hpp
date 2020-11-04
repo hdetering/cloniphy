@@ -2,7 +2,7 @@
 #define CLONETREE_H
 
 #include "clone.hpp"
-#include "treeio.hpp"
+#include "treeio/parse.hpp"
 #include <boost/function.hpp>
 #include <iostream>
 #include <memory>

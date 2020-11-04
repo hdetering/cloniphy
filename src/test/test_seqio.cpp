@@ -188,6 +188,7 @@ BOOST_AUTO_TEST_CASE( tile )
   vector<double> nuc_freqs = {0.3, 0.2, 0.2, 0.3};
   long seed = 42;
   RandomNumberGenerator rng(seed);
+  unsigned long start_bp, end_bp, len_bp = 0;
 
   BOOST_TEST_MESSAGE( "--------------------------------" );
   BOOST_TEST_MESSAGE( " Generate genome:" );
@@ -209,12 +210,13 @@ BOOST_AUTO_TEST_CASE( tile )
   double len_rel = 0.0;
   bool is_forward = true;
   bool is_telomeric = false;
+  bool is_first_arm = false;
 
   BOOST_TEST_MESSAGE( "Delete second copy of chromosome 2" );
   BOOST_TEST_MESSAGE( "--------------------------------\n" );
   id_chr = "chr2";
   chr_copy = genome.map_id_chr[id_chr][1];
-  genome.deleteChromosome(chr_copy, id_chr);
+  genome.deleteChromosomeInstance( chr_copy );
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
   BOOST_TEST_MESSAGE( "" );
@@ -226,18 +228,34 @@ BOOST_AUTO_TEST_CASE( tile )
   len_rel = 0.5;
   is_forward = true;
   is_telomeric = true;
-  chr_copy->amplifyRegion(start_rel, len_rel, is_forward, is_telomeric);
+  is_first_arm = false;
+  chr_copy->amplifyRegion(
+    start_bp, end_bp, len_bp,
+    start_rel, 
+    len_rel, 
+    is_forward, 
+    is_telomeric,
+    is_first_arm
+  );
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
-  BOOST_TEST_MESSAGE( "Delete region on chromosome 3" );
-  BOOST_TEST_MESSAGE( "--------------------------------\n" );
+  BOOST_TEST_MESSAGE( "Delete focal region on chromosome 3" );
+  BOOST_TEST_MESSAGE( "-----------------------------------\n" );
   id_chr = "chr3";
   chr_copy = genome.map_id_chr[id_chr][1];
   start_rel = 0.25;
   len_rel = 0.5;
   is_forward = true;
   is_telomeric = false;
-  chr_copy->deleteRegion(start_rel, len_rel, is_forward, is_telomeric);
+  is_first_arm = false;
+  chr_copy->deleteRegion(
+    start_bp, end_bp, len_bp,
+    start_rel, 
+    len_rel, 
+    is_forward, 
+    is_telomeric,
+    is_first_arm
+  );
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
   BOOST_TEST_MESSAGE( "Amplify focal region on chromosome 2" );
@@ -248,7 +266,15 @@ BOOST_AUTO_TEST_CASE( tile )
   len_rel = 0.5;
   is_forward = false;
   is_telomeric = false;
-  chr_copy->amplifyRegion(start_rel, len_rel, is_forward, is_telomeric);
+  is_first_arm = false;
+  chr_copy->amplifyRegion(
+    start_bp, end_bp, len_bp,
+    start_rel, 
+    len_rel, 
+    is_forward, 
+    is_telomeric,
+    is_first_arm
+  );
   BOOST_TEST_MESSAGE( "result:\n" << genome );
 
   BOOST_TEST_MESSAGE( "Indexing SegmentCopies" );

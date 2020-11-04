@@ -60,6 +60,18 @@
         "optional": "cpp",
         "future": "cpp",
         "numeric": "cpp",
-        "typeindex": "cpp"
+        "typeindex": "cpp",
+        "unordered_set": "cpp",
+        "algorithm": "cpp",
+        "string_view": "cpp",
+        "cfenv": "cpp",
+        "valarray": "cpp",
+        "iterator": "cpp",
+        "map": "cpp",
+        "memory_resource": "cpp",
+        "random": "cpp",
+        "set": "cpp",
+        "string": "cpp",
+        "regex": "cpp"
     }
 }

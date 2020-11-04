@@ -1,38 +1,12 @@
-#define DEBUG
-#include "clone.hpp"
-#include "treeio.hpp"
-#include <boost/format.hpp>
-using boost::format;
-using boost::str;
+#include "Tree.hpp"
+#include "../stringio.hpp"
+using stringio::format;
 #include <boost/lexical_cast.hpp>
-#include <boost/spirit/include/qi.hpp>
-#include <boost/fusion/include/adapt_struct.hpp>
 #include <fstream>
-#include <stdexcept>
-#include <streambuf>
 
 using namespace std;
 
 namespace treeio {
-
-TreeNode::TreeNode() {
-  parent = 0;
-}
-
-TreeNode::~TreeNode() {}
-
-// streaming operator for easy printing
-ostream& operator<<(std::ostream& stream, const TreeNode& node) {
-  stream << "<TreeNode(index=" << node.index << ", label='" << node.label << "', length=" << node.length << ")>";
-  return stream;
-}
-
-bool TreeNode::isRoot() {
-  if (this->parent == 0)
-    return true;
-  else
-    return false;
-}
 
 template<typename TNodeType>
 Tree<TNodeType>::Tree() : m_numNodes(0), m_numVisibleNodes(0), m_vecNodes(0) {}
@@ -156,7 +130,8 @@ vector<shared_ptr<TNodeType>> Tree<TNodeType>::getVisibleNodes() {
 }
 
 template<typename TNodeType>
-vector<int> Tree<TNodeType>::getVisibleNodesIdx() {
+vector<int>
+Tree<TNodeType>::getVisibleNodesIdx() {
   vector<int> vis_nodes_idx;
   for (auto node : m_vecNodes) {
     if (node->is_visible)
@@ -166,16 +141,20 @@ vector<int> Tree<TNodeType>::getVisibleNodesIdx() {
 }
 
 template<typename TNodeType>
-vector<shared_ptr<TNodeType>> Tree<TNodeType>::getNodesPreOrder() {
+vector<shared_ptr<TNodeType>>
+Tree<TNodeType>::getNodesPreOrder ()
+{
   vector<shared_ptr<TNodeType>> nodes;
   getNodesPreOrderRec(this->m_root, nodes);
   return nodes;
 }
 
 template<typename TNodeType>
-void Tree<TNodeType>::getNodesPreOrderRec (
+void
+Tree<TNodeType>::getNodesPreOrderRec (
   const shared_ptr<TNodeType> n,
-  vector<shared_ptr<TNodeType>>& nodes)
+  vector<shared_ptr<TNodeType>>& nodes
+)
 {
   nodes.push_back(n);
   for (auto const c : n->m_vecChildren) {
@@ -185,7 +164,11 @@ void Tree<TNodeType>::getNodesPreOrderRec (
 
 
 template<typename TNodeType>
-void Tree<TNodeType>::generateRandomTopology(function<double()>& rng) {
+void 
+Tree<TNodeType>::generateRandomTopology (
+  function<double()>& rng
+)
+{
   // TODO: call appropriate method based on user params
   if (true) {
     generateRandomTopologyInternalNodes(rng);
@@ -196,7 +179,11 @@ void Tree<TNodeType>::generateRandomTopology(function<double()>& rng) {
 }
 
 template<typename TNodeType>
-void Tree<TNodeType>::generateRandomTopologyInternalNodes(function<double()>& random) {
+void
+Tree<TNodeType>::generateRandomTopologyInternalNodes (
+  function<double()>& random
+)
+{
   // create root node
   shared_ptr<TNodeType> r(new TNodeType());
   r->label = "0";
@@ -225,7 +212,11 @@ void Tree<TNodeType>::generateRandomTopologyInternalNodes(function<double()>& ra
 }
 
 template<typename TNodeType>
-void Tree<TNodeType>::generateRandomTopologyLeafsOnly(function<double()>& random) {
+void 
+Tree<TNodeType>::generateRandomTopologyLeafsOnly (
+  function<double()>& random
+)
+{
   // generate N-1 internal nodes (each representing a coalescence event)
   int numNodes = m_numVisibleNodes;
   int k = numNodes-1;
@@ -271,34 +262,48 @@ void Tree<TNodeType>::generateRandomTopologyLeafsOnly(function<double()>& random
     _printNodes();
 #endif
   }
-
   // generate a "healthy" clone as root node
-  shared_ptr<TNodeType> r(new TNodeType());
-  r->index = nextIndex;
-  r->label = "0";
-  //r->is_healthy = true;
-  r->is_visible = true;
-  r->m_vecChildren.push_back(m_vecNodes[nextIndex-1]);
-  r->parent = 0;
-  m_vecNodes[nextIndex-1]->parent = r;
-  m_vecNodes.push_back(r);
-  m_numNodes++;
-  m_numVisibleNodes++;
-  m_root = r;
+  addHealthyRoot( "0" );
 #ifdef DEBUG
   fprintf(stderr, "\twe have been ROOTed: %s\n", r->label.c_str());
   _printNodes();
 #endif
 }
 
+// generate a "healthy" clone as root node
+template <typename TNodeType>
+void
+Tree<TNodeType>::addHealthyRoot (
+  const std::string label
+)
+{
+  int nextIndex = m_vecNodes.size();
+  shared_ptr<TNodeType> r( new TNodeType() );
+  r->index = nextIndex;
+  r->label = label;
+  r->is_healthy = true;
+  r->is_visible = true;
+  r->m_vecChildren.push_back( m_vecNodes[m_root->index] );
+  r->parent = 0; // using 0 as NULL value for shared_ptr
+  m_root->parent = r;
+  m_vecNodes.push_back(r);
+  m_numNodes++;
+  m_numVisibleNodes++;
+  m_root = r;
+}
+
 /** Shrink/expand branch length by a random factor */
 template <typename TNodeType>
-void Tree<TNodeType>::varyBranchLengths(
+void
+Tree<TNodeType>::varyBranchLengths (
+  const string lbl_outgroup,
   function<double()>& random_double
 )
 {
-  shared_ptr<TNodeType> root = this->m_root;
-  _varyBranchLengthsRec(root, random_double);
+  shared_ptr<TNodeType> mrca = getMrca(lbl_outgroup);
+  double scale_factor = random_double();
+  mrca->length *= scale_factor;
+  _varyBranchLengthsRec(mrca, random_double);
   // normalize branch lengths to MRCA's length
   /*double len_mrca = this->m_root->m_vecChildren[0]->length;
   for (T* node : this->m_vecNodes) {
@@ -307,7 +312,8 @@ void Tree<TNodeType>::varyBranchLengths(
 }
 
 template <typename TNodeType>
-void Tree<TNodeType>::_varyBranchLengthsRec(
+void
+Tree<TNodeType>::_varyBranchLengthsRec (
   shared_ptr<TNodeType> node,
   function<double()>& random_double
 )
@@ -326,10 +332,14 @@ void Tree<TNodeType>::_varyBranchLengthsRec(
 
 /** Assign random weights to visible nodes */
 template<typename TNodeType>
-void Tree<TNodeType>::assignWeights(vector<double> w) {
-  string str_w = str(format("%.4f") % w[0]);
+void
+Tree<TNodeType>::assignWeights (
+  vector<double> w
+)
+{
+  string str_w = format("%.4f", w[0]);
   for_each(w.begin()+1, w.end(), [&] (double p) {
-    str_w += str(format(", %.4f") % p);
+    str_w += format(", %.4f", p);
   });
   fprintf(stderr, "Assigning weights:\n\t[ %s ]\n", str_w.c_str());
 
@@ -359,10 +369,12 @@ void Tree<TNodeType>::assignWeights(vector<double> w) {
 
 /** Assign weights recursively (pre-order traversal) */
 template<typename TNodeType>
-void Tree<TNodeType>::_assignWeightsRec(
+void
+Tree<TNodeType>::_assignWeightsRec (
   shared_ptr<TNodeType> node,
   vector<double>::iterator &it_w,
-  vector<double> w)
+  vector<double> w
+)
 {
   if (node->is_visible) {
     if (it_w == w.end()) {
@@ -378,6 +390,52 @@ void Tree<TNodeType>::_assignWeightsRec(
   }
 }
 
+/** Return MRCA of non-outgroup lineages */
+template<typename TNodeType>
+shared_ptr<TNodeType>
+Tree<TNodeType>::getMrca (
+  const string lbl_outgroup
+) 
+{
+  shared_ptr<TNodeType> mrca;
+  bool is_proper_outgroup = false;
+  shared_ptr<TNodeType> node = m_root;
+  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
+  assert ( topNodes.size() == 2 && "Root should have exactly two children (outgroup, MRCA)." );
+  if (topNodes[0]->label == lbl_outgroup) {
+    is_proper_outgroup = true;
+     mrca = topNodes[1];
+  } else if (topNodes[1]->label == lbl_outgroup) {
+    is_proper_outgroup = true;
+     mrca = topNodes[0];
+  }
+  assert ( is_proper_outgroup  && "Outgroup must be direct descendent of root." );
+  
+  return mrca;
+}
+
+/** Return MRCA of non-outgroup lineages */
+template<typename TNodeType>
+shared_ptr<TNodeType>
+Tree<TNodeType>::getOutgroup (
+  const string lbl_outgroup
+) 
+{
+  shared_ptr<TNodeType> sp_outgrp;
+  bool is_proper_outgroup = false;
+  shared_ptr<TNodeType> node = m_root;
+  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
+  for (size_t i=0; i<topNodes.size(); ++i) {
+    if (topNodes[i]->label == lbl_outgroup) {
+      is_proper_outgroup = true;
+      sp_outgrp = topNodes[i];
+    }
+  }
+  assert ( is_proper_outgroup  && "Outgroup must be direct descendent of root." );
+  
+  return sp_outgrp;
+}
+
 /** Place mutations randomly on the tree.
  * Relative branch lengths are used as prior probabilities during assignment,
  * so longer branches receive more mutations, compared to shorter ones.
@@ -385,16 +443,21 @@ void Tree<TNodeType>::_assignWeightsRec(
  * After dropping mutations, branch lengths are reassigned as number of mutations.
  */
 template<typename TNodeType>
-void Tree<TNodeType>::dropSomaticMutations(
-  int n_mutations,
-  int n_transforming,
-  RandomNumberGenerator &rng)
+void
+Tree<TNodeType>::dropSomaticMutations (
+  const int n_mutations,
+  const int n_transforming,
+  const string lbl_outgroup,
+  RandomNumberGenerator &rng
+)
 {
   this->m_numMutations = n_mutations;
+  // determine tumor MRCA
+  shared_ptr<TNodeType> sp_mrca = getMrca(lbl_outgroup);
 #ifdef DEBUG
   fprintf(stderr, "Dropping %d mutations (%d transforming)...\n", n_mutations, n_transforming);
 #endif
-  dropTransformingMutations(n_transforming);
+  dropTransformingMutations(sp_mrca, n_transforming);
   int next_mut_id = n_transforming; // identifier for next mutation
 #ifdef DEBUG
   //fprintf(stderr, "Now dropping mandatory mutations...\n");
@@ -409,7 +472,7 @@ void Tree<TNodeType>::dropSomaticMutations(
 #ifdef DEBUG
   fprintf(stderr, "Now dropping %d random mutations...\n", n_random);
 #endif
-  dropRandomMutations(n_random, ++next_mut_id, rng);
+  dropRandomMutations(lbl_outgroup, n_random, ++next_mut_id, rng);
 
   // relabel mutations to pre-order sequence
   next_mut_id = 0;
@@ -421,28 +484,32 @@ void Tree<TNodeType>::dropSomaticMutations(
   }
 }
 
-/** Drop transforming mutations on root (i.e. healthy) node. 
+/** Drop transforming mutations on child of root node. 
  */
 template<typename TNodeType>
-void Tree<TNodeType>::dropTransformingMutations(int n_mutations) {
-  shared_ptr<TNodeType> node = m_root;
-//  vector<shared_ptr<TNodeType>> topNodes = m_root->m_vecChildren;
-//  assert ( topNodes.size() == 1 && "Root should have only one child." );
-//  for (unsigned i=0; i<topNodes.size(); ++i) {
-//    shared_ptr<TNodeType> node = topNodes[i];
-    for (int m=0; m<n_mutations; ++m) {
-cerr << "\tDropping mutation " << m << " on " << *node << endl;;
+void 
+Tree<TNodeType>::dropTransformingMutations (
+  shared_ptr<TNodeType> sp_mrca,
+  const int n_mutations
+)
+{
+  for (int m=0; m<n_mutations; ++m) {
+//cerr << "\tDropping mutation " << m << " on " << *node << endl;;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%s>\n", m, c->label.c_str());
-      node->m_vec_mutations.push_back(m);
-    }
-//  }
+      sp_mrca->m_vec_mutations.push_back(m);
+  }
 }
 
 /** Drop one mutation on a given node and repeat for children. */
 template<typename TNodeType>
-void Tree<TNodeType>::dropMandatoryMutations(shared_ptr<TNodeType> node, int &mutation_id) {
+void 
+Tree<TNodeType>::dropMandatoryMutations(
+  shared_ptr<TNodeType> node, 
+  int &mutation_id
+) 
+{
   if (node!=m_root) {
-cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
+//cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 //fprintf(stderr, "\tDropping mutation %d on Clone<label=%d>\n", mutationId, clone->label);
     node->m_vec_mutations.push_back(mutation_id);
   }
@@ -458,11 +525,14 @@ cerr << "\tDropping mutation " << mutation_id << " on " << *node << endl;
 template<typename TNodeType>
 void 
 Tree<TNodeType>::dropRandomMutations (
-  int n_mutations, 
+  const string lbl_outgroup,
+  const int n_mutations, 
   int &mutation_id, 
   RandomNumberGenerator& rng
 ) {
   long n_nodes = this->m_vecNodes.size();
+  shared_ptr<TNodeType> sp_mrca = getMrca(lbl_outgroup);
+  shared_ptr<TNodeType> sp_outgrp = getOutgroup(lbl_outgroup);
   function<int()> f_random_index;
   // are branch lengths specified?
   double tot_len = this->getTotalBranchLength();
@@ -470,9 +540,11 @@ Tree<TNodeType>::dropRandomMutations (
   if (tot_len == 0) { // if tree has no branch length, assign equal weight to each
     vec_branch_len = vector<double>(n_nodes, 1);
   }
-  // avoid MRCA node receiving random mutations
-  shared_ptr<TNodeType> mrca = this->m_root;
-  vec_branch_len[mrca->index] = 0.0;
+  // avoid root, outgroup and MRCA node receiving random mutations 
+  // (MRCA receives transforming muts)
+  vec_branch_len[m_root->index] = 0.0;
+  vec_branch_len[sp_mrca->index] = 0.0;
+  vec_branch_len[sp_outgrp->index] = 0.0;
   f_random_index = rng.getRandomIndexWeighted(vec_branch_len);
   // drop mutations randomly, but in proportion to branch length
   for (int i=0; i<n_mutations; ++i) {
@@ -510,7 +582,6 @@ void Tree<TNodeType>::printNewick(ostream& os) {
   os << ';' << endl;
 }
 
-/* TODO: maybe use Boost Spirit Karma to generate Newick? */
 template<typename TNodeType>
 void Tree<TNodeType>::printNewick(shared_ptr<TNodeType> node, ostream& os, bool first) {
   bool has_children = (node->m_vecChildren.size() > 0);
@@ -525,10 +596,126 @@ void Tree<TNodeType>::printNewick(shared_ptr<TNodeType> node, ostream& os, bool 
     }
     os << ")";
   }
-  os << boost::format("%s:%f") % node->label % node->length;
+  os << format("%s:%g", node->label.c_str(), node->length);
+}
 
-  if (node == this->m_root) {
-     }
+template<typename TNodeType>
+void Tree<TNodeType>::printNexus(const string filename) {
+  ofstream fs;
+  fs.open(filename);
+  printNexus(fs);
+  fs.close();
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexus(ostream& os) {
+  os << "#NEXUS" << endl;
+  os << "BEGIN DATA;" << endl;
+  os << "  Dimensions" 
+     << " ntax=" << m_numNodes 
+     << " nchar=" << m_numMutations 
+     << ';' << endl;
+  os << "  Format datatype=standard;" << endl;
+  printNexusMatrix( os );
+  os << "END;" << endl;
+  os << "BEGIN TREES;" << endl;
+  // printNexusTranslate( os );
+  os << "  Tree clones = ";
+  printNexusTree( this->m_root, os );
+  os << ";" << endl;
+  os << "END;" << endl;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexusTranslate (
+  ostream& os
+)
+{
+  auto node = this->m_vecNodes[0];
+  os << "  Translate" << endl << (
+    node->label.length() > 0 ?
+    format("    %d %s", node->index, node->label.c_str()) :
+    format("    %d internal_%d", node->index, node->index)
+    );
+  for ( size_t i=1; i<this->m_vecNodes.size(); i++ ) {
+    node = this->m_vecNodes[i];
+    os << ',' << endl << (
+      node->label.length() > 0 ?
+      format("    %d %s", node->index, node->label.c_str()) :
+      format("    %d internal_%d", node->index, node->index)
+    );
+  }
+  os << endl << "  ;" << endl;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexusMatrix (
+  ostream& os
+)
+{
+  // determine maximum label length (to align matrix rows)
+  unsigned max_len_lbl = 0;
+  for ( size_t i=0; i<m_vecNodes.size(); i++ ) {
+    auto node = m_vecNodes[i];
+    unsigned len_lbl = node->label.length();
+    if ( len_lbl > max_len_lbl ) {
+      max_len_lbl = len_lbl;
+    }
+  }
+
+  os << "  Matrix" << endl;
+  os << "    ['1's indicate on which branch a mutation *first* occurred]" << endl;
+  for ( size_t i=0; i<m_vecNodes.size(); i++ ) {
+    auto node = m_vecNodes[i];
+    string lbl = (
+      node->label.length() > 0 ?
+      format("    %s", node->label.c_str()) :
+      format("    I%d", node->index)
+    );
+    os << "    " << lbl;
+    // add padding to print matrix horizontally aligned
+    for ( size_t j=0; j<(max_len_lbl-node->label.length()+1); j++) {
+      os << ' ';
+    }
+    // set matrix line with new mutations for this node
+    vector<int> mm(m_numMutations, 0);
+    for ( auto const k : node->m_vec_mutations ) {
+      mm[k] = 1;
+    }
+    // print mutation matrix as 0/1 values
+    for ( size_t l=0; l<mm.size(); l++) {
+      os << mm[l];
+    }
+    os << endl;
+  }
+  os << endl << "  ;" << endl;
+}
+
+template<typename TNodeType>
+void Tree<TNodeType>::printNexusTree (
+  shared_ptr<TNodeType> node, 
+  ostream& os, 
+  bool first
+)
+{
+  bool has_children = (node->m_vecChildren.size() > 0);
+  if (!first) {
+    os << ","; }
+  if (has_children) {
+    os << "(";
+    bool first_child = true;
+    for (auto child : node->m_vecChildren) {
+      printNexusTree(child, os, first_child);
+      first_child = false;
+    }
+    os << ")";
+  }
+  string lbl = (
+    node->label.length() > 0 ? 
+    node->label : 
+    format("I%d", node->index)
+  );
+  os << format("%s:%g", lbl.c_str(), node->length);
 }
 
 /** Print tree a graph in DOT format. */
@@ -551,7 +738,7 @@ void Tree<TNodeType>::printDot(shared_ptr<TNodeType> node, std::ostream& os) {
 template<typename TNodeType>
 void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os) {
   //auto node_lbl = boost::format("\"%s\\ni:%d\\nw:%.4f\"") % node->label % node->index % node->weight;
-  auto node_lbl = boost::format("\"%s\\ni:%d\"") % node->label % node->index;
+  string node_lbl = format("\"%s\\ni:%d\"", node->label.c_str(), node->index);
   os << "\t" << node->index << "[label=" << node_lbl;
   if (node==this->m_root) {
     os << ",style=filled,color=limegreen";
@@ -564,7 +751,7 @@ void Tree<TNodeType>::_printDotRec(shared_ptr<TNodeType> node, std::ostream& os)
     float edgeLen = child->length;
     os << "\t" << node->index << " -> " << child->index;
     if (edgeLen > 0.0) {
-      auto lbl = boost::format("%0.2f (%0.0f)") % edgeLen % edgeMut;
+      string lbl = format("%0.2f (%0.0f)", edgeLen, edgeMut);
       os << "[style=bold,label=<<font point-size=\"10\">" << lbl << "</font>>]";
     }
     os << ";" << std::endl;
@@ -621,110 +808,6 @@ void Tree<TNodeType>::_printTreeInfo() {
 }
 
 } // namespace treeio
-
-/*--------------------------------------*/
-/*            parser logic              */
-/*--------------------------------------*/
-
-BOOST_FUSION_ADAPT_STRUCT(
-  treeio::parse::node,
-  (treeio::parse::children_vector, children)
-  (string, label)
-  (double, length)
-)
-
-namespace treeio {
-namespace parse {
-
-  namespace qi = boost::spirit::qi;
-  namespace ascii = boost::spirit::ascii;
-
-  /** Represents the Newick format grammar.
-    *
-    * For details see http://evolution.genetics.washington.edu/phylip/newick_doc.html
-    * All nodes must have labels.
-    */
-  template <typename Iterator>
-  struct newick_grammar : qi::grammar<Iterator, node(), ascii::space_type>
-  {
-    newick_grammar() : newick_grammar::base_type(tree)
-    {
-      // use %= to assign the result of the parse to the string
-      label %= quoted_label | unquoted_label;
-      // unquoted labels may not contain formatting characters
-      unquoted_label = qi::lexeme[*(qi::char_ - ':' - ',' - ';' - '(' - ')' - '[' - ']' - '\'')];
-      // quoted labels can contain any characters
-      quoted_label = '\'' >> qi::lexeme[*(qi::char_ - '\'')] >> '\'';
-
-      // use %= to assign the result of the parse to the double
-      branch_length %= ':' >> qi::double_;
-
-      // Parser return values will be assigned to corresponding struct elements
-      // in the order specified!
-      subtree = -descendant_list >> -label >> -branch_length;
-
-      // Descendant list is a vector of node, we just push back the
-      // created nodes into the vector
-      descendant_list = '(' >> subtree >> *(',' >> subtree ) >> ')';
-
-      tree %= subtree >> ';';
-
-      // prepare parsers for debugging
-      BOOST_SPIRIT_DEBUG_NODE(label);
-      BOOST_SPIRIT_DEBUG_NODE(branch_length);
-      BOOST_SPIRIT_DEBUG_NODE(subtree);
-      BOOST_SPIRIT_DEBUG_NODE(descendant_list);
-      BOOST_SPIRIT_DEBUG_NODE(tree);
-      // activate debugging output for parsers
-      //qi::debug(tree);
-      //qi::debug(subtree);
-      //qi::debug(descendant_list);
-      //qi::debug(label);
-      //qi::debug(branch_length);
-    }
-
-    private:
-      /* grammar rules, typed by element they create */
-      qi::rule<Iterator, node(), ascii::space_type> tree, subtree;
-      qi::rule<Iterator, vector<node>(), ascii::space_type> descendant_list;
-      qi::rule<Iterator, string(), ascii::space_type> label;
-      qi::rule<Iterator, string(), ascii::space_type> quoted_label;
-      qi::rule<Iterator, string(), ascii::space_type> unquoted_label;
-      qi::rule<Iterator, double(), ascii::space_type> branch_length;
-  };
-
-  template <typename Iterator>
-  bool parse_newick(Iterator first, Iterator last, node &root_node)
-  {
-    newick_grammar<Iterator> grammar;
-
-    bool result = qi::phrase_parse(first, last, grammar, ascii::space, root_node);
-    if (first != last) return false;
-
-    return result;
-  }
-
-  /***************************** readNewick *********************************/
-  /** Reads a tree in Newick format */
-  void readNewick (string newick_fn, node &tree) {
-    ifstream f_newick;
-    f_newick.open(newick_fn.c_str(), ios::in);
-    readNewick(f_newick, tree);
-    f_newick.close();
-  }
-
-  /***************************** readNewick *********************************/
-  /** Reads a tree in Newick format */
-  void readNewick (istream &input, node &tree) {
-    string line;
-    getline(input, line);
-    if (parse_newick(line.begin(), line.end(), tree) == false) {
-      throw runtime_error("Could not parse file in Newick format.");
-    }
-  }
-} // namespace parse
-} // namespace treeio
-
 
 // instantiate usable classes so they can be picked up by the linker
 template class treeio::Tree<Clone>;

@@ -6,6 +6,7 @@ using namespace std;
 
 Clone::Clone() {
   this->label = -1;
+  this->length = 0;
   this->is_healthy = false;
   this->is_visible = false;
 }

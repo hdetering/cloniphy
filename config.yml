@@ -41,7 +41,11 @@ tree: "data/bulk/bulk.tre"
 #-------------------------#
 
 # file containing reference genome sequence
-#ref-fasta: data/ref/Hg18.chr20-22.fa
+ref-fasta: data/ref/REFERENCE.Hg18/Hg18.KARYO.fa
+# BED file containing reference sequences to use and their copy number
+#   requires: ref-fasta
+#   format: SEQID START END CN_A CN_B (coordinates 0-based, start inclusive, end exclusive)
+ref-seq-bed: resources/ref/Hg18.KARYO.min.bed
 
 # parameters to generate reference genome
 ## number of sequences (e.g. chromosomes) to generate
@@ -63,7 +67,7 @@ ref-trinuc-profile: "../resources/trinuc_freqs.hs37d5.csv"
 
 # germline variants (to generate personal genome from reference)
 #mut-gl-vcf: data/input/1000G_phase1.indels.b37.vcf
-mut-gl-num : 60000
+mut-gl-rate : 1e-3
 # ratio of homozygous germline variants (not yet implemented...)
 mut-gl-hom : 0.2
 
@@ -86,10 +90,9 @@ mut-gl-model-params:
 #------------------------------#
 
 # number of total mutations to simulate
-mut-som-num: 6000
-# number of transforming mutations shared by all clones
-# (included in total mutations)
-mut-som-trunk: 2000
+mut-som-rate: 1e-4
+# fraction of transforming mutations shared by all clones
+mut-som-trunk: 0.1
 
 # single nucleotide variants
 #------------------------------
