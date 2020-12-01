@@ -31,6 +31,19 @@ struct BulkSample {
     >
   > m_chr_cn;
 
+  /** List of all genomic segments contained in this BulkSample.
+   * Initialized by BulkSampleGenerator::calculateBulkCopyNumber.
+   * Used to select locations of sequencing errors during read count simulation.
+   * Using seqio::Locus here because it knows which chromosome it belongs to.
+   */
+  std::vector<seqio::Locus> m_vec_loc;
+  /** Weights for SegmentCopies in m_vec_seg.
+   * Initialized by BulkSampleGenerator::calculateBulkCopyNumber.
+   * Used to select locations of sequencing errors during read count simulation.
+   * Weight is calculated by segment length * mixed copy number.
+   */
+  std::vector<double> m_vec_loc_weight;
+
   /** Allele counts of SNVs indexed by clone, SNV id. */
   std::map<std::string, std::map<int, vario::VariantAlleleCount>> m_map_clone_snv_vac;
   /** Allele frequencies of SNVs indexed by SNV id. */

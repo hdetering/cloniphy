@@ -1,14 +1,14 @@
 add_subdirectory (core)
-add_subdirectory (test)
+#add_subdirectory (test)
 
 link_directories(${CMAKE_SOURCE_DIR}/lib)
 
-add_executable (cloniphy main.cpp)
-target_link_libraries (cloniphy cloniphycore)
+add_executable (tgs main.cpp)
+target_link_libraries (tgs tgscore)
 
 # enforce c++11 standard
-set_property(TARGET cloniphy PROPERTY CXX_STANDARD 11)
-set_property(TARGET cloniphy PROPERTY CXX_STANDARD_REQUIRED ON)
+set_property(TARGET tgs PROPERTY CXX_STANDARD 11)
+set_property(TARGET tgs PROPERTY CXX_STANDARD_REQUIRED ON)
 # NOTE: This should help print string values in GDB sessions, comment out for prod!
 # WARN: Uncommenting this line gave linking errors!!
 #add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
@@ -19,7 +19,7 @@ set_property(TARGET cloniphy PROPERTY CXX_STANDARD_REQUIRED ON)
 
 # Search for Threads (prerequisite for ZLIB?)
 find_package (Threads)
-target_link_libraries (cloniphy ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries (tgs ${CMAKE_THREAD_LIBS_INIT})
 
 # Search for zlib as a dependency for SeqAn.
 find_package (ZLIB)
@@ -27,17 +27,17 @@ find_package (ZLIB)
 if (ZLIB_FOUND)
     include_directories(${ZLIB_INCLUDE_DIRS})
     add_definitions(-DSEQAN_HAS_ZLIB)
-    target_link_libraries(cloniphy ${ZLIB_LIBRARIES})
+    target_link_libraries(tgs ${ZLIB_LIBRARIES})
 endif()
 
 # add Boost support
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED OFF)
 set(Boost_USE_STATIC_RUNTIME OFF)
-find_package(Boost 1.58.0 REQUIRED COMPONENTS program_options filesystem)
+find_package(Boost 1.66.0 REQUIRED COMPONENTS program_options filesystem)
 if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
-    target_link_libraries(cloniphy ${Boost_LIBRARIES})
+    target_link_libraries(tgs ${Boost_LIBRARIES})
 endif()
 
 # add OpenMP support
@@ -69,7 +69,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 # Manage resource files
 # ----------------------------------------------------------------------------
 
-add_custom_command(TARGET cloniphy POST_BUILD
+add_custom_command(TARGET tgs POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/resources
-        $<TARGET_FILE_DIR:cloniphy>/resources)
+        $<TARGET_FILE_DIR:tgs>/resources)

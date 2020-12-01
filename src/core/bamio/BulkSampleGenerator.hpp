@@ -184,6 +184,9 @@ public:
    * Write VCF file containing read count information for each allele.
    * 
    * \param filename            Name of the file to create.
+   * \param id_sample           Sample ID (used in VCF header).
+   * \param map_ref_len         Reference sequences and lengths (for VCF header).
+   * \param map_chr_pos_ref     REF allele by chromosome, position (avoids lookup).
    * \param map_chr_pos_nuc_rc  Read count by chromosome, position, allele.
    * \param map_chr_var         Variant ids by chromosome, position.
    * \param min_rc              Minimum read count to export a variant line.
@@ -192,6 +195,15 @@ public:
   bool
   writeReadCountsVcf (
     const std::string filename,
+    const std::string id_sample,
+    const std::map<std::string, seqio::TCoord> map_ref_len,
+    const std::map<
+      std::string,
+      std::map<
+        seqio::TCoord,
+        std::string
+      >
+    > map_chr_pos_ref,
     const std::map<
             std::string, 
             std::map<
